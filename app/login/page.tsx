@@ -95,7 +95,7 @@ export default function LoginPage() {
               value={phoneNumber}
               onChange={(e) => setPhoneNumber(e.target.value)}
               className="mt-1 w-full rounded-md border dark:border-slate-800 bg-white dark:bg-slate-900 px-3 py-2 text-sm"
-              placeholder="+254712345678"
+              placeholder="0712345678"
               autoComplete="tel"
               type="tel"
             />
