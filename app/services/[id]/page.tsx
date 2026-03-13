@@ -35,6 +35,12 @@ function getImageForService(serviceName: string): string {
   // If no exact match, find closest match by keyword
   const nameLower = serviceName.toLowerCase();
   
+  if (nameLower.includes("tv") || nameLower.includes("mounting")) {
+    return "Tv Installation.png";
+  }
+  if (nameLower.includes("hotshower") || nameLower.includes("hot shower")) {
+    return "Shower Installation.png";
+  }
   if (nameLower.includes("fumigation") || nameLower.includes("bedsitter")) {
     return "Bedsitter Fumigation.png";
   }
@@ -53,7 +59,7 @@ function getImageForService(serviceName: string): string {
   if (nameLower.includes("express")) {
     return "Express Wash.png";
   }
-  if (nameLower.includes("wash") || nameLower.includes("laundry")) {
+  if (nameLower.includes("wash") || nameLower.includes("laundry") || nameLower.includes("clean")) {
     return "Standard Wash.png";
   }
   

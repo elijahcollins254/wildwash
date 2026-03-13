@@ -41,6 +41,8 @@ const serviceImageMap: Record<string, string> = {
 function getImageForService(serviceName: string): string {
   if (serviceImageMap[serviceName]) return serviceImageMap[serviceName];
   const nameLower = serviceName.toLowerCase();
+  if (nameLower.includes("tv") || nameLower.includes("mounting")) return "Tv Installation.png";
+  if (nameLower.includes("hotshower") || nameLower.includes("hot shower")) return "Shower Installation.png";
   if (nameLower.includes("fumigation") || nameLower.includes("bedsitter"))
     return "Bedsitter Fumigation.png";
   if (nameLower.includes("carpet")) return "Carpet Cleaning.png";
@@ -144,18 +146,17 @@ export default function HomePage() {
     return matchesSearch && matchesCategory;
   });
 
-  const categories = ["laundry", "duvet-cleaning", "carpet-cleaning", "house-cleaning", "fumigation", "sofa-cleaning", "moving-services", "storage-services", "hot-shower-installation", "tv-mounting-hot-shower-installation"];
+  const categories = ["laundry", "duvet-cleaning", "carpet-cleaning", "house-cleaning", "fumigation", "sofa-cleaning", "moving-services", "storage-services", "tv-mounting-hot-shower-installation"];
   const categoryLabels: Record<string, string> = {
     laundry: "Laundry",
     "duvet-cleaning": "Duvet",
     "carpet-cleaning": "Carpet",
-    "house-cleaning": "Cleaning",
+    "house-cleaning": "House",
     fumigation: "Fumigation",
     "sofa-cleaning": "Sofa",
     "moving-services": "Moving",
     "storage-services": "Storage",
-    "hot-shower-installation": "Hot Shower",
-    "tv-mounting-hot-shower-installation": "Install",
+    "tv-mounting-hot-shower-installation": "Installation",
   };
 
   return (
