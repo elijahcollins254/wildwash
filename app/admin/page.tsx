@@ -3,6 +3,7 @@
 import React, { useEffect, useState, useCallback } from "react";
 import Link from "next/link";
 import RouteGuard from "@/components/RouteGuard";
+import OrderStaffDetailsViewer from "@/components/OrderStaffDetailsViewer";
 import { client } from "@/lib/api/client";
 import { useDispatch, useSelector } from "react-redux";
 import { RootState, AppDispatch } from "@/redux/store";
@@ -36,6 +37,7 @@ import {
   AlertCircle,
   RefreshCw,
   MapPin,
+  Eye,
 } from "lucide-react";
 
 /* --- Types --- */
@@ -190,6 +192,8 @@ export default function AdminPage(): React.ReactElement {
   const [transactionStatusFilter, setTransactionStatusFilter] = useState<string>('');
   const [transactionProviderFilter, setTransactionProviderFilter] = useState<string>('');
   const [selectedLoan, setSelectedLoan] = useState<LoanApplication | null>(null);
+  const [selectedOrderForDetails, setSelectedOrderForDetails] = useState<Order | null>(null);
+  const [staffDetailsModalOpen, setStaffDetailsModalOpen] = useState(false);
 
   // User Management States
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
@@ -308,7 +312,7 @@ export default function AdminPage(): React.ReactElement {
 
   const handleRiderAssignment = useCallback(async (orderId: number, riderId: number) => {
     try {
-      await client.patch(`/orders/orders/${orderId}/`, { rider: riderId });
+      await client.patch(`/orders/update/?id=${orderId}`, { rider: riderId });
       setUserActionSuccess('Rider assigned successfully');
       dispatch(fetchOrders());
       setTimeout(() => setUserActionSuccess(null), 3000);
@@ -729,14 +733,14 @@ export default function AdminPage(): React.ReactElement {
                     <th className="text-left py-3 px-4 font-medium">Rider</th>
                     <th className="text-right py-3 px-4 font-medium">Price (KSh)</th>
                     <th className="text-right py-3 px-4 font-medium">Date</th>
-                    <th className="text-left py-3 px-4 font-medium">Actions</th>
+                    <th className="text-left py-3 px-4 font-medium">Details</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-200/50 dark:divide-slate-800/50">
                   {filteredOrders.slice(0, 50).map((o) => (
                     <tr key={o.id ?? o.code} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/50 transition-colors duration-150">
                       <td className="py-3 px-4 font-mono text-indigo-600 dark:text-indigo-400">
-                        <Link href={`/orders/${o.code}`} className="hover:underline">
+                        <Link href={`/admin/order/${o.code}`} className="hover:underline">
                           {o.code}
                         </Link>
                       </td>
@@ -752,7 +756,18 @@ export default function AdminPage(): React.ReactElement {
                       <td className="py-3 px-4">{o.raw?.user?.first_name && o.raw?.user?.last_name ? `${o.raw.user.first_name} ${o.raw.user.last_name}` : o.raw?.user?.username || "—"}</td>
                       <td className="py-3 px-4">{o.raw?.user?.phone || "—"}</td>
                       <td className="py-3 px-4">{o.raw?.user?.location || "—"}</td>
-                      <td className="py-3 px-4">{getRiderName(o.rider) || "—"}</td>
+                      <td className="py-3 px-4">
+                        {o.rider ? (
+                          <div className="flex items-center gap-2">
+                            <span className="font-medium text-slate-900 dark:text-slate-100">{getRiderName(o.rider)}</span>
+                            <span className="text-green-600 dark:text-green-400">✓</span>
+                          </div>
+                        ) : (o.status === 'requested' || o.status === 'pending_assignment') ? (
+                          <InlineAssignRiderButton order={o} users={users} onAssign={handleRiderAssignment} />
+                        ) : (
+                          <span className="text-slate-500">—</span>
+                        )}
+                      </td>
                       <td className="py-3 px-4 text-right font-medium">
                         {isNaN(Number(o.price)) || o.price === null || o.price === undefined 
                           ? '—' 
@@ -760,9 +775,16 @@ export default function AdminPage(): React.ReactElement {
                       </td>
                       <td className="py-3 px-4 text-right text-slate-500">{o.created_at?.split?.("T")?.[0] ?? "—"}</td>
                       <td className="py-3 px-4">
-                        {!o.rider && (o.status === 'requested' || o.status === 'pending_assignment') && (
-                          <AssignRiderButton order={o} users={users} onAssign={handleRiderAssignment} />
-                        )}
+                        <button
+                          onClick={() => {
+                            setSelectedOrderForDetails(o);
+                            setStaffDetailsModalOpen(true);
+                          }}
+                          className="p-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200"
+                          title="View staff input details"
+                        >
+                          <Eye className="w-5 h-5" />
+                        </button>
                       </td>
                     </tr>
                   ))}
@@ -1866,6 +1888,19 @@ export default function AdminPage(): React.ReactElement {
           {body}
         </div>
       </div>
+
+      {/* Staff Details Viewer Modal */}
+      {selectedOrderForDetails && (
+        <OrderStaffDetailsViewer
+          orderId={selectedOrderForDetails.id!}
+          orderCode={selectedOrderForDetails.code}
+          isOpen={staffDetailsModalOpen}
+          onClose={() => {
+            setStaffDetailsModalOpen(false);
+            setSelectedOrderForDetails(null);
+          }}
+        />
+      )}
     </RouteGuard>
   );
 }
@@ -1924,7 +1959,12 @@ function AssignRiderButton({ order, users, onAssign }: { order: Order; users: Us
   const [selectedRider, setSelectedRider] = useState<string>('');
   const [isAssigning, setIsAssigning] = useState(false);
 
-  const availableRiders = users.filter(u => u.role === 'rider' && u.is_active);
+  // Filter riders: by role='rider', or by is_staff=true (fallback for older data)
+  // Only include if is_active is not explicitly false (allow null/undefined as active)
+  const availableRiders = users.filter(u => 
+    (u.role === 'rider' || (u.is_staff && u.role !== 'customer')) && 
+    u.is_active !== false
+  );
 
   const handleAssign = async () => {
     if (!selectedRider) return;
@@ -1936,6 +1976,10 @@ function AssignRiderButton({ order, users, onAssign }: { order: Order; users: Us
       setIsAssigning(false);
     }
   };
+
+  if (availableRiders.length === 0) {
+    return <span className="text-xs text-slate-400">No riders</span>;
+  }
 
   return (
     <div className="flex items-center gap-2">
@@ -1959,6 +2003,83 @@ function AssignRiderButton({ order, users, onAssign }: { order: Order; users: Us
       >
         {isAssigning ? '...' : 'Assign'}
       </button>
+    </div>
+  );
+}
+
+// Inline variant for Rider column - shows dropdown directly in table cell
+function InlineAssignRiderButton({ order, users, onAssign }: { order: Order; users: User[]; onAssign: (orderId: number, riderId: number) => void }) {
+  const [selectedRider, setSelectedRider] = useState<string>('');
+  const [isAssigning, setIsAssigning] = useState(false);
+
+  // Filter riders: by role='rider', or by is_staff=true (fallback for older data)
+  // Only include if is_active is not explicitly false (allow null/undefined as active)
+  const availableRiders = users.filter(u => 
+    (u.role === 'rider' || (u.is_staff && u.role !== 'customer')) && 
+    u.is_active !== false
+  );
+
+  // Debug: Log available riders
+  if (availableRiders.length === 0 && users.length > 0) {
+    console.log('No riders found. Total users:', users.length, 'Sample users:', users.slice(0, 3).map(u => ({ id: u.id, name: u.username, role: u.role, is_staff: u.is_staff })));
+  }
+
+  const handleConfirm = async () => {
+    if (!selectedRider) return;
+
+    setIsAssigning(true);
+    try {
+      await onAssign(order.id!, parseInt(selectedRider));
+      setSelectedRider('');
+    } finally {
+      setIsAssigning(false);
+    }
+  };
+
+  const handleCancel = () => {
+    setSelectedRider('');
+  };
+
+  if (availableRiders.length === 0) {
+    return <span className="text-slate-400 text-sm italic">No riders available</span>;
+  }
+
+  return (
+    <div className="flex items-center gap-1.5">
+      <select
+        value={selectedRider}
+        onChange={(e) => setSelectedRider(e.target.value)}
+        disabled={isAssigning}
+        className="text-sm rounded border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 px-3 py-1.5 font-medium text-slate-900 dark:text-slate-100 hover:border-slate-400 dark:hover:border-slate-500 transition-colors"
+      >
+        <option value="">Select rider...</option>
+        {availableRiders.map(rider => (
+          <option key={rider.id} value={rider.id}>
+            {rider.first_name && rider.last_name ? `${rider.first_name} ${rider.last_name}` : rider.username}
+          </option>
+        ))}
+      </select>
+      
+      {selectedRider && (
+        <>
+          <button
+            onClick={handleConfirm}
+            disabled={isAssigning}
+            className="px-2 py-1.5 text-sm bg-green-600 text-white rounded hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors font-medium"
+            title="Confirm assignment"
+          >
+            {isAssigning ? '...' : '✓'}
+          </button>
+          <button
+            onClick={handleCancel}
+            disabled={isAssigning}
+            className="px-2 py-1.5 text-sm bg-slate-300 dark:bg-slate-600 text-slate-700 dark:text-slate-200 rounded hover:bg-slate-400 dark:hover:bg-slate-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            title="Cancel"
+          >
+            ✕
+          </button>
+        </>
+      )}
     </div>
   );
 }

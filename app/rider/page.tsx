@@ -1,7 +1,8 @@
 "use client";
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { RefreshCw, MapPin, Package } from "lucide-react";
+import { RefreshCw, MapPin, Package, Eye } from "lucide-react";
+import Link from "next/link";
 import RouteGuard from "@/components/RouteGuard";
 import { useRiderNotifications } from "@/lib/hooks/useRiderNotifications";
 import { useRiderOrderNotifications } from "@/lib/hooks/useRiderOrderNotifications";
@@ -635,7 +636,16 @@ export default function RiderMapPage(): React.ReactElement {
                       className="flex items-start justify-between gap-3 p-3 rounded-lg border border-slate-100 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-white/5"
                     >
                       <div className="flex-grow">
-                        <div className="font-semibold">Order {order.code}</div>
+                        <div className="font-semibold flex items-center gap-2">
+                          Order {order.code}
+                          <Link
+                            href={`/rider/order/${order.code}`}
+                            className="text-xs bg-teal-100 dark:bg-teal-900/30 text-teal-700 dark:text-teal-400 px-2 py-1 rounded hover:bg-teal-200 dark:hover:bg-teal-900/50 transition-colors flex items-center gap-1"
+                          >
+                            <Eye className="w-3 h-3" />
+                            View
+                          </Link>
+                        </div>
                         <div className="text-xs text-slate-500 dark:text-slate-400 mt-1">
                           <div className="font-medium text-slate-700 dark:text-slate-200">
                             {order.service.name} {order.service.package && `- ${order.service.package}`}

@@ -24,6 +24,7 @@ export default function PaymentStatusPage() {
   const [requestingDelivery, setRequestingDelivery] = useState(false);
   const [deliverySuccess, setDeliverySuccess] = useState(false);
   const [deliveryError, setDeliveryError] = useState('');
+  const [retryLoading, setRetryLoading] = useState(false);
 
   useEffect(() => {
     const fetchPaymentStatus = async () => {
@@ -135,6 +136,57 @@ export default function PaymentStatusPage() {
       console.error('Delivery request error:', err);
     } finally {
       setRequestingDelivery(false);
+    }
+  };
+
+  const handleRetryCheckout = async () => {
+    setRetryLoading(true);
+    try {
+      // Fetch fresh order data to ensure we have the latest price
+      let token = null;
+      
+      if (typeof window !== 'undefined') {
+        const authState = localStorage.getItem('wildwash_auth_state');
+        if (authState) {
+          try {
+            const parsed = JSON.parse(authState);
+            token = parsed.token;
+          } catch (e) {
+            console.error('Error parsing auth state:', e);
+          }
+        }
+      }
+      
+      if (!token) {
+        token = localStorage.getItem('token');
+      }
+
+      const apiBase = process.env.NEXT_PUBLIC_API_BASE || '';
+      const headers: Record<string, string> = { Accept: 'application/json' };
+      if (token) {
+        headers['Authorization'] = `Token ${token}`;
+      }
+
+      const response = await fetch(`${apiBase}/orders/orders/${orderId}/`, {
+        method: 'GET',
+        credentials: 'include',
+        headers,
+      });
+
+      if (!response.ok) {
+        throw new Error(`Failed to fetch order: ${response.statusText}`);
+      }
+
+      const latestOrder = await response.json();
+      const latestPrice = (latestOrder.price || latestOrder.actual_price || '0').toString().replace(/[^0-9.]/g, '');
+      
+      // Redirect to checkout with the latest price from the server
+      window.location.href = `/checkout?order_id=${encodeURIComponent(latestOrder.code)}&amount=${encodeURIComponent(latestPrice)}`;
+    } catch (err: any) {
+      console.error('Error preparing retry:', err);
+      setError(`Error preparing checkout: ${err?.message || 'Unknown error'}`);
+    } finally {
+      setRetryLoading(false);
     }
   };
 
@@ -250,12 +302,13 @@ export default function PaymentStatusPage() {
             </div>
 
             <div className="mt-6 space-y-3">
-              <Link
-                href={`/checkout?order_id=${encodeURIComponent(paymentStatus.order_id)}&amount=${encodeURIComponent(String(paymentStatus.amount))}`}
-                className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-3 px-4 rounded-lg transition duration-200 text-center block"
+              <button
+                onClick={handleRetryCheckout}
+                disabled={retryLoading}
+                className="w-full bg-indigo-600 hover:bg-indigo-700 disabled:bg-indigo-400 disabled:cursor-not-allowed text-white font-semibold py-3 px-4 rounded-lg transition duration-200 text-center"
               >
-                Try Again
-              </Link>
+                {retryLoading ? 'Loading...' : 'Try Again'}
+              </button>
               <Link
                 href="/orders"
                 className="w-full bg-gray-200 hover:bg-gray-300 text-gray-900 font-semibold py-3 px-4 rounded-lg transition duration-200 text-center block"
@@ -283,12 +336,13 @@ export default function PaymentStatusPage() {
 
             {pollingCount >= 12 && (
               <div className="mt-6">
-                <Link
-                  href={`/checkout?order_id=${encodeURIComponent(paymentStatus?.order_id || orderId)}&amount=${encodeURIComponent(String(paymentStatus?.amount || ''))}`}
-                  className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-3 px-4 rounded-lg transition duration-200 text-center block"
+                <button
+                  onClick={handleRetryCheckout}
+                  disabled={retryLoading}
+                  className="w-full bg-indigo-600 hover:bg-indigo-700 disabled:bg-indigo-400 disabled:cursor-not-allowed text-white font-semibold py-3 px-4 rounded-lg transition duration-200 text-center"
                 >
-                  Try Again
-                </Link>
+                  {retryLoading ? 'Loading...' : 'Try Again'}
+                </button>
               </div>
             )}
           </>

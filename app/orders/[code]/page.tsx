@@ -72,8 +72,54 @@ export default function OrderDetailsPage() {
   const [order, setOrder] = useState<Order | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [checkoutLoading, setCheckoutLoading] = useState(false);
 
   const API_BASE = process.env.NEXT_PUBLIC_API_BASE || '';
+
+  const handleProceedToCheckout = async () => {
+    setCheckoutLoading(true);
+    try {
+      // Fetch latest order data to ensure we use the current price
+      let token = null;
+      if (typeof window !== 'undefined') {
+        const authState = localStorage.getItem('wildwash_auth_state');
+        if (authState) {
+          try {
+            const parsed = JSON.parse(authState);
+            token = parsed.token;
+          } catch (e) {
+            console.error('Error parsing auth state:', e);
+          }
+        }
+      }
+
+      const headers: Record<string, string> = { Accept: "application/json" };
+      if (token) {
+        headers["Authorization"] = `Token ${token}`;
+      }
+
+      const response = await fetch(`${API_BASE}/orders/orders/${params.code}/`, {
+        method: "GET",
+        credentials: "include",
+        headers,
+      });
+
+      if (!response.ok) {
+        throw new Error(`Failed to fetch order: ${response.statusText}`);
+      }
+
+      const latestOrder = await response.json();
+      const latestPrice = (latestOrder.price || latestOrder.actual_price || '0').toString().replace(/[^0-9.]/g, '');
+      
+      // Redirect to checkout with the latest price from the server
+      router.push(`/checkout?order_id=${encodeURIComponent(latestOrder.code)}&amount=${encodeURIComponent(latestPrice)}`);
+    } catch (err: any) {
+      console.error('Error preparing checkout:', err);
+      alert(`Error preparing checkout: ${err?.message || 'Unknown error'}`);
+    } finally {
+      setCheckoutLoading(false);
+    }
+  };
 
   useEffect(() => {
     async function fetchOrder() {
@@ -355,12 +401,13 @@ export default function OrderDetailsPage() {
             {/* Actions */}
             <div className="mt-6">
               {!order.is_paid && (
-                <Link
-                  href={`/checkout?order_id=${encodeURIComponent(order.code)}&amount=${encodeURIComponent(order.price.replace(/[^0-9.]/g, ''))}`}
-                  className="inline-block px-6 py-3 bg-red-600 text-white font-medium rounded-lg hover:bg-red-700 transition-all duration-300 transform hover:scale-105 active:scale-95"
+                <button
+                  onClick={handleProceedToCheckout}
+                  disabled={checkoutLoading}
+                  className="inline-block px-6 py-3 bg-red-600 text-white font-medium rounded-lg hover:bg-red-700 disabled:bg-red-400 disabled:cursor-not-allowed transition-all duration-300 transform hover:scale-105 active:scale-95"
                 >
-                  Proceed to Checkout
-                </Link>
+                  {checkoutLoading ? "Preparing checkout..." : "Proceed to Checkout"}
+                </button>
               )}
             </div>
 

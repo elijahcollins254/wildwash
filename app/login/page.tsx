@@ -35,12 +35,17 @@ export default function LoginPage() {
       // Otherwise redirect based on user role
       if (user.is_superuser || user.role === 'admin') {
         router.push('/admin');
-      } else if (user.is_staff || user.role === 'staff') {
-        router.push('/staff');
+      } else if (user.role === 'washer') {
+        router.push('/staff/washer');
+      } else if (user.role === 'folder') {
+        router.push('/staff/folder');
       } else if (user.role === 'rider') {
         router.push('/rider');
+      } else if (user.is_staff || user.role === 'staff') {
+        // Generic staff member
+        router.push('/staff');
       } else {
-        // Default redirect for regular users
+        // Default redirect for regular users/customers
         router.push('/');
       }
     }

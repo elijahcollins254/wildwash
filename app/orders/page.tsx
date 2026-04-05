@@ -72,6 +72,21 @@ export default function OrdersPage(): React.JSX.Element {
   // Local UI state
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
+  const handleProceedToCheckout = (orderCode: string) => {
+    // Find the order in Redux state
+    const order = orders.find(o => o.code === orderCode);
+    if (!order) {
+      setErrorMessage('Order not found');
+      return;
+    }
+
+    // Extract price from the order
+    const price = order.price?.toString().replace(/[^0-9.]/g, '') || '0';
+    
+    // Redirect to checkout with order details
+    router.push(`/checkout?order_id=${encodeURIComponent(order.code)}&amount=${encodeURIComponent(price)}`);
+  };
+
   // Local controlled search / filter bound to redux meta
   const query = meta.query;
   const statusFilter = meta.statusFilter; // "All" | Order['status']
@@ -278,11 +293,11 @@ export default function OrdersPage(): React.JSX.Element {
                       View Details
                     </Link>
                     {!isPaid && (
-                      <Link 
-                        href={`/checkout?order_id=${encodeURIComponent(o.code)}&amount=${encodeURIComponent((o.price || o.price_display || '0').replace(/[^0-9.]/g, ''))}`} 
+                      <button 
+                        onClick={() => handleProceedToCheckout(o.code)}
                         className="flex-1 px-3 py-2 rounded-lg bg-red-600 hover:bg-red-700 text-white font-semibold text-sm text-center transition-all hover:shadow-sm">
                         Pay Now
-                      </Link>
+                      </button>
                     )}
                   </div>
                 </article>

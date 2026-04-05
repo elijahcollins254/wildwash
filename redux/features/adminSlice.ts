@@ -209,7 +209,11 @@ export const fetchOrders = createAsyncThunk(
     try {
       const data = await apiClient.get('/orders/?page_size=100');
       const list: any[] = Array.isArray(data) ? data : Array.isArray(data?.results) ? data.results : [];
-      return list;
+      // Transform data to include full response in 'raw' property for admin page compatibility
+      return list.map((order: any) => ({
+        ...order,
+        raw: order // Store full response as 'raw' for admin page access
+      }));
     } catch (err: any) {
       return rejectWithValue(err?.message ?? 'Failed to load orders');
     }
