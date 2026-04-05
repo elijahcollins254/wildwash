@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { NavBar, Footer, WhatsAppButton, BottomNav } from '@/components'
-import CustomProvider from '@/redux/provider';
+import { Providers } from './providers';
 import AuthInitializer from '@/components/AuthInitializer';
 import { Analytics } from "@vercel/analytics/next"
 
@@ -31,7 +31,7 @@ export default function RootLayout({
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased min-h-screen bg-gradient-to-b from-slate-50 to-white dark:from-slate-950 dark:to-slate-900 text-slate-900 dark:text-slate-100`}
       >
-        <CustomProvider>
+        <Providers>
           <AuthInitializer />
           <NavBar />
           <main className="min-h-[calc(100vh-80px)] pt-20 pb-20 md:pb-0">
@@ -41,7 +41,7 @@ export default function RootLayout({
           <WhatsAppButton />         
           <Footer />
           <Analytics />
-        </CustomProvider>
+        </Providers>
       </body>
     </html>
   );

@@ -1,6 +1,8 @@
 'use client';
 
 import React, { useState, useEffect, useRef } from "react";
+import { useRouter } from "next/navigation";
+import { useSelector } from "react-redux";
 import Link from "next/link";
 import {
   CubeTransparentIcon,
@@ -18,6 +20,7 @@ import { useAppDispatch } from "@/redux/hooks";
 import { addToCart } from "@/redux/features/cartSlice";
 import { useGetServicesQuery } from "@/redux/services/apiSlice";
 import type { Service } from "@/redux/services/apiSlice";
+import type { RootState } from "@/redux/store";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_BASE ?? "";
 
@@ -68,7 +71,11 @@ function getIconForCategory(category: string): React.ComponentType<any> {
 }
 
 export default function HomePage() {
+  const router = useRouter();
   const dispatch = useAppDispatch();
+  const isAuthenticated = useSelector((state: RootState) => state.auth.isAuthenticated);
+  const isLoading = useSelector((state: RootState) => state.auth.isLoading);
+  const user = useSelector((state: RootState) => state.auth.user);
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [addedItem, setAddedItem] = useState<number | null>(null);
@@ -76,6 +83,25 @@ export default function HomePage() {
   const [visibleCards, setVisibleCards] = useState<Set<number>>(new Set());
   const cardRefs = useRef<Map<number, HTMLDivElement>>(new Map());
   const observerRef = useRef<IntersectionObserver | null>(null);
+
+  // Redirect based on user role after Google sign-in
+  useEffect(() => {
+    if (!isLoading && isAuthenticated && user) {
+      const role = user.role;
+      if (role === 'admin') {
+        router.push('/admin');
+      } else if (role === 'washer') {
+        router.push('/staff/washer');
+      } else if (role === 'folder') {
+        router.push('/staff/folder');
+      } else if (role === 'rider') {
+        router.push('/rider');
+      } else if (role === 'staff') {
+        router.push('/staff');
+      }
+      // For customers, stay on home page
+    }
+  }, [isAuthenticated, isLoading, user, router]);
 
   // Fetch services using Redux
   const { data: servicesData, isLoading: loading, error: servicesError } = useGetServicesQuery();
