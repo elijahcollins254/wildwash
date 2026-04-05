@@ -305,6 +305,18 @@ export default function AdminPage(): React.ReactElement {
     }
   }, []);
 
+  const handleRiderAssignment = useCallback(async (orderId: number, riderId: number) => {
+    try {
+      await client.patch(`/orders/orders/${orderId}/`, { rider: riderId });
+      setUserActionSuccess('Rider assigned successfully');
+      dispatch(fetchOrders());
+      setTimeout(() => setUserActionSuccess(null), 3000);
+    } catch (err: any) {
+      setUserActionError(err?.message ?? 'Failed to assign rider');
+      setTimeout(() => setUserActionError(null), 3000);
+    }
+  }, [dispatch]);
+
   const openEditModal = (user: User) => {
     setSelectedUser(user);
     setEditFormData({
@@ -716,6 +728,7 @@ export default function AdminPage(): React.ReactElement {
                     <th className="text-left py-3 px-4 font-medium">Rider</th>
                     <th className="text-right py-3 px-4 font-medium">Price (KSh)</th>
                     <th className="text-right py-3 px-4 font-medium">Date</th>
+                    <th className="text-left py-3 px-4 font-medium">Actions</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-200/50 dark:divide-slate-800/50">
@@ -745,11 +758,16 @@ export default function AdminPage(): React.ReactElement {
                           : Number(o.price).toLocaleString()}
                       </td>
                       <td className="py-3 px-4 text-right text-slate-500">{o.created_at?.split?.("T")?.[0] ?? "—"}</td>
+                      <td className="py-3 px-4">
+                        {!o.rider && (o.status === 'requested' || o.status === 'pending_assignment') && (
+                          <AssignRiderButton order={o} users={users} onAssign={handleRiderAssignment} />
+                        )}
+                      </td>
                     </tr>
                   ))}
                   {filteredOrders.length === 0 && (
                     <tr>
-                      <td colSpan={8} className="py-8 text-center text-slate-500">
+                      <td colSpan={9} className="py-8 text-center text-slate-500">
                         <div className="flex flex-col items-center gap-2">
                           <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                             <circle cx="12" cy="12" r="10"/>
@@ -1897,6 +1915,49 @@ function ChartCard({ title, children }: { title: string; children: React.ReactEl
           {children}
         </ResponsiveContainer>
       </div>
+    </div>
+  );
+}
+
+function AssignRiderButton({ order, users, onAssign }: { order: Order; users: User[]; onAssign: (orderId: number, riderId: number) => void }) {
+  const [selectedRider, setSelectedRider] = useState<string>('');
+  const [isAssigning, setIsAssigning] = useState(false);
+
+  const availableRiders = users.filter(u => u.role === 'rider' && u.is_active);
+
+  const handleAssign = async () => {
+    if (!selectedRider) return;
+    setIsAssigning(true);
+    try {
+      await onAssign(order.id!, parseInt(selectedRider));
+      setSelectedRider('');
+    } finally {
+      setIsAssigning(false);
+    }
+  };
+
+  return (
+    <div className="flex items-center gap-2">
+      <select
+        value={selectedRider}
+        onChange={(e) => setSelectedRider(e.target.value)}
+        className="text-xs rounded border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 px-2 py-1"
+        disabled={isAssigning}
+      >
+        <option value="">Select Rider</option>
+        {availableRiders.map(rider => (
+          <option key={rider.id} value={rider.id}>
+            {rider.first_name && rider.last_name ? `${rider.first_name} ${rider.last_name}` : rider.username}
+          </option>
+        ))}
+      </select>
+      <button
+        onClick={handleAssign}
+        disabled={!selectedRider || isAssigning}
+        className="px-2 py-1 text-xs bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+      >
+        {isAssigning ? '...' : 'Assign'}
+      </button>
     </div>
   );
 }
