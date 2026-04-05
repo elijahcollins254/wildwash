@@ -75,18 +75,22 @@ const frontendToBackendStatus: Record<string, string> = {
 };
 
 function backendToFrontend(o: BackendOrder): Order {
-  // Calculate price from order_items if available, otherwise use price_display or price
+  // Use the price field from backend first (includes delivery multiplier)
+  // Then fall back to price_display or calculate from order_items
   let price = '';
   
-  if (o.order_items && o.order_items.length > 0) {
-    // Calculate total from order items with quantities
+  if (o.price) {
+    // Use the price field directly - it already has the delivery multiplier applied
+    const priceNum = Number(o.price);
+    price = `KSh ${priceNum.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  } else if (o.price_display) {
+    price = o.price_display;
+  } else if (o.order_items && o.order_items.length > 0) {
+    // Only calculate from order items if price field is not available
     const total = o.order_items.reduce((acc, item) => {
       return acc + (item.service_price * item.quantity);
     }, 0);
     price = `KSh ${total.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-  } else {
-    // Fallback to existing price calculation
-    price = o.price_display ?? (o.price ? `KSh ${Number(o.price).toLocaleString()}` : "");
   }
   
   const weightKg = o.weight_kg ? Number(o.weight_kg) : undefined;

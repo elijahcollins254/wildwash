@@ -80,8 +80,20 @@ export default function OrdersPage(): React.JSX.Element {
       return;
     }
 
-    // Extract price from the order
-    const price = order.price?.toString().replace(/[^0-9.]/g, '') || '0';
+    // Extract price - try multiple sources to get the correct value
+    // First try: use price_display (raw value), then price (formatted), then fallback to '0'
+    let price = '0';
+    
+    // Try to extract numeric value from order.price (formatted as "KSh 1.60")
+    if (order.price) {
+      const extracted = order.price.toString().replace(/[^0-9.]/g, '');
+      if (extracted) price = extracted;
+    }
+    
+    // Fallback to price_display if available and different from price
+    if (order.price_display && price === '0') {
+      price = order.price_display.toString().replace(/[^0-9.]/g, '');
+    }
     
     // Redirect to checkout with order details
     router.push(`/checkout?order_id=${encodeURIComponent(order.code)}&amount=${encodeURIComponent(price)}`);
