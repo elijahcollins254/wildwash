@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useState, useCallback } from "react";
+import React, { useEffect, useState, useCallback, useMemo } from "react";
 import Link from "next/link";
 import RouteGuard from "@/components/RouteGuard";
 import OrderStaffDetailsViewer from "@/components/OrderStaffDetailsViewer";
@@ -136,6 +136,43 @@ type BNPLUser = {
   updated_at?: string;
   raw?: Record<string, any>;
 };
+
+/* --- Module-Level Constants --- */
+const STATUS_COLORS: Record<string, string> = {
+  'delivered': 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400',
+  'cancelled': 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400',
+  'default': 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400',
+};
+
+const TRANSACTION_STATUS_COLORS: Record<string, string> = {
+  'success': 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400',
+  'failed': 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400',
+  'pending': 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400',
+  'initiated': 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400',
+};
+
+const LOAN_STATUS_COLORS: Record<string, string> = {
+  'approved': 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400',
+  'rejected': 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400',
+  'pending': 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400',
+  'default': 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400',
+};
+
+/* --- Helper Functions --- */
+function getStatusColorClass(status: string | undefined, colorMap: Record<string, string> = STATUS_COLORS): string {
+  if (!status) return colorMap['default'];
+  return colorMap[status] || colorMap['default'];
+}
+
+function getRiderNameHelper(rider: any): string {
+  if (!rider) return '';
+  if (typeof rider === 'string') return rider;
+  if (typeof rider === 'number') return String(rider);
+  if (typeof rider === 'object') {
+    return rider.username || rider.first_name || rider.name || String(rider.id || '');
+  }
+  return '';
+}
 
 /* --- Component --- */
 export default function AdminPage(): React.ReactElement {
@@ -391,15 +428,9 @@ export default function AdminPage(): React.ReactElement {
   };
 
   // filter helpers
-  const getRiderName = (rider: any): string => {
-    if (!rider) return '';
-    if (typeof rider === 'string') return rider;
-    if (typeof rider === 'number') return String(rider);
-    if (typeof rider === 'object') {
-      return rider.username || rider.first_name || rider.name || String(rider.id || '');
-    }
-    return '';
-  };
+  const getRiderName = useCallback((rider: any): string => {
+    return getRiderNameHelper(rider);
+  }, []);
 
   const availableStatuses = Array.from(new Set(orders.map(o => (o.status ?? '').toString()))).filter(Boolean);
   const availableRiders = Array.from(new Set(orders.map(o => getRiderName(o.rider)))).filter(Boolean);
@@ -439,73 +470,77 @@ export default function AdminPage(): React.ReactElement {
     }
   }, [dateFilter, startDate, endDate]);
 
-  const filteredOrders = orders.filter(o => {
-    if (statusFilter && String(o.status ?? '').toLowerCase() !== statusFilter.toLowerCase()) return false;
-    if (riderFilter && getRiderName(o.rider).toLowerCase() !== riderFilter.toLowerCase()) return false;
-    if (locationFilter) {
-      const customerLocation = (o.raw?.user?.location || '').toLowerCase();
-      if (customerLocation !== locationFilter.toLowerCase()) return false;
-    }
-    if (searchQuery) {
-      const q = searchQuery.toLowerCase();
-      const matchesCode = String(o.code ?? '').toLowerCase().includes(q);
-      const matchesRider = getRiderName(o.rider).toLowerCase().includes(q);
-      if (!matchesCode && !matchesRider) return false;
-    }
-
-    // Date filtering
-    const { start, end } = getDateRange();
-    if (start && end) {
-      const orderDate = o.created_at?.split('T')[0];
-      if (!orderDate || orderDate < start || orderDate > end) return false;
-    }
-
-    return true;
-  });
-
-  const filteredUsers = users.filter(u => {
-    // Search by username, email, or name
-    if (userSearchQuery) {
-      const q = userSearchQuery.toLowerCase();
-      const matchesUsername = String(u.username ?? '').toLowerCase().includes(q);
-      const matchesEmail = String(u.email ?? '').toLowerCase().includes(q);
-      const matchesName = `${u.first_name ?? ''} ${u.last_name ?? ''}`.toLowerCase().includes(q);
-      if (!matchesUsername && !matchesEmail && !matchesName) return false;
-    }
-
-    // Filter by role
-    if (userRoleFilter) {
-      if (userRoleFilter === 'admin' && !u.is_superuser) return false;
-      if (userRoleFilter === 'staff' && (!u.is_staff || u.is_superuser)) return false;
-      if (userRoleFilter === 'user' && (u.is_staff || u.is_superuser)) return false;
-    }
-
-    // Filter by join date
-    if (userJoinDateFilter) {
-      const today = new Date();
-      today.setHours(0, 0, 0, 0);
-      const userJoinDate = new Date(u.date_joined ?? '');
-      userJoinDate.setHours(0, 0, 0, 0);
-
-      switch (userJoinDateFilter) {
-        case 'today':
-          if (userJoinDate.getTime() !== today.getTime()) return false;
-          break;
-        case 'week':
-          const weekAgo = new Date(today);
-          weekAgo.setDate(today.getDate() - 7);
-          if (userJoinDate.getTime() < weekAgo.getTime()) return false;
-          break;
-        case 'month':
-          const monthAgo = new Date(today);
-          monthAgo.setMonth(today.getMonth() - 1);
-          if (userJoinDate.getTime() < monthAgo.getTime()) return false;
-          break;
+  const filteredOrders = useMemo(() => {
+    return orders.filter(o => {
+      if (statusFilter && String(o.status ?? '').toLowerCase() !== statusFilter.toLowerCase()) return false;
+      if (riderFilter && getRiderName(o.rider).toLowerCase() !== riderFilter.toLowerCase()) return false;
+      if (locationFilter) {
+        const customerLocation = (o.raw?.user?.location || '').toLowerCase();
+        if (customerLocation !== locationFilter.toLowerCase()) return false;
       }
-    }
+      if (searchQuery) {
+        const q = searchQuery.toLowerCase();
+        const matchesCode = String(o.code ?? '').toLowerCase().includes(q);
+        const matchesRider = getRiderName(o.rider).toLowerCase().includes(q);
+        if (!matchesCode && !matchesRider) return false;
+      }
 
-    return true;
-  });
+      // Date filtering
+      const { start, end } = getDateRange();
+      if (start && end) {
+        const orderDate = o.created_at?.split('T')[0];
+        if (!orderDate || orderDate < start || orderDate > end) return false;
+      }
+
+      return true;
+    });
+  }, [orders, statusFilter, riderFilter, locationFilter, searchQuery, dateFilter, startDate, endDate, getRiderName, getDateRange]);
+
+  const filteredUsers = useMemo(() => {
+    return users.filter(u => {
+      // Search by username, email, or name
+      if (userSearchQuery) {
+        const q = userSearchQuery.toLowerCase();
+        const matchesUsername = String(u.username ?? '').toLowerCase().includes(q);
+        const matchesEmail = String(u.email ?? '').toLowerCase().includes(q);
+        const matchesName = `${u.first_name ?? ''} ${u.last_name ?? ''}`.toLowerCase().includes(q);
+        if (!matchesUsername && !matchesEmail && !matchesName) return false;
+      }
+
+      // Filter by role
+      if (userRoleFilter) {
+        if (userRoleFilter === 'admin' && !u.is_superuser) return false;
+        if (userRoleFilter === 'staff' && (!u.is_staff || u.is_superuser)) return false;
+        if (userRoleFilter === 'user' && (u.is_staff || u.is_superuser)) return false;
+      }
+
+      // Filter by join date
+      if (userJoinDateFilter) {
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        const userJoinDate = new Date(u.date_joined ?? '');
+        userJoinDate.setHours(0, 0, 0, 0);
+
+        switch (userJoinDateFilter) {
+          case 'today':
+            if (userJoinDate.getTime() !== today.getTime()) return false;
+            break;
+          case 'week':
+            const weekAgo = new Date(today);
+            weekAgo.setDate(today.getDate() - 7);
+            if (userJoinDate.getTime() < weekAgo.getTime()) return false;
+            break;
+          case 'month':
+            const monthAgo = new Date(today);
+            monthAgo.setMonth(today.getMonth() - 1);
+            if (userJoinDate.getTime() < monthAgo.getTime()) return false;
+            break;
+        }
+      }
+
+      return true;
+    });
+  }, [users, userSearchQuery, userRoleFilter, userJoinDateFilter]);
 
   // Compute body JSX separately to avoid complex inline nested ternaries in JSX
   const body = (() => {
@@ -745,11 +780,7 @@ export default function AdminPage(): React.ReactElement {
                         </Link>
                       </td>
                       <td className="py-3 px-4">
-                        <span className={`inline-flex px-2 py-1 rounded-full text-xs font-medium ${
-                          o.status === 'delivered' ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400' :
-                          o.status === 'cancelled' ? 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400' :
-                          'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400'
-                        }`}>
+                        <span className={`inline-flex px-2 py-1 rounded-full text-xs font-medium ${getStatusColorClass(o.status)}`}>
                           {o.status}
                         </span>
                       </td>
@@ -910,12 +941,7 @@ export default function AdminPage(): React.ReactElement {
                             </span>
                           </td>
                           <td className="py-3 px-4 text-center">
-                            <span className={`inline-flex px-2 py-1 rounded-full text-xs font-medium ${
-                              t.status === 'success' ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400' :
-                              t.status === 'failed' ? 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400' :
-                              t.status === 'pending' ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400' :
-                              'bg-slate-100 text-slate-800 dark:bg-slate-700/30 dark:text-slate-300'
-                            }`}>
+                            <span className={`inline-flex px-2 py-1 rounded-full text-xs font-medium ${getStatusColorClass(t.status, TRANSACTION_STATUS_COLORS)}`}>
                               {t.status}
                             </span>
                           </td>

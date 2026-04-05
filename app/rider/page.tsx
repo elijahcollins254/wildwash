@@ -335,8 +335,8 @@ export default function RiderMapPage(): React.ReactElement {
   // Filter orders by selected status
   const filteredOrders = useMemo(() => {
     if (currentStatus === 'in_progress') {
-      // Show both ready and in_progress orders for the in_progress tab
-      return orders.filter((o) => o.status === 'ready' || o.status === 'in_progress');
+      // Show picked, ready and in_progress orders for the in_progress tab (active orders)
+      return orders.filter((o) => o.status === 'picked' || o.status === 'ready' || o.status === 'in_progress');
     }
     return orders.filter((o) => o.status === currentStatus);
   }, [orders, currentStatus]);
@@ -597,7 +597,18 @@ export default function RiderMapPage(): React.ReactElement {
                 </div>
                 <div className="flex flex-wrap justify-center gap-2">
                   {(['in_progress', 'picked'] as const).map((status) => {
-                    const count = orders.filter(order => order.status === status).length;
+                    let count = 0;
+                    if (status === 'in_progress') {
+                      // Count all active orders (picked, ready, in_progress)
+                      count = orders.filter(order => 
+                        order.status === 'picked' || 
+                        order.status === 'ready' || 
+                        order.status === 'in_progress'
+                      ).length;
+                    } else {
+                      // Count exact status match
+                      count = orders.filter(order => order.status === status).length;
+                    }
                     return (
                       <button
                         key={status}

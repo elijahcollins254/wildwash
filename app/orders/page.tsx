@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState, useCallback } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useDispatch, useSelector, TypedUseSelectorHook } from "react-redux";
@@ -57,6 +57,37 @@ const useAppSelector: TypedUseSelectorHook<RootState> = useSelector;
 
 import RouteGuard from "../../components/RouteGuard";
 
+// Move status mappings outside component to avoid recreation
+const STATUS_ICONS = {
+  'Received': Package,
+  'Washing': Droplets,
+  'Drying': Wind,
+  'Ready': CheckCircle,
+  'Delivered': CheckCircle,
+  'Cancelled': AlertCircle,
+  'requested': Package,
+  'picked': Truck,
+  'in_progress': Loader,
+  'washed': Droplets,
+  'ready': CheckCircle,
+  'pending_assignment': Clock,
+};
+
+const STATUS_COLORS = {
+  'Received': { bg: 'bg-blue-50 dark:bg-blue-950/20', border: 'border-l-4 border-l-blue-500', badge: 'bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300' },
+  'Washing': { bg: 'bg-purple-50 dark:bg-purple-950/20', border: 'border-l-4 border-l-purple-500', badge: 'bg-purple-100 dark:bg-purple-900/40 text-purple-700 dark:text-purple-300' },
+  'Drying': { bg: 'bg-orange-50 dark:bg-orange-950/20', border: 'border-l-4 border-l-orange-500', badge: 'bg-orange-100 dark:bg-orange-900/40 text-orange-700 dark:text-orange-300' },
+  'Ready': { bg: 'bg-green-50 dark:bg-green-950/20', border: 'border-l-4 border-l-green-500', badge: 'bg-green-100 dark:bg-green-900/40 text-green-700 dark:text-green-300' },
+  'Delivered': { bg: 'bg-slate-50 dark:bg-slate-800/20', border: 'border-l-4 border-l-slate-400', badge: 'bg-slate-100 dark:bg-slate-800/40 text-slate-700 dark:text-slate-300' },
+  'Cancelled': { bg: 'bg-red-50 dark:bg-red-950/20', border: 'border-l-4 border-l-red-500', badge: 'bg-red-100 dark:bg-red-900/40 text-red-700 dark:text-red-300' },
+  'requested': { bg: 'bg-blue-50 dark:bg-blue-950/20', border: 'border-l-4 border-l-blue-500', badge: 'bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300' },
+  'picked': { bg: 'bg-indigo-50 dark:bg-indigo-950/20', border: 'border-l-4 border-l-indigo-500', badge: 'bg-indigo-100 dark:bg-indigo-900/40 text-indigo-700 dark:text-indigo-300' },
+  'in_progress': { bg: 'bg-purple-50 dark:bg-purple-950/20', border: 'border-l-4 border-l-purple-500', badge: 'bg-purple-100 dark:bg-purple-900/40 text-purple-700 dark:text-purple-300' },
+  'washed': { bg: 'bg-cyan-50 dark:bg-cyan-950/20', border: 'border-l-4 border-l-cyan-500', badge: 'bg-cyan-100 dark:bg-cyan-900/40 text-cyan-700 dark:text-cyan-300' },
+  'ready': { bg: 'bg-green-50 dark:bg-green-950/20', border: 'border-l-4 border-l-green-500', badge: 'bg-green-100 dark:bg-green-900/40 text-green-700 dark:text-green-300' },
+  'pending_assignment': { bg: 'bg-yellow-50 dark:bg-yellow-950/20', border: 'border-l-4 border-l-yellow-500', badge: 'bg-yellow-100 dark:bg-yellow-900/40 text-yellow-700 dark:text-yellow-300' },
+};
+
 export default function OrdersPage(): React.JSX.Element {
 
   const router = useRouter();
@@ -72,7 +103,7 @@ export default function OrdersPage(): React.JSX.Element {
   // Local UI state
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
-  const handleProceedToCheckout = (orderCode: string) => {
+  const handleProceedToCheckout = useCallback((orderCode: string) => {
     // Find the order in Redux state
     const order = orders.find(o => o.code === orderCode);
     if (!order) {
@@ -81,23 +112,19 @@ export default function OrdersPage(): React.JSX.Element {
     }
 
     // Extract price - try multiple sources to get the correct value
-    // First try: use price_display (raw value), then price (formatted), then fallback to '0'
     let price = '0';
     
-    // Try to extract numeric value from order.price (formatted as "KSh 1.60")
     if (order.price) {
       const extracted = order.price.toString().replace(/[^0-9.]/g, '');
       if (extracted) price = extracted;
     }
     
-    // Fallback to price_display if available and different from price
     if (order.price_display && price === '0') {
       price = order.price_display.toString().replace(/[^0-9.]/g, '');
     }
     
-    // Redirect to checkout with order details
     router.push(`/checkout?order_id=${encodeURIComponent(order.code)}&amount=${encodeURIComponent(price)}`);
-  };
+  }, [orders, router]);
 
   // Local controlled search / filter bound to redux meta
   const query = meta.query;
@@ -108,11 +135,24 @@ export default function OrdersPage(): React.JSX.Element {
 
   // summary computed from current fetched orders
   const summary = useMemo(() => {
-    const total = orders.length; // this reflects only current page's entries
+    const total = orders.length;
     const completed = orders.filter((o) => o.status === "Delivered").length;
     const active = orders.filter((o) => o.status !== "Delivered" && o.status !== "Cancelled").length;
     return { total, completed, active };
   }, [orders]);
+
+  // Memoize filtered orders to avoid recalculation
+  const filtered = useMemo(() => {
+    return orders.filter((o) => {
+      const q = (query ?? "").trim().toLowerCase();
+      if (!q) return true;
+      return (
+        (o.code ?? "").toLowerCase().includes(q) ||
+        (o.package ?? "").toLowerCase().includes(q) ||
+        (String(o.price ?? "").toLowerCase()).includes(q)
+      );
+    });
+  }, [orders, query]);
 
   // Fetch when relevant meta changes (page, pageSize, statusFilter, query) or when refreshCounter increments
   useEffect(() => {
@@ -125,17 +165,6 @@ export default function OrdersPage(): React.JSX.Element {
   useEffect(() => {
     if (errorFromState) setErrorMessage(errorFromState);
   }, [errorFromState]);
-
-  // filter the page-local orders list (search client-side on current page)
-  const filtered = orders.filter((o) => {
-    const q = (query ?? "").trim().toLowerCase();
-    if (!q) return true;
-    return (
-      (o.code ?? "").toLowerCase().includes(q) ||
-      (o.package ?? "").toLowerCase().includes(q) ||
-      (String(o.price ?? "").toLowerCase()).includes(q)
-    );
-  });
 
   return (
     <RouteGuard>
@@ -209,112 +238,13 @@ export default function OrdersPage(): React.JSX.Element {
             </div>
           ) : (
             <div className="space-y-6">
-              {filtered.map((o) => {
-                const statusIcons = {
-                  'Received': Package,
-                  'Washing': Droplets,
-                  'Drying': Wind,
-                  'Ready': CheckCircle,
-                  'Delivered': CheckCircle,
-                  'Cancelled': AlertCircle,
-                  'requested': Package,
-                  'picked': Truck,
-                  'in_progress': Loader,
-                  'washed': Droplets,
-                  'ready': CheckCircle,
-                  'pending_assignment': Clock,
-                };
-
-                const statusColors = {
-                  'Received': { bg: 'bg-blue-50 dark:bg-blue-950/20', border: 'border-l-4 border-l-blue-500', badge: 'bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300' },
-                  'Washing': { bg: 'bg-purple-50 dark:bg-purple-950/20', border: 'border-l-4 border-l-purple-500', badge: 'bg-purple-100 dark:bg-purple-900/40 text-purple-700 dark:text-purple-300' },
-                  'Drying': { bg: 'bg-orange-50 dark:bg-orange-950/20', border: 'border-l-4 border-l-orange-500', badge: 'bg-orange-100 dark:bg-orange-900/40 text-orange-700 dark:text-orange-300' },
-                  'Ready': { bg: 'bg-green-50 dark:bg-green-950/20', border: 'border-l-4 border-l-green-500', badge: 'bg-green-100 dark:bg-green-900/40 text-green-700 dark:text-green-300' },
-                  'Delivered': { bg: 'bg-slate-50 dark:bg-slate-800/20', border: 'border-l-4 border-l-slate-400', badge: 'bg-slate-100 dark:bg-slate-800/40 text-slate-700 dark:text-slate-300' },
-                  'Cancelled': { bg: 'bg-red-50 dark:bg-red-950/20', border: 'border-l-4 border-l-red-500', badge: 'bg-red-100 dark:bg-red-900/40 text-red-700 dark:text-red-300' },
-                  'requested': { bg: 'bg-blue-50 dark:bg-blue-950/20', border: 'border-l-4 border-l-blue-500', badge: 'bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300' },
-                  'picked': { bg: 'bg-indigo-50 dark:bg-indigo-950/20', border: 'border-l-4 border-l-indigo-500', badge: 'bg-indigo-100 dark:bg-indigo-900/40 text-indigo-700 dark:text-indigo-300' },
-                  'in_progress': { bg: 'bg-purple-50 dark:bg-purple-950/20', border: 'border-l-4 border-l-purple-500', badge: 'bg-purple-100 dark:bg-purple-900/40 text-purple-700 dark:text-purple-300' },
-                  'washed': { bg: 'bg-cyan-50 dark:bg-cyan-950/20', border: 'border-l-4 border-l-cyan-500', badge: 'bg-cyan-100 dark:bg-cyan-900/40 text-cyan-700 dark:text-cyan-300' },
-                  'ready': { bg: 'bg-green-50 dark:bg-green-950/20', border: 'border-l-4 border-l-green-500', badge: 'bg-green-100 dark:bg-green-900/40 text-green-700 dark:text-green-300' },
-                  'pending_assignment': { bg: 'bg-yellow-50 dark:bg-yellow-950/20', border: 'border-l-4 border-l-yellow-500', badge: 'bg-yellow-100 dark:bg-yellow-900/40 text-yellow-700 dark:text-yellow-300' },
-                };
-                
-                const colors = statusColors[o.status as keyof typeof statusColors] || statusColors['requested'];
-                const IconComponent = statusIcons[o.status as keyof typeof statusIcons] || Package;
-                const isPaid = o.is_paid ?? false;
-                const orderDate = new Date(o.created_at || o.date || '');
-                
-                return (
-                <article key={o.code} className={`rounded-xl ${colors.bg} ${colors.border} bg-white/80 dark:bg-white/5 p-4 shadow-sm hover:shadow-md transition-all`}>
-                  <div className="flex items-start justify-between gap-4 mb-4">
-                    <div className="flex-1">
-                      <div className="flex items-center gap-2 mb-2">
-                        <IconComponent className="w-5 h-5 text-slate-600 dark:text-slate-400 flex-shrink-0" />
-                        <div>
-                          <div className="font-mono font-bold text-sm text-slate-900 dark:text-slate-100">{o.code}</div>
-                          <div className="text-xs text-slate-500 dark:text-slate-400">{orderDate.toLocaleDateString()} · {orderDate.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</div>
-                        </div>
-                      </div>
-                      <span className={`inline-block px-2 py-0.5 rounded-full text-xs font-semibold ${colors.badge}`}>
-                        {o.status}
-                      </span>
-                    </div>
-                    
-                    <div className="text-right">
-                      <div className="text-xs text-slate-500 dark:text-slate-400 uppercase tracking-wider">Amount</div>
-                      <div className="text-2xl font-bold text-slate-900 dark:text-slate-100">{o.price || o.price_display || 'KSh 0'}</div>
-                      {isPaid && (
-                        <div className="text-xs font-semibold text-green-600 dark:text-green-400 mt-1 flex items-center justify-end gap-1">
-                          <CheckCircle className="w-3 h-3" /> Paid
-                        </div>
-                      )}
-                    </div>
-                  </div>
-
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-2 mb-4 pb-4 border-b border-slate-200 dark:border-slate-700">
-                    <div className="rounded-lg bg-white/40 dark:bg-white/5 p-2.5">
-                      <div className="text-xs text-slate-500 dark:text-slate-400 uppercase tracking-wide font-semibold">Items</div>
-                      <div className="font-bold text-sm mt-1 text-slate-900 dark:text-slate-100">{o.items}</div>
-                    </div>
-
-                    {(o.weight_kg || o.weightKg) && (
-                      <div className="rounded-lg bg-white/40 dark:bg-white/5 p-2.5">
-                        <div className="text-xs text-slate-500 dark:text-slate-400 uppercase tracking-wide font-semibold">Weight</div>
-                        <div className="font-bold text-sm mt-1 text-slate-900 dark:text-slate-100">{o.weight_kg || o.weightKg} kg</div>
-                      </div>
-                    )}
-
-                    {(o.estimated_delivery || o.eta) && (
-                      <div className="rounded-lg bg-white/40 dark:bg-white/5 p-2.5">
-                        <div className="text-xs text-slate-500 dark:text-slate-400 uppercase tracking-wide font-semibold">ETA</div>
-                        <div className="font-bold text-sm mt-1 text-slate-900 dark:text-slate-100">{o.estimated_delivery ? new Date(o.estimated_delivery).toLocaleDateString() : o.eta}</div>
-                      </div>
-                    )}
-                    
-                    <div className="rounded-lg bg-white/40 dark:bg-white/5 p-2.5">
-                      <div className="text-xs text-slate-500 dark:text-slate-400 uppercase tracking-wide font-semibold">Package</div>
-                      <div className="font-bold text-sm mt-1 text-slate-900 dark:text-slate-100 truncate">{o.package}</div>
-                    </div>
-                  </div>
-
-                  <div className="flex items-center gap-2">
-                    <Link 
-                      href={`/orders/${o.code}`} 
-                      className="flex-1 px-3 py-2 rounded-lg bg-slate-100 dark:bg-white/10 hover:bg-slate-200 dark:hover:bg-white/20 text-slate-900 dark:text-slate-100 font-semibold text-sm text-center transition-all hover:shadow-sm">
-                      View Details
-                    </Link>
-                    {!isPaid && (
-                      <button 
-                        onClick={() => handleProceedToCheckout(o.code)}
-                        className="flex-1 px-3 py-2 rounded-lg bg-red-600 hover:bg-red-700 text-white font-semibold text-sm text-center transition-all hover:shadow-sm">
-                        Pay Now
-                      </button>
-                    )}
-                  </div>
-                </article>
-              );
-              })}
+              {filtered.map((o) => (
+                <OrderCard 
+                  key={o.code} 
+                  order={o} 
+                  onCheckout={handleProceedToCheckout}
+                />
+              ))}
             </div>
           )}
 
@@ -334,3 +264,81 @@ export default function OrdersPage(): React.JSX.Element {
     </RouteGuard>
   );
 }
+
+// Memoized OrderCard component to prevent unnecessary re-renders
+const OrderCard = React.memo(({ order: o, onCheckout }: { order: Order; onCheckout: (code: string) => void }) => {
+  const colors = STATUS_COLORS[o.status as keyof typeof STATUS_COLORS] || STATUS_COLORS['requested'];
+  const IconComponent = STATUS_ICONS[o.status as keyof typeof STATUS_ICONS] || Package;
+  const isPaid = o.is_paid ?? false;
+  const orderDate = new Date(o.created_at || o.date || '');
+
+  return (
+    <article className={`rounded-xl ${colors.bg} ${colors.border} bg-white/80 dark:bg-white/5 p-4 shadow-sm hover:shadow-md transition-all`}>
+      <div className="flex items-start justify-between gap-4 mb-4">
+        <div className="flex-1">
+          <div className="flex items-center gap-2 mb-2">
+            <IconComponent className="w-5 h-5 text-slate-600 dark:text-slate-400 flex-shrink-0" />
+            <div>
+              <div className="font-mono font-bold text-sm text-slate-900 dark:text-slate-100">{o.code}</div>
+              <div className="text-xs text-slate-500 dark:text-slate-400">{orderDate.toLocaleDateString()} · {orderDate.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</div>
+            </div>
+          </div>
+          <span className={`inline-block px-2 py-0.5 rounded-full text-xs font-semibold ${colors.badge}`}>
+            {o.status}
+          </span>
+        </div>
+        
+        <div className="text-right">
+          <div className="text-xs text-slate-500 dark:text-slate-400 uppercase tracking-wider">Amount</div>
+          <div className="text-2xl font-bold text-slate-900 dark:text-slate-100">{o.price || o.price_display || 'KSh 0'}</div>
+          {isPaid && (
+            <div className="text-xs font-semibold text-green-600 dark:text-green-400 mt-1 flex items-center justify-end gap-1">
+              <CheckCircle className="w-3 h-3" /> Paid
+            </div>
+          )}
+        </div>
+      </div>
+
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-2 mb-4 pb-4 border-b border-slate-200 dark:border-slate-700">
+        <div className="rounded-lg bg-white/40 dark:bg-white/5 p-2.5">
+          <div className="text-xs text-slate-500 dark:text-slate-400 uppercase tracking-wide font-semibold">Items</div>
+          <div className="font-bold text-sm mt-1 text-slate-900 dark:text-slate-100">{o.items}</div>
+        </div>
+
+        {(o.weight_kg || o.weightKg) && (
+          <div className="rounded-lg bg-white/40 dark:bg-white/5 p-2.5">
+            <div className="text-xs text-slate-500 dark:text-slate-400 uppercase tracking-wide font-semibold">Weight</div>
+            <div className="font-bold text-sm mt-1 text-slate-900 dark:text-slate-100">{o.weight_kg || o.weightKg} kg</div>
+          </div>
+        )}
+
+        {(o.estimated_delivery || o.eta) && (
+          <div className="rounded-lg bg-white/40 dark:bg-white/5 p-2.5">
+            <div className="text-xs text-slate-500 dark:text-slate-400 uppercase tracking-wide font-semibold">ETA</div>
+            <div className="font-bold text-sm mt-1 text-slate-900 dark:text-slate-100">{o.estimated_delivery ? new Date(o.estimated_delivery).toLocaleDateString() : o.eta}</div>
+          </div>
+        )}
+        
+        <div className="rounded-lg bg-white/40 dark:bg-white/5 p-2.5">
+          <div className="text-xs text-slate-500 dark:text-slate-400 uppercase tracking-wide font-semibold">Package</div>
+          <div className="font-bold text-sm mt-1 text-slate-900 dark:text-slate-100 truncate">{o.package}</div>
+        </div>
+      </div>
+
+      <div className="flex items-center gap-2">
+        <Link 
+          href={`/orders/${o.code}`} 
+          className="flex-1 px-3 py-2 rounded-lg bg-slate-100 dark:bg-white/10 hover:bg-slate-200 dark:hover:bg-white/20 text-slate-900 dark:text-slate-100 font-semibold text-sm text-center transition-all hover:shadow-sm">
+          View Details
+        </Link>
+        {!isPaid && (
+          <button 
+            onClick={() => onCheckout(o.code)}
+            className="flex-1 px-3 py-2 rounded-lg bg-red-600 hover:bg-red-700 text-white font-semibold text-sm text-center transition-all hover:shadow-sm">
+            Pay Now
+          </button>
+        )}
+      </div>
+    </article>
+  );
+});

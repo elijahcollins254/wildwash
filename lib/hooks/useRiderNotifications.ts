@@ -17,9 +17,10 @@ export function useRiderNotifications(
 ) {
   const lastNotificationIdsRef = useRef<Set<number>>(new Set());
   const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const isInitializedRef = useRef(false);
 
   const handleNewNotifications = useCallback(
-    (notifications: RiderNotification[]) => {
+    (notifications: RiderNotification[], isInitialLoad: boolean = false) => {
       if (notifications.length > 0) {
         console.log(`[Notifications] Received ${notifications.length} notifications`);
       }
@@ -29,19 +30,21 @@ export function useRiderNotifications(
           lastNotificationIdsRef.current.add(notification.id);
           console.log(`[Notifications] New notification: ${notification.message}`);
 
-          // Play sound for new notification
-          playNotificationSound();
+          // Only play sound if NOT the initial load (avoid sounds for old notifications)
+          if (!isInitialLoad) {
+            playNotificationSound();
 
-          // Show browser notification if available
-          if ('Notification' in window && Notification.permission === 'granted') {
-            console.log('[Notifications] Showing browser notification');
-            new Notification('New Order', {
-              body: notification.message,
-              icon: '/icon.png',
-              tag: `order-${notification.order}`,
-            });
-          } else {
-            console.log(`[Notifications] Browser notification unavailable (permission: ${Notification.permission})`);
+            // Show browser notification if available
+            if ('Notification' in window && Notification.permission === 'granted') {
+              console.log('[Notifications] Showing browser notification');
+              new Notification('New Order', {
+                body: notification.message,
+                icon: '/icon.png',
+                tag: `order-${notification.order}`,
+              });
+            } else {
+              console.log(`[Notifications] Browser notification unavailable (permission: ${Notification.permission})`);
+            }
           }
 
           // Mark as read after showing notification
@@ -54,12 +57,12 @@ export function useRiderNotifications(
     [token]
   );
 
-  const pollNotifications = useCallback(async () => {
+  const pollNotifications = useCallback(async (isInitialLoad: boolean = false) => {
     if (!token || !enabled) return;
 
     try {
       const notifications = await fetchRiderNotifications(token);
-      handleNewNotifications(notifications);
+      handleNewNotifications(notifications, isInitialLoad);
     } catch (error) {
       console.error('[Notifications] Polling error:', error);
     }
@@ -79,14 +82,18 @@ export function useRiderNotifications(
         clearInterval(pollingIntervalRef.current);
         pollingIntervalRef.current = null;
       }
+      isInitializedRef.current = false;
       return;
     }
 
-    // Initial poll
-    pollNotifications();
+    // Initial poll - mark isInitialLoad=true so no sounds play for old notifications
+    if (!isInitializedRef.current) {
+      isInitializedRef.current = true;
+      pollNotifications(true);
+    }
 
-    // Set up polling interval
-    pollingIntervalRef.current = setInterval(pollNotifications, pollInterval);
+    // Set up polling interval - subsequent polls with isInitialLoad=false will play sounds
+    pollingIntervalRef.current = setInterval(() => pollNotifications(false), pollInterval);
 
     // Cleanup on unmount
     return () => {
