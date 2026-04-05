@@ -642,21 +642,27 @@ export default function RiderMapPage(): React.ReactElement {
               ) : (
                 <div className="space-y-3">
                   {filteredOrders.map((order) => (
-                    <div
+                    <Link
                       key={order.id}
-                      className="flex items-start justify-between gap-3 p-3 rounded-lg border border-slate-100 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-white/5"
+                      href={`/rider/order/${order.code}`}
+                      className="flex items-start justify-between gap-3 p-3 rounded-lg border border-slate-100 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-white/5 transition-colors"
                     >
                       <div className="flex-grow">
-                        <div className="font-semibold flex items-center gap-2">
-                          Order {order.code}
-                          <Link
-                            href={`/rider/order/${order.code}`}
-                            className="text-xs bg-teal-100 dark:bg-teal-900/30 text-teal-700 dark:text-teal-400 px-2 py-1 rounded hover:bg-teal-200 dark:hover:bg-teal-900/50 transition-colors flex items-center gap-1"
-                          >
-                            <Eye className="w-3 h-3" />
-                            View
-                          </Link>
+                        <div className="font-semibold flex items-center gap-2 justify-between">
+                          <div>
+                            Order {order.code}
+                          </div>
+                          {order.price !== null && order.price !== undefined && (
+                            <div className="text-lg font-bold text-green-600 dark:text-green-400">
+                              KES {order.price.toLocaleString()}
+                            </div>
+                          )}
                         </div>
+                        {order.user && (
+                          <div className="text-sm text-slate-600 dark:text-slate-400 mt-1 font-medium">
+                            Customer: {typeof order.user === 'string' ? order.user : (order.user.first_name || order.user.username || 'Customer')}
+                          </div>
+                        )}
                         <div className="text-xs text-slate-500 dark:text-slate-400 mt-1">
                           <div className="font-medium text-slate-700 dark:text-slate-200">
                             {order.service.name} {order.service.package && `- ${order.service.package}`}
@@ -670,9 +676,13 @@ export default function RiderMapPage(): React.ReactElement {
                         </div>
                       </div>
                       {(order.status === 'in_progress' || order.status === 'ready') && (
-                        <div className="flex flex-col gap-2">
+                        <div className="flex flex-col gap-2" onClick={(e) => e.stopPropagation()}>
                           <button
-                            onClick={() => handleOpenDetailsForm(order as any)}
+                            onClick={(e) => {
+                              e.preventDefault();
+                              e.stopPropagation();
+                              handleOpenDetailsForm(order as any);
+                            }}
                             className="px-3 py-1 text-sm rounded-full transition-all flex items-center gap-1 bg-green-600 hover:bg-green-700 text-white"
                           >
                             <span>Add Details</span>
@@ -682,7 +692,11 @@ export default function RiderMapPage(): React.ReactElement {
                           </button>
 
                           <button
-                            onClick={() => handleMarkDelivered(order.id)}
+                            onClick={(e) => {
+                              e.preventDefault();
+                              e.stopPropagation();
+                              handleMarkDelivered(order.id);
+                            }}
                             disabled={processingOrderId === order.id}
                             className={`px-3 py-1 text-sm rounded-full transition-all flex items-center gap-1 ${confirmingOrderId === order.id ? 'bg-red-600 hover:bg-red-700 text-white' : 'bg-blue-600 hover:bg-blue-700 text-white'}`}
                           >
@@ -693,7 +707,7 @@ export default function RiderMapPage(): React.ReactElement {
                           </button>
                         </div>
                       )}
-                    </div>
+                    </Link>
                   ))}
                 </div>
               )}

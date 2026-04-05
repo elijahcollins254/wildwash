@@ -10,9 +10,11 @@ export default function BottomNav() {
   const pathname = usePathname();
   const isAuthenticated = useSelector((state: RootState) => state.auth.isAuthenticated);
   const userRole = useSelector((state: RootState) => state.auth.user?.role);
+  const staffType = useSelector((state: RootState) => state.auth.user?.staff_type);
   const totalCartItems = useSelector(selectCartTotalItems);
   const isAdmin = userRole === 'admin';
   const isStaff = userRole === 'staff';
+  const isRider = userRole === 'rider';
 
   const isActive = (href: string) => pathname === href;
 
@@ -44,8 +46,8 @@ export default function BottomNav() {
           <span className="text-xs font-medium">Home</span>
         </Link>
 
-        {/* Cart - Hidden for Admin/Staff */}
-        {!isAdmin && !isStaff && (
+        {/* Cart - Hidden for Admin/Staff/Rider */}
+        {!isAdmin && !isStaff && !isRider && (
           <Link
             href="/cart"
             className={`flex flex-col items-center justify-center w-full h-full gap-1 relative transition-colors ${
@@ -98,28 +100,52 @@ export default function BottomNav() {
           </Link>
         )}
 
-        {/* Staff Panel - For Staff Users */}
-        {isStaff && (
+        {/* Rider Orders - For Rider Users (Center Button) */}
+        {isRider && (
           <Link
-            href="/staff"
+            href="/rider"
             className={`flex flex-col items-center justify-center w-full h-full gap-1 transition-colors ${
-              isActive('/staff') 
-                ? 'text-blue-600 dark:text-blue-500' 
+              isActive('/rider') 
+                ? 'text-green-600 dark:text-green-500' 
                 : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'
             }`}
-            title="Staff Panel">
+            title="Rider Orders">
             <svg
               fill="currentColor"
               viewBox="0 0 24 24"
               className="w-6 h-6">
-              <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
+              <path d="M18.92 6.01C18.72 5.42 18.16 5 17.5 5h-11c-.66 0-1.22.42-1.42 1.01L3 12v8c0 .55.45 1 1 1h1c.55 0 1-.45 1-1v-1h12v1c0 .55.45 1 1 1h1c.55 0 1-.45 1-1v-8l-2.08-5.99zM6.5 16c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2zm11 0c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2zM5 10l1.5-4.5h11L19 10H5z"/>
             </svg>
-            <span className="text-xs font-medium">Staff</span>
+            <span className="text-xs font-medium">Rides</span>
           </Link>
         )}
 
-        {/* Orders - Hidden for Admin/Staff */}
-        {isAuthenticated && !isAdmin && !isStaff && (
+        {/* Staff Panel - For Staff Users (Center Button with Role-Specific Navigation) */}
+        {isStaff && (
+          <Link
+            href={staffType === 'folder' ? '/staff/folder' : '/staff/washer'}
+            className={`flex flex-col items-center justify-center w-full h-full gap-1 transition-colors ${
+              (staffType === 'folder' ? isActive('/staff/folder') : isActive('/staff/washer'))
+                ? 'text-blue-600 dark:text-blue-500' 
+                : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'
+            }`}
+            title={staffType === 'folder' ? 'Folder Dashboard' : 'Washer Dashboard'}>
+            <svg
+              fill="currentColor"
+              viewBox="0 0 24 24"
+              className="w-6 h-6">
+              {staffType === 'folder' ? (
+                <path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/>
+              ) : (
+                <path d="M19.35 10.04C18.67 6.59 15.64 4 12 4 9.11 4 6.6 5.64 5.35 8.04 2.34 8.36 0 10.91 0 14c0 3.31 2.69 6 6 6h13c2.76 0 5-2.24 5-5 0-2.64-2.05-4.78-4.65-4.96z"/>
+              )}
+            </svg>
+            <span className="text-xs font-medium">{staffType === 'folder' ? 'Folder' : 'Washer'}</span>
+          </Link>
+        )}
+
+        {/* Orders - Hidden for Admin/Staff/Rider */}
+        {isAuthenticated && !isAdmin && !isStaff && !isRider && (
           <Link
             href="/orders"
             className={`flex flex-col items-center justify-center w-full h-full gap-1 transition-colors ${
