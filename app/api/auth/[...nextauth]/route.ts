@@ -94,6 +94,7 @@ const authOptions: NextAuthOptions = {
 
     async jwt({ token, user, account }) {
       if (user) {
+        console.log('[NextAuth.jwt] New user login, setting token data:', { userId: user.id, role: (user as any).role });
         token.id = user.id;
         (token as any).phone = (user as any).phone;
         (token as any).role = (user as any).role;
@@ -101,6 +102,7 @@ const authOptions: NextAuthOptions = {
         (token as any).staff_type = (user as any).staff_type;
         (token as any).is_staff = (user as any).is_staff;
         (token as any).is_superuser = (user as any).is_superuser;
+        (token as any).iat = Math.floor(Date.now() / 1000);  // Token creation time
       }
       return token;
     },

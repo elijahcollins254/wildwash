@@ -24,30 +24,47 @@ export default function LoginPage() {
 
   // If already authenticated, redirect based on user role
   useEffect(() => {
+    console.log('[LoginPage] Auth check:', {
+      isLoading,
+      isAuthenticated,
+      userRole: user?.role,
+    });
+    
     if (!isLoading && isAuthenticated && user) {
+      console.log('[LoginPage] User already authenticated, determining redirect...');
       const params = new URLSearchParams(window.location.search);
       const redirectUrl = params.get('redirect');
       
       // If explicit redirect URL provided, use it
       if (redirectUrl) {
+        console.log('[LoginPage] Redirect URL found:', redirectUrl);
         router.push(redirectUrl);
         return;
       }
       
       // Otherwise redirect based on user role
-      if (user.is_superuser || user.role === 'admin') {
+      const role = user.role;
+      console.log('[LoginPage] Redirecting based on role:', role);
+      
+      if (user.is_superuser || role === 'admin') {
+        console.log('[LoginPage] Redirecting to /admin');
         router.push('/admin');
-      } else if (user.role === 'washer') {
+      } else if (role === 'washer') {
+        console.log('[LoginPage] Redirecting to /staff/washer');
         router.push('/staff/washer');
-      } else if (user.role === 'folder') {
+      } else if (role === 'folder') {
+        console.log('[LoginPage] Redirecting to /staff/folder');
         router.push('/staff/folder');
-      } else if (user.role === 'rider') {
+      } else if (role === 'rider') {
+        console.log('[LoginPage] Redirecting to /rider');
         router.push('/rider');
-      } else if (user.is_staff || user.role === 'staff') {
+      } else if (user.is_staff || role === 'staff') {
         // Generic staff member
+        console.log('[LoginPage] Redirecting to /staff');
         router.push('/staff');
       } else {
         // Default redirect for regular users/customers
+        console.log('[LoginPage] Redirecting to /');
         router.push('/');
       }
     }
@@ -91,17 +108,36 @@ export default function LoginPage() {
   async function handleGoogleSignIn() {
     setError(null);
     setLoading(true);
+    console.log('[GoogleSignIn] Starting Google sign-in...');
     try {
       const result = await signIn('google', { redirect: false });
+      console.log('[GoogleSignIn] signIn result:', result);
+      
       if (result?.error) {
+        console.error('[GoogleSignIn] signIn error:', result.error);
         setError(result.error || "Google sign-in failed");
         setLoading(false);
-      } else if (result?.ok) {
+        return;
+      }
+      
+      if (result?.ok) {
+        console.log('[GoogleSignIn] Google sign-in successful, fetching session...');
         // Fetch session to get user data
         const response = await fetch('/api/auth/session');
+        console.log('[GoogleSignIn] Session response status:', response.status);
+        
+        if (!response.ok) {
+          console.error('[GoogleSignIn] Failed to fetch session:', response.statusText);
+          setError('Failed to fetch session data');
+          setLoading(false);
+          return;
+        }
+        
         const session = await response.json();
+        console.log('[GoogleSignIn] Session data:', session);
         
         if (session?.user) {
+          console.log('[GoogleSignIn] User data from session:', session.user);
           // Update Redux with user data from session
           const userData = {
             id: session.user.id,
@@ -114,16 +150,31 @@ export default function LoginPage() {
             staff_type: session.user.staff_type,
           };
           
+          console.log('[GoogleSignIn] Dispatching setAuth with userData:', userData);
           dispatch(setAuth({
             user: userData,
             token: session.user.token,
           }));
           
+          console.log('[GoogleSignIn] After dispatch, current Redux state:');
+          console.log('  isAuthenticated:', isAuthenticated);
+          console.log('  user:', user);
+          
           // Redirect to home - the useEffect will handle role-based redirect
+          console.log('[GoogleSignIn] Redirecting to home...');
           router.push('/');
+        } else {
+          console.error('[GoogleSignIn] No user data in session');
+          setError('No user data received from Google');
+          setLoading(false);
         }
+      } else {
+        console.warn('[GoogleSignIn] signIn result not ok:', result);
+        setError('Google sign-in failed - please try again');
+        setLoading(false);
       }
     } catch (err: any) {
+      console.error('[GoogleSignIn] Catch error:', err);
       setError(err.message || "Google sign-in failed");
       setLoading(false);
     }
@@ -211,7 +262,13 @@ export default function LoginPage() {
             </Link>
           </div>
 
-          {error && <div className="text-sm text-red-600 dark:text-red-400">{error}</div>}
+          {error && (
+            <div className="text-sm text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/20 p-3 rounded-md">
+              <p className="font-semibold">Error:</p>
+              <p>{error}</p>
+              <p className="text-xs mt-1">Check browser console (F12) for more details</p>
+            </div>
+          )}
 
           <div className="flex gap-3">
             <button

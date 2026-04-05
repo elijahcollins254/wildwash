@@ -10,7 +10,11 @@ export const AUTH_STORAGE_KEY = 'wildwash_auth_state';
 export const persistAuthState = (user: User, token: string) => {
   if (typeof window !== 'undefined') {
     const state: StoredAuthState = { user, token };
+    console.log('[persistAuthState] Writing to localStorage:', { key: AUTH_STORAGE_KEY, userId: user.id, tokenLength: token.length });
     localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(state));
+    console.log('[persistAuthState] Successfully written to localStorage');
+  } else {
+    console.warn('[persistAuthState] Window is undefined, cannot persist');
   }
 };
 
@@ -39,7 +43,7 @@ export const getStoredAuthState = (): StoredAuthState | null => {
 };
 
 export const isValidAuthState = (state: StoredAuthState): boolean => {
-  return (
+  const isValid = (
     !!state &&
     typeof state === 'object' &&
     !!state.user &&
@@ -47,4 +51,12 @@ export const isValidAuthState = (state: StoredAuthState): boolean => {
     typeof state.token === 'string' &&
     state.token.length > 0
   );
+  
+  console.log('[isValidAuthState] Validation result:', { isValid, hasState: !!state, hasUser: !!state?.user, tokenLength: state?.token?.length });
+  
+  if (!isValid) {
+    console.warn('[isValidAuthState] Auth state validation failed:', state);
+  }
+  
+  return isValid;
 };

@@ -29,16 +29,21 @@ const authSlice = createSlice({
 	initialState,
 	reducers: {
 		setAuth: (state, action: PayloadAction<SetAuthPayload>) => {
+			console.log('[authSlice.setAuth] Setting auth state:', { userId: action.payload.user.id, hasToken: !!action.payload.token });
 			state.isAuthenticated = true;
 			state.user = action.payload.user;
+			console.log('[authSlice.setAuth] Persisting auth state to localStorage');
 			persistAuthState(action.payload.user, action.payload.token);
+			console.log('[authSlice.setAuth] Auth state persisted');
 		},
 		logout: state => {
+			console.log('[authSlice.logout] Logging out user');
 			state.isAuthenticated = false;
 			state.user = null;
 			clearAuthState();
 		},
 		finishInitialLoad: state => {
+			console.log('[authSlice.finishInitialLoad] Initial load finished');
 			state.isLoading = false;
 		},
 	},

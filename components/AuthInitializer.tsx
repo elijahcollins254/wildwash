@@ -11,30 +11,40 @@ export default function AuthInitializer() {
 
   useEffect(() => {
     const initializeAuth = async () => {
+      console.log('[AuthInitializer] Initializing auth...');
       const storedState = getStoredAuthState();
+      console.log('[AuthInitializer] Stored state:', storedState ? { user: storedState.user.id, hasToken: !!storedState.token } : null);
 
       if (storedState && isValidAuthState(storedState)) {
+        console.log('[AuthInitializer] Valid stored state found, validating token...');
         try {
           // Attempt to validate the token
+          console.log('[AuthInitializer] Calling validateToken()');
           const isValid = await validateToken();
+          console.log('[AuthInitializer] Token validation result:', isValid);
           
           if (isValid) {
+            console.log('[AuthInitializer] Token is valid, setting auth');
             // Set the authentication state in Redux
             dispatch(setAuth({ 
               user: storedState.user, 
               token: storedState.token 
             }));
           } else {
+            console.warn('[AuthInitializer] Token validation failed, logging out');
             // If token is invalid, clear everything
             dispatch(logout());
           }
         } catch (error) {
-          console.error('Error validating token:', error);
+          console.error('[AuthInitializer] Error validating token:', error);
           // On network error, we should logout to be safe
           dispatch(logout());
         }
+      } else {
+        console.log('[AuthInitializer] No valid stored state found');
       }
 
+      console.log('[AuthInitializer] Finishing initial load');
       dispatch(finishInitialLoad());
     };
 
@@ -46,6 +56,7 @@ export default function AuthInitializer() {
 
     // Re-initialize on storage changes from other tabs/windows
     const handleStorageChange = (event: StorageEvent) => {
+      console.log('[AuthInitializer] Storage changed:', event.key);
       if (event.key === AUTH_STORAGE_KEY) {
         initializeAuth();
       }
@@ -53,6 +64,7 @@ export default function AuthInitializer() {
 
     // Re-initialize on window focus
     const handleFocus = () => {
+      console.log('[AuthInitializer] Window focused, re-validating auth');
       initializeAuth();
     };
 

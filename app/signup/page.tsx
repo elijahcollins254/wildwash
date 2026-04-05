@@ -156,17 +156,36 @@ export default function SignupPage() {
   async function handleGoogleSignUp() {
     setError(null);
     setLoading(true);
+    console.log('[GoogleSignUp] Starting Google sign-up...');
     try {
       const result = await signIn('google', { redirect: false });
+      console.log('[GoogleSignUp] signIn result:', result);
+      
       if (result?.error) {
+        console.error('[GoogleSignUp] signIn error:', result.error);
         setError(result.error || "Google sign-up failed");
         setLoading(false);
-      } else if (result?.ok) {
+        return;
+      }
+      
+      if (result?.ok) {
+        console.log('[GoogleSignUp] Google sign-up successful, fetching session...');
         // Fetch session to get user data
         const response = await fetch('/api/auth/session');
+        console.log('[GoogleSignUp] Session response status:', response.status);
+        
+        if (!response.ok) {
+          console.error('[GoogleSignUp] Failed to fetch session:', response.statusText);
+          setError('Failed to fetch session data');
+          setLoading(false);
+          return;
+        }
+        
         const session = await response.json();
+        console.log('[GoogleSignUp] Session data:', session);
         
         if (session?.user) {
+          console.log('[GoogleSignUp] User data from session:', session.user);
           // Update Redux with user data from session
           const userData = {
             id: session.user.id,
@@ -179,16 +198,27 @@ export default function SignupPage() {
             staff_type: session.user.staff_type,
           };
           
+          console.log('[GoogleSignUp] Dispatching setAuth with userData:', userData);
           dispatch(setAuth({
             user: userData,
             token: session.user.token,
           }));
           
+          console.log('[GoogleSignUp] Redirecting to home...');
           // Redirect to home - the app will handle role-based redirect
           router.push('/');
+        } else {
+          console.error('[GoogleSignUp] No user data in session');
+          setError('No user data received from Google');
+          setLoading(false);
         }
+      } else {
+        console.warn('[GoogleSignUp] signIn result not ok:', result);
+        setError('Google sign-up failed - please try again');
+        setLoading(false);
       }
     } catch (err: any) {
+      console.error('[GoogleSignUp] Catch error:', err);
       setError(err.message || "Google sign-up failed");
       setLoading(false);
     }
@@ -328,7 +358,13 @@ export default function SignupPage() {
             {errors.confirmPassword && <p className="mt-1 text-xs text-red-600 dark:text-red-400">{errors.confirmPassword}</p>}
           </div>
 
-          {error && <div className="text-sm text-red-600 dark:text-red-400">{error}</div>}
+          {error && (
+            <div className="text-sm text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/20 p-3 rounded-md">
+              <p className="font-semibold">Error:</p>
+              <p>{error}</p>
+              <p className="text-xs mt-1">Check browser console (F12) for more details</p>
+            </div>
+          )}
 
           <div className="flex gap-3">
             <button

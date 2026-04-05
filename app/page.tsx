@@ -86,20 +86,38 @@ export default function HomePage() {
 
   // Redirect based on user role after Google sign-in
   useEffect(() => {
+    console.log('[HomePage] Auth state check:', {
+      isLoading,
+      isAuthenticated,
+      userRole: user?.role,
+      user: user ? { id: user.id, username: user.username, role: user.role } : null,
+    });
+    
     if (!isLoading && isAuthenticated && user) {
+      console.log('[HomePage] User is authenticated, role:', user.role);
       const role = user.role;
+      
       if (role === 'admin') {
+        console.log('[HomePage] Redirecting admin to /admin');
         router.push('/admin');
       } else if (role === 'washer') {
+        console.log('[HomePage] Redirecting washer to /staff/washer');
         router.push('/staff/washer');
       } else if (role === 'folder') {
+        console.log('[HomePage] Redirecting folder to /staff/folder');
         router.push('/staff/folder');
       } else if (role === 'rider') {
+        console.log('[HomePage] Redirecting rider to /rider');
         router.push('/rider');
       } else if (role === 'staff') {
+        console.log('[HomePage] Redirecting staff to /staff');
         router.push('/staff');
+      } else {
+        console.log('[HomePage] User is customer, staying on home');
       }
       // For customers, stay on home page
+    } else if (!isLoading && !isAuthenticated) {
+      console.log('[HomePage] User is not authenticated');
     }
   }, [isAuthenticated, isLoading, user, router]);
 
