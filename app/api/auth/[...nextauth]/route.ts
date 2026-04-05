@@ -75,10 +75,12 @@ const authOptions: NextAuthOptions = {
 
           const data = await res.json();
           user.id = String(data.user.id);
-          user.phone = data.user.phone;
-          user.role = data.user.role;
+          (user as any).phone = data.user.phone;
+          (user as any).role = data.user.role;
           (user as any).token = data.token;
           (user as any).staff_type = data.user.staff_type;
+          (user as any).is_staff = data.user.is_staff;
+          (user as any).is_superuser = data.user.is_superuser;
           
           return true;
         } catch (error) {
@@ -93,12 +95,12 @@ const authOptions: NextAuthOptions = {
     async jwt({ token, user, account }) {
       if (user) {
         token.id = user.id;
-        token.phone = (user as any).phone;
-        token.role = (user as any).role;
-        token.token = (user as any).token;
-        token.staff_type = (user as any).staff_type;
-        token.is_staff = (user as any).is_staff;
-        token.is_superuser = (user as any).is_superuser;
+        (token as any).phone = (user as any).phone;
+        (token as any).role = (user as any).role;
+        (token as any).token = (user as any).token;
+        (token as any).staff_type = (user as any).staff_type;
+        (token as any).is_staff = (user as any).is_staff;
+        (token as any).is_superuser = (user as any).is_superuser;
       }
       return token;
     },
@@ -106,10 +108,10 @@ const authOptions: NextAuthOptions = {
     async session({ session, token }) {
       if (session.user) {
         session.user.id = token.id as string;
-        (session.user as any).phone = token.phone;
-        (session.user as any).role = token.role;
-        (session.user as any).token = token.token;
-        (session.user as any).staff_type = token.staff_type;
+        (session.user as any).phone = (token as any).phone;
+        (session.user as any).role = (token as any).role;
+        (session.user as any).token = (token as any).token;
+        (session.user as any).staff_type = (token as any).staff_type;
         (session.user as any).is_staff = (token as any).is_staff;
         (session.user as any).is_superuser = (token as any).is_superuser;
       }
