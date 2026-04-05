@@ -19,7 +19,7 @@ export const validateToken = async (): Promise<boolean> => {
         Authorization: `Token ${authState.token}`
       }
     });
-    console.log('[validateToken] Token validation successful:', { userId: response.data.id, email: response.data.email });
+    console.log('[validateToken] Token validation successful:', { userId: (response.data as any).id, email: (response.data as any).email });
     return true;
   } catch (error: any) {
     console.error('[validateToken] Token validation failed:', {
