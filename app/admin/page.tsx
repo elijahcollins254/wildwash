@@ -78,6 +78,7 @@ type User = {
   location?: string;
   is_staff?: boolean;
   is_superuser?: boolean;
+  is_active?: boolean;
   date_joined?: string;
   created_at?: string;
   raw?: RawUser;
