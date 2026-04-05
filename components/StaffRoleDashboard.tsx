@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useState, useCallback } from "react";
+import React, { useEffect, useState, useCallback, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import Link from 'next/link';
 import { client } from '@/lib/api/client';
@@ -222,25 +222,27 @@ export default function StaffRoleDashboard({ staffRole }: StaffRoleDashboardProp
     return (o.rider ?? '').toString();
   }))).filter(Boolean);
 
-  const filteredOrders = orders.filter(o => {
-    if (statusFilter && String(o.status ?? '').toLowerCase() !== statusFilter.toLowerCase()) return false;
-    if (riderFilter) {
-      const assignedTo = o.order_type === 'manual' 
-        ? String(o.created_by ?? '').toLowerCase() 
-        : String(o.rider ?? '').toLowerCase();
-      if (assignedTo !== riderFilter.toLowerCase()) return false;
-    }
-    if (searchQuery) {
-      const q = searchQuery.toLowerCase();
-      const matchesCode = String(o.code ?? '').toLowerCase().includes(q);
-      const assignedTo = o.order_type === 'manual'
-        ? String(o.created_by ?? o.customer_name ?? '')
-        : String(o.user ?? o.rider ?? '');
-      const matchesUser = assignedTo.toLowerCase().includes(q);
-      if (!matchesCode && !matchesUser) return false;
-    }
-    return true;
-  });
+  const filteredOrders = useMemo(() => {
+    return orders.filter(o => {
+      if (statusFilter && String(o.status ?? '').toLowerCase() !== statusFilter.toLowerCase()) return false;
+      if (riderFilter) {
+        const assignedTo = o.order_type === 'manual' 
+          ? String(o.created_by ?? '').toLowerCase() 
+          : String(o.rider ?? '').toLowerCase();
+        if (assignedTo !== riderFilter.toLowerCase()) return false;
+      }
+      if (searchQuery) {
+        const q = searchQuery.toLowerCase();
+        const matchesCode = String(o.code ?? '').toLowerCase().includes(q);
+        const assignedTo = o.order_type === 'manual'
+          ? String(o.created_by ?? o.customer_name ?? '')
+          : String(o.user ?? o.rider ?? '');
+        const matchesUser = assignedTo.toLowerCase().includes(q);
+        if (!matchesCode && !matchesUser) return false;
+      }
+      return true;
+    });
+  }, [orders, statusFilter, riderFilter, searchQuery]);
 
   const getColorClasses = (colorName: string) => {
     const colors: Record<string, Record<string, string>> = {
