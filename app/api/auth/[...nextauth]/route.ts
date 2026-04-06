@@ -24,6 +24,7 @@ const authOptions: NextAuthOptions = {
         }
 
         try {
+          console.log('[NextAuth.Credentials] Authenticating with phone:', credentials.phoneNumber);
           const res = await fetch(`${API_BASE}/users/login/`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -39,6 +40,8 @@ const authOptions: NextAuthOptions = {
           }
 
           const data = await res.json();
+          console.log('[NextAuth.Credentials] Login successful, userId:', data.user.id, 'token:', data.token.substring(0, 20) + '...');
+          
           return {
             id: String(data.user.id),
             email: data.user.email || data.user.phone,
@@ -48,6 +51,7 @@ const authOptions: NextAuthOptions = {
             token: data.token,
           };
         } catch (error: any) {
+          console.error('[NextAuth.Credentials] Error:', error.message);
           throw new Error(error.message || 'Authentication failed');
         }
       },
@@ -58,6 +62,7 @@ const authOptions: NextAuthOptions = {
       // Handle Google OAuth login
       if (account?.provider === 'google' && profile) {
         try {
+          console.log('[NextAuth.signIn] Google OAuth detected, email:', profile.email);
           const res = await fetch(`${API_BASE}/users/google-auth/`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -69,11 +74,14 @@ const authOptions: NextAuthOptions = {
           });
 
           if (!res.ok) {
-            console.error('Google OAuth backend error:', await res.json());
+            const errorData = await res.json();
+            console.error('[NextAuth.signIn] Google OAuth backend error:', errorData);
             return false;
           }
 
           const data = await res.json();
+          console.log('[NextAuth.signIn] Google OAuth successful, userId:', data.user.id, 'token:', data.token.substring(0, 20) + '...');
+          
           user.id = String(data.user.id);
           (user as any).phone = data.user.phone;
           (user as any).role = data.user.role;
@@ -84,7 +92,7 @@ const authOptions: NextAuthOptions = {
           
           return true;
         } catch (error) {
-          console.error('Google OAuth error:', error);
+          console.error('[NextAuth.signIn] Google OAuth error:', error);
           return false;
         }
       }

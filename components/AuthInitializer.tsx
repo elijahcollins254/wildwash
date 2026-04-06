@@ -37,8 +37,13 @@ export default function AuthInitializer() {
           }
         } catch (error) {
           console.error('[AuthInitializer] Error validating token:', error);
-          // On network error, we should logout to be safe
-          dispatch(logout());
+          // On network error, restore auth state instead of logging out
+          // This prevents temporary network issues from logging out users
+          console.log('[AuthInitializer] Restoring auth state after validation error');
+          dispatch(setAuth({
+            user: storedState.user,
+            token: storedState.token
+          }));
         }
       } else {
         console.log('[AuthInitializer] No valid stored state found');
@@ -48,11 +53,11 @@ export default function AuthInitializer() {
       dispatch(finishInitialLoad());
     };
 
-    // Initialize immediately
+    // Initialize immediately on first load
     initializeAuth();
 
-    // Set up periodic token validation (every 5 minutes)
-    const validationInterval = setInterval(initializeAuth, 5 * 60 * 1000);
+    // Set up periodic token validation (every 30 minutes instead of 5)
+    const validationInterval = setInterval(initializeAuth, 30 * 60 * 1000);
 
     // Re-initialize on storage changes from other tabs/windows
     const handleStorageChange = (event: StorageEvent) => {
@@ -62,10 +67,13 @@ export default function AuthInitializer() {
       }
     };
 
-    // Re-initialize on window focus
+    // Re-initialize on window focus (but with debounce to reduce calls)
+    let focusTimeout: NodeJS.Timeout;
     const handleFocus = () => {
-      console.log('[AuthInitializer] Window focused, re-validating auth');
-      initializeAuth();
+      console.log('[AuthInitializer] Window focused');
+      clearTimeout(focusTimeout);
+      // Debounce focus events to avoid rapid re-initialization
+      focusTimeout = setTimeout(initializeAuth, 1000);
     };
 
     window.addEventListener('storage', handleStorageChange);
@@ -73,6 +81,7 @@ export default function AuthInitializer() {
     
     return () => {
       clearInterval(validationInterval);
+      clearTimeout(focusTimeout);
       window.removeEventListener('storage', handleStorageChange);
       window.removeEventListener('focus', handleFocus);
     };
