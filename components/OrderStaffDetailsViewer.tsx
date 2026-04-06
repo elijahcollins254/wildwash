@@ -55,6 +55,13 @@ function OrderStaffDetailsViewer({
         setStaffDetails([]);
         return;
       }
+
+      console.log('[StaffDetailsViewer] Order data received:', {
+        washer: { items: orderData.washer_items, weight: orderData.washer_weight, notes: orderData.washer_notes, price: orderData.washer_price },
+        folder: { items: orderData.folder_items, weight: orderData.folder_weight, notes: orderData.folder_notes, price: orderData.folder_price },
+        fumigator: { items: orderData.fumigator_items, weight: orderData.fumigator_weight, notes: orderData.fumigator_notes, price: orderData.fumigator_price },
+        rider: { items: orderData.rider_items, weight: orderData.rider_weight, notes: orderData.rider_notes, price: orderData.rider_price },
+      });
       
       const details = extractStaffDetails(orderData);
       setStaffDetails(details);
@@ -72,10 +79,79 @@ function OrderStaffDetailsViewer({
       return orderData.staff_input_details;
     }
 
-    // Otherwise extract from individual fields
     const details: StaffDetail[] = [];
 
-    if (orderData.washer_items !== undefined || orderData.washer_weight || orderData.washer_notes) {
+    // First, try to extract from timeline details_updated events (most reliable)
+    if (orderData.timeline && Array.isArray(orderData.timeline)) {
+      const detailsUpdatedEvents = orderData.timeline.filter(
+        (event: any) => event.event_type === 'details_updated'
+      );
+
+      // Map actor usernames to their roles based on staff_name fields
+      const actorToRole: Record<string, string> = {};
+      
+      // Try to map actors to roles by looking at all timeline events
+      orderData.timeline.forEach((event: any) => {
+        if (event.event_type === 'status_changed' && event.data?.new) {
+          // Infer role from status changes
+          const newStatus = String(event.data.new).toLowerCase();
+          if (newStatus === 'washed' && !actorToRole[event.actor]) {
+            actorToRole[event.actor] = 'Washer';
+          } else if (newStatus === 'ready' && !actorToRole[event.actor]) {
+            actorToRole[event.actor] = 'Folder';
+          } else if (newStatus === 'fumigated' && !actorToRole[event.actor]) {
+            actorToRole[event.actor] = 'Fumigator';
+          } else if (newStatus === 'delivered' && !actorToRole[event.actor]) {
+            actorToRole[event.actor] = 'Rider';
+          }
+        }
+      });
+
+      // Process each details_updated event
+      detailsUpdatedEvents.forEach((event: any) => {
+        const actor = event.actor;
+        const role = actorToRole[actor] || 'Staff';
+
+        // Extract all the changed fields from the event data
+        const detail: StaffDetail = {
+          staff_member: actor,
+          staff_role: role,
+          recorded_at: event.created_at,
+        };
+
+        // Get the new values from the event data
+        if (event.data?.quantity?.new !== undefined && event.data.quantity.new !== null) {
+          detail.items = Number(event.data.quantity.new);
+        }
+        if (event.data?.weight_kg?.new !== undefined && event.data.weight_kg.new !== null) {
+          detail.weight_kg = Number(event.data.weight_kg.new);
+        }
+        if (event.data?.description?.new) {
+          detail.description = String(event.data.description.new);
+        }
+        if (event.data?.actual_price?.new !== undefined && event.data.actual_price.new !== null) {
+          detail.actual_price = Number(event.data.actual_price.new);
+        }
+
+        // Only add if there's actual data
+        if (detail.items !== undefined || detail.weight_kg !== undefined || detail.description || detail.actual_price !== undefined) {
+          details.push(detail);
+        }
+      });
+
+      if (details.length > 0) {
+        console.log('[StaffDetailsViewer] Details extracted from timeline:', details);
+        return details;
+      }
+    }
+
+    // Fallback: Extract from individual role-specific fields (for legacy/direct API calls)
+    const hasAnyValue = (items: any, weight: any, notes: any, price: any): boolean => {
+      return items != null || weight != null || notes != null || price != null;
+    };
+
+    // Washer details
+    if (hasAnyValue(orderData.washer_items, orderData.washer_weight, orderData.washer_notes, orderData.washer_price)) {
       details.push({
         staff_member: orderData.washer_name || "Washer",
         staff_role: "Washer",
@@ -88,7 +164,8 @@ function OrderStaffDetailsViewer({
       });
     }
 
-    if (orderData.folder_items !== undefined || orderData.folder_weight || orderData.folder_notes) {
+    // Folder details
+    if (hasAnyValue(orderData.folder_items, orderData.folder_weight, orderData.folder_notes, orderData.folder_price)) {
       details.push({
         staff_member: orderData.folder_name || "Folder",
         staff_role: "Folder",
@@ -101,7 +178,8 @@ function OrderStaffDetailsViewer({
       });
     }
 
-    if (orderData.fumigator_items !== undefined || orderData.fumigator_weight || orderData.fumigator_notes) {
+    // Fumigator details
+    if (hasAnyValue(orderData.fumigator_items, orderData.fumigator_weight, orderData.fumigator_notes, orderData.fumigator_price)) {
       details.push({
         staff_member: orderData.fumigator_name || "Fumigator",
         staff_role: "Fumigator",
@@ -114,7 +192,8 @@ function OrderStaffDetailsViewer({
       });
     }
 
-    if (orderData.rider_items !== undefined || orderData.rider_weight || orderData.rider_notes) {
+    // Rider details
+    if (hasAnyValue(orderData.rider_items, orderData.rider_weight, orderData.rider_notes, orderData.rider_price)) {
       details.push({
         staff_member: orderData.rider_name || "Rider",
         staff_role: "Rider",

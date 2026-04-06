@@ -679,36 +679,70 @@ export default function StaffRoleDashboard({ staffRole }: StaffRoleDashboardProp
                     try {
                       const payload: any = {
                         status: 'in_progress',
+                        staff_role: staffRole, // Include staff role so backend knows which role made the change
                       };
                       
+                      // Map generic field names to role-specific field names
+                      const roleFieldMap: Record<string, { price: string; items: string; notes: string; weight: string }> = {
+                        washer: { price: 'washer_price', items: 'washer_items', notes: 'washer_notes', weight: 'washer_weight' },
+                        folder: { price: 'folder_price', items: 'folder_items', notes: 'folder_notes', weight: 'folder_weight' },
+                        fumigator: { price: 'fumigator_price', items: 'fumigator_items', notes: 'fumigator_notes', weight: 'fumigator_weight' },
+                        staff: { price: 'staff_price', items: 'staff_items', notes: 'staff_notes', weight: 'staff_weight' },
+                      };
+                      
+                      const fieldMap = roleFieldMap[staffRole];
+                      
                       if (detailsForm.items !== undefined && detailsForm.items) {
-                        payload.quantity = parseInt(String(detailsForm.items), 10);
+                        payload[fieldMap.items] = parseInt(String(detailsForm.items), 10);
                       }
                       
                       if (detailsForm.weight_kg !== undefined && detailsForm.weight_kg !== '' && detailsForm.weight_kg !== null) {
                         const weightNum = parseFloat(String(detailsForm.weight_kg));
                         if (!isNaN(weightNum)) {
-                          payload.weight_kg = weightNum;
+                          payload[fieldMap.weight] = weightNum;
                         }
                       }
                       
                       if (detailsForm.pickup_notes !== undefined && detailsForm.pickup_notes) {
-                        payload.description = String(detailsForm.pickup_notes);
+                        payload[fieldMap.notes] = String(detailsForm.pickup_notes);
                       }
                       
                       if (detailsForm.actual_price !== undefined && detailsForm.actual_price !== '' && detailsForm.actual_price !== null) {
                         const priceNum = parseFloat(String(detailsForm.actual_price));
                         if (!isNaN(priceNum)) {
-                          payload.actual_price = priceNum;
+                          payload[fieldMap.price] = priceNum;
                         }
                       }
 
                       console.log('[SaveDetails] Sending payload:', payload);
-                      await client.patch(`/orders/update/?id=${detailsFormOrderId}`, payload);
+                      
+                      // Store original order for rollback
+                      const originalOrder = orders.find(o => o.id === detailsFormOrderId);
+                      
+                      // Optimistically update the order immediately
+                      setOrders(prevOrders =>
+                        prevOrders.map(order =>
+                          order.id === detailsFormOrderId
+                            ? {
+                                ...order,
+                                status: payload.status,
+                                [fieldMap.items]: payload[fieldMap.items] ?? order[fieldMap.items],
+                                [fieldMap.weight]: payload[fieldMap.weight] ?? order[fieldMap.weight],
+                                [fieldMap.notes]: payload[fieldMap.notes] ?? order[fieldMap.notes],
+                                [fieldMap.price]: payload[fieldMap.price] ?? order[fieldMap.price],
+                              }
+                            : order
+                        )
+                      );
+                      
                       setDetailsFormOrderId(null);
-                      await fetchOrders();
+                      
+                      // Make the API call
+                      await client.patch(`/orders/update/?id=${detailsFormOrderId}`, payload);
                     } catch (err: any) {
                       console.error('Failed to save details:', err);
+                      // Revert to original data on error
+                      await fetchOrders();
                       alert(err?.message || 'Failed to save details');
                     }
                   }}
