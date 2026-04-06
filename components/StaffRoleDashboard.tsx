@@ -364,7 +364,11 @@ export default function StaffRoleDashboard({ staffRole }: StaffRoleDashboardProp
                 </tr>
               </thead>
               <tbody>
-                {sortByUrgency(filteredOrders).slice(0, 200).map((o) => {
+                {sortByUrgency(filteredOrders).sort((a, b) => {
+                  const dateA = a.created_at ? new Date(a.created_at).getTime() : 0;
+                  const dateB = b.created_at ? new Date(b.created_at).getTime() : 0;
+                  return dateB - dateA; // Latest first
+                }).slice(0, 200).map((o) => {
                   const urgency = calculateOrderUrgency(o);
                   const label = getUrgencyLabel(urgency.score);
                   return (
@@ -384,10 +388,21 @@ export default function StaffRoleDashboard({ staffRole }: StaffRoleDashboardProp
                               <button
                                 onClick={async () => {
                                   try {
+                                    // Optimistically update the order status immediately
+                                    setOrders(prevOrders => 
+                                      prevOrders.map(order => 
+                                        order.id === o.id 
+                                          ? { ...order, status: config.targetStatus }
+                                          : order
+                                      )
+                                    );
+                                    
+                                    // Then make the API call
                                     await client.patch(`/orders/update/?id=${o.id}`, { status: config.targetStatus });
-                                    await fetchOrders();
                                   } catch (err: any) {
                                     console.error('Failed to update status:', err);
+                                    // Revert on error by fetching fresh data
+                                    await fetchOrders();
                                     alert(err?.message || 'Failed to update status');
                                   }
                                 }}
@@ -665,11 +680,30 @@ export default function StaffRoleDashboard({ staffRole }: StaffRoleDashboardProp
                       const payload: any = {
                         status: 'in_progress',
                       };
-                      if (detailsForm.items !== undefined) payload.quantity = detailsForm.items;
-                      if (detailsForm.weight_kg !== undefined && detailsForm.weight_kg !== '') payload.weight_kg = Number(detailsForm.weight_kg);
-                      if (detailsForm.pickup_notes !== undefined) payload.description = detailsForm.pickup_notes;
-                      if (detailsForm.actual_price !== undefined && detailsForm.actual_price !== '') payload.actual_price = Number(detailsForm.actual_price);
+                      
+                      if (detailsForm.items !== undefined && detailsForm.items) {
+                        payload.quantity = parseInt(String(detailsForm.items), 10);
+                      }
+                      
+                      if (detailsForm.weight_kg !== undefined && detailsForm.weight_kg !== '' && detailsForm.weight_kg !== null) {
+                        const weightNum = parseFloat(String(detailsForm.weight_kg));
+                        if (!isNaN(weightNum)) {
+                          payload.weight_kg = weightNum;
+                        }
+                      }
+                      
+                      if (detailsForm.pickup_notes !== undefined && detailsForm.pickup_notes) {
+                        payload.description = String(detailsForm.pickup_notes);
+                      }
+                      
+                      if (detailsForm.actual_price !== undefined && detailsForm.actual_price !== '' && detailsForm.actual_price !== null) {
+                        const priceNum = parseFloat(String(detailsForm.actual_price));
+                        if (!isNaN(priceNum)) {
+                          payload.actual_price = priceNum;
+                        }
+                      }
 
+                      console.log('[SaveDetails] Sending payload:', payload);
                       await client.patch(`/orders/update/?id=${detailsFormOrderId}`, payload);
                       setDetailsFormOrderId(null);
                       await fetchOrders();
