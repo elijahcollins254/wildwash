@@ -3,7 +3,7 @@
 import React, { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useDispatch } from "react-redux";
-import { phonePasswordLogin } from '@/lib/api/unifiedAuthHelpers';
+import { phonePasswordLogin, googleLogin } from '@/lib/api/unifiedAuthHelpers';
 import Link from "next/link";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_BASE || '';
@@ -167,70 +167,22 @@ export default function SignupPage() {
     setError(null);
     setLoading(true);
     console.log('[GoogleSignUp] Starting Google sign-up...');
-    try {
-      const result = await signIn('google', { redirect: false });
-      console.log('[GoogleSignUp] signIn result:', result);
-      
-      if (result?.error) {
-        console.error('[GoogleSignUp] signIn error:', result.error);
-        setError(result.error || "Google sign-up failed");
-        setLoading(false);
-        return;
-      }
-      
-      if (result?.ok) {
-        console.log('[GoogleSignUp] Google sign-up successful, fetching session...');
-        // Fetch session to get user data
-        const response = await fetch('/api/auth/session');
-        console.log('[GoogleSignUp] Session response status:', response.status);
-        
-        if (!response.ok) {
-          console.error('[GoogleSignUp] Failed to fetch session:', response.statusText);
-          setError('Failed to fetch session data');
-          setLoading(false);
-          return;
-        }
-        
-        const session = await response.json();
-        console.log('[GoogleSignUp] Session data:', session);
-        
-        if (session?.user) {
-          console.log('[GoogleSignUp] User data from session:', session.user);
-          // Update Redux with user data from session
-          const userData = {
-            id: session.user.id,
-            email: session.user.email,
-            username: session.user.name,
-            phone: session.user.phone,
-            role: session.user.role,
-            is_staff: session.user.role === 'washer' || session.user.role === 'folder',
-            is_superuser: session.user.role === 'admin',
-            staff_type: session.user.staff_type,
-          };
-          
-          console.log('[GoogleSignUp] Dispatching setAuth with userData:', userData);
-          dispatch(setAuth({
-            user: userData,
-            token: session.user.token,
-          }));
-          
-          console.log('[GoogleSignUp] Redirecting to home...');
-          // Redirect to home - the app will handle role-based redirect
-          router.push('/');
-        } else {
-          console.error('[GoogleSignUp] No user data in session');
-          setError('No user data received from Google');
-          setLoading(false);
-        }
-      } else {
-        console.warn('[GoogleSignUp] signIn result not ok:', result);
-        setError('Google sign-up failed - please try again');
-        setLoading(false);
-      }
-    } catch (err: any) {
-      console.error('[GoogleSignUp] Catch error:', err);
-      setError(err.message || "Google sign-up failed");
+    
+    // Use unified auth for Google signup
+    const result = await googleLogin(dispatch);
+    
+    if (!result.success) {
+      console.error('[GoogleSignUp] Google signup failed:', result.error);
+      setError(result.error || "Google sign-up failed");
       setLoading(false);
+      return;
+    }
+    
+    console.log('[GoogleSignUp] Google signup successful, redirecting to:', result.redirectUrl);
+    if (result.redirectUrl) {
+      router.push(result.redirectUrl);
+    } else {
+      router.push('/');
     }
   }
 

@@ -175,13 +175,18 @@ export default function Page() {
     .then(res => res.json())
     .then(data => {
       setUserProfile(data);
-      // Prefill phone number if available
+      // Prefill form fields from saved profile data
       if (data?.phone && !pickupContact) {
         setPickupContact(data.phone);
       }
       // Prefill pickup address if available
       if (data?.pickup_address && !pickupBuilding) {
         setPickupBuilding(data.pickup_address);
+      }
+      // Prefill dropoff address from location if available and different from pickup
+      if (data?.location && !dropoffAddress && data.location !== data?.pickup_address) {
+        setDropoffAddress(data.location);
+        setSameAsPickup(false);
       }
     })
     .catch(err => {
@@ -247,6 +252,77 @@ export default function Page() {
     }
   }
 
+  async function saveBookingDetailsToProfile() {
+    /**
+     * Save the booking details to the user's profile so they don't have to
+     * re-enter this information on future bookings or in their profile
+     */
+    try {
+      const authState = getStoredAuthState();
+      if (!authState?.token) {
+        console.warn("No auth token, skipping profile update");
+        return;
+      }
+
+      const csrf = getCookie("csrftoken");
+      
+      // Build update payload with non-empty fields only
+      const profileUpdate: Record<string, any> = {};
+      
+      // Save phone number if provided
+      if (pickupContact.trim()) {
+        profileUpdate.phone = pickupContact;
+      }
+      
+      // Save pickup address (building/location)
+      if (pickupBuilding.trim()) {
+        profileUpdate.pickup_address = pickupBuilding;
+      }
+      
+      // Save dropoff address as the location if it's different from pickup
+      if (!sameAsPickup && dropoffAddress.trim()) {
+        profileUpdate.location = dropoffAddress;
+      } else if (sameAsPickup && pickupBuilding.trim()) {
+        // If same as pickup, also set location to pickup building
+        profileUpdate.location = pickupBuilding;
+      }
+
+      // Only make the request if we have updates
+      if (Object.keys(profileUpdate).length === 0) {
+        console.warn("No profile fields to update");
+        return;
+      }
+
+      console.log("Updating user profile with booking details:", profileUpdate);
+
+      const res = await fetch(`${API_BASE}/users/me/`, {
+        method: "PATCH",
+        mode: "cors",
+        credentials: "include",
+        headers: {
+          "Content-Type": "application/json",
+          ...(csrf ? { "X-CSRFToken": csrf } : {}),
+          "Authorization": `Token ${authState.token}`,
+        },
+        body: JSON.stringify(profileUpdate),
+      });
+
+      if (!res.ok) {
+        const errorData = await res.json().catch(() => ({}));
+        console.warn("Failed to update profile:", res.status, errorData);
+        // Don't fail the booking if profile update fails - it's secondary
+        return;
+      }
+
+      const updatedProfile = await res.json();
+      console.log("Profile updated successfully:", updatedProfile);
+      setUserProfile(updatedProfile);
+    } catch (err: any) {
+      console.error("Error updating profile:", err);
+      // Don't fail the booking if profile update fails - it's secondary
+    }
+  }
+
   async function handleBookPickup() {
     // Validate form before submission
     if (!validateForm()) {
@@ -275,6 +351,10 @@ export default function Page() {
 
     if (result.ok) {
         setMessage(`Successfully created booking!`);
+        
+        // Save booking details to user profile so they're pre-filled next time
+        await saveBookingDetailsToProfile();
+        
         // Clear form on success
         setPickupBuilding("");
         setPickupContact("");

@@ -290,7 +290,13 @@ const OrderCard = React.memo(({ order: o, onCheckout }: { order: Order; onChecko
         
         <div className="text-right">
           <div className="text-xs text-slate-500 dark:text-slate-400 uppercase tracking-wider">Amount</div>
-          <div className="text-2xl font-bold text-slate-900 dark:text-slate-100">KSh {o.price ? Number(o.price).toLocaleString() : '0'}</div>
+          <div className="text-2xl font-bold text-slate-900 dark:text-slate-100">
+            {o.price ? (
+              typeof o.price === 'string' && o.price.includes('KSh') 
+                ? o.price 
+                : `KSh ${Number(o.price).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+            ) : 'KSh 0.00'}
+          </div>
           {isPaid && (
             <div className="text-xs font-semibold text-green-600 dark:text-green-400 mt-1 flex items-center justify-end gap-1">
               <CheckCircle className="w-3 h-3" /> Paid
