@@ -36,22 +36,23 @@ export default function AuthInitializer() {
 
     if (status === 'authenticated' && session?.user) {
       // Session is valid, sync it to Redux
-      console.log('[AuthInitializer] Session authenticated, syncing to Redux, userId:', session.user.id);
+      const user = session.user as any;
+      console.log('[AuthInitializer] Session authenticated, syncing to Redux, userId:', user.id);
       
       const userData = {
-        id: session.user.id,
-        email: session.user.email,
-        username: session.user.name,
-        phone: (session.user as any).phone,
-        role: (session.user as any).role,
-        is_staff: (session.user as any).is_staff,
-        is_superuser: (session.user as any).is_superuser,
-        staff_type: (session.user as any).staff_type,
+        id: user.id,
+        email: user.email,
+        username: user.name,
+        phone: user.phone,
+        role: user.role,
+        is_staff: user.is_staff,
+        is_superuser: user.is_superuser,
+        staff_type: user.staff_type,
       };
 
       dispatch(setAuth({
         user: userData,
-        token: (session.user as any).token,
+        token: user.token,
       }));
     } else if (status === 'unauthenticated') {
       // No session, make sure Redux is logged out too
