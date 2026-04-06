@@ -5,7 +5,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import Image from 'next/image';
 import { useDispatch, useSelector } from 'react-redux';
-import { handleLogin, LOGIN_ENDPOINTS } from '@/lib/api/loginHelpers';
+import { phonePasswordLogin } from '@/lib/api/unifiedAuthHelpers';
 import type { RootState } from '@/redux/store';
 
 export default function RiderLoginPage() {
@@ -51,35 +51,19 @@ export default function RiderLoginPage() {
     setError('');
     setLoading(true);
 
-    const result = await handleLogin(
-      LOGIN_ENDPOINTS.USER,
-      { username, password },
-      dispatch
+    const result = await phonePasswordLogin(
+      username,  // Note: This is actually used as phone number
+      password,
+      dispatch,
+      'rider'
     );
 
     if (result.success) {
-      // Check if user is actually a rider
-      const authState = localStorage.getItem('wildwash_auth_state');
-      if (authState) {
-        try {
-          const parsed = JSON.parse(authState);
-          if (parsed.user?.role === 'rider') {
-            // The Redux state will be updated by handleLogin, and the useEffect above
-            // will handle the redirect when auth state changes
-          } else {
-            setError('Access denied. This login is for riders only.');
-            // Clear the auth state if not a rider
-            localStorage.removeItem('wildwash_auth_state');
-          }
-        } catch (e) {
-          setError('Failed to parse authentication response');
-        }
-      }
+      router.push('/rider');
     } else {
       setError(result.error || 'Failed to login');
+      setLoading(false);
     }
-
-    setLoading(false);
   };
 
   return (

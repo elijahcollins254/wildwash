@@ -13,7 +13,8 @@ const authOptions: NextAuthOptions = {
       allowDangerousEmailAccountLinking: true,
     }),
     CredentialsProvider({
-      name: 'Credentials',
+      id: 'credentials-user',
+      name: 'Phone/Password',
       credentials: {
         phoneNumber: { label: "Phone Number", type: "tel" },
         password: { label: "Password", type: "password" },
@@ -24,7 +25,7 @@ const authOptions: NextAuthOptions = {
         }
 
         try {
-          console.log('[NextAuth.Credentials] Authenticating with phone:', credentials.phoneNumber);
+          console.log('[NextAuth.Credentials] User login with phone:', credentials.phoneNumber);
           const res = await fetch(`${API_BASE}/users/login/`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -40,7 +41,7 @@ const authOptions: NextAuthOptions = {
           }
 
           const data = await res.json();
-          console.log('[NextAuth.Credentials] Login successful, userId:', data.user.id, 'token:', data.token.substring(0, 20) + '...');
+          console.log('[NextAuth.Credentials] Login successful, userId:', data.user.id);
           
           return {
             id: String(data.user.id),
@@ -48,10 +49,109 @@ const authOptions: NextAuthOptions = {
             name: `${data.user.first_name || ''} ${data.user.last_name || ''}`.trim() || data.user.username,
             phone: data.user.phone,
             role: data.user.role,
+            staff_type: data.user.staff_type,
+            is_staff: data.user.is_staff,
+            is_superuser: data.user.is_superuser,
             token: data.token,
           };
         } catch (error: any) {
           console.error('[NextAuth.Credentials] Error:', error.message);
+          throw new Error(error.message || 'Authentication failed');
+        }
+      },
+    }),
+    CredentialsProvider({
+      id: 'credentials-admin',
+      name: 'Admin Credentials',
+      credentials: {
+        phone: { label: "Phone Number", type: "tel" },
+        password: { label: "Password", type: "password" },
+      },
+      async authorize(credentials) {
+        if (!credentials?.phone || !credentials?.password) {
+          throw new Error("Missing credentials");
+        }
+
+        try {
+          console.log('[NextAuth.Credentials.Admin] Admin login with phone:', credentials.phone);
+          const res = await fetch(`${API_BASE}/users/admin/login/`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              phone: credentials.phone,
+              password: credentials.password,
+            }),
+          });
+
+          if (!res.ok) {
+            const error = await res.json().catch(() => ({}));
+            throw new Error(error.detail || 'Invalid credentials');
+          }
+
+          const data = await res.json();
+          console.log('[NextAuth.Credentials.Admin] Login successful, userId:', data.user.id);
+          
+          return {
+            id: String(data.user.id),
+            email: data.user.email || data.user.phone,
+            name: `${data.user.first_name || ''} ${data.user.last_name || ''}`.trim() || data.user.username,
+            phone: data.user.phone,
+            role: data.user.role,
+            staff_type: data.user.staff_type,
+            is_staff: data.user.is_staff,
+            is_superuser: data.user.is_superuser,
+            token: data.token,
+          };
+        } catch (error: any) {
+          console.error('[NextAuth.Credentials.Admin] Error:', error.message);
+          throw new Error(error.message || 'Authentication failed');
+        }
+      },
+    }),
+    CredentialsProvider({
+      id: 'credentials-rider',
+      name: 'Rider Credentials',
+      credentials: {
+        phone: { label: "Phone Number", type: "tel" },
+        password: { label: "Password", type: "password" },
+      },
+      async authorize(credentials) {
+        if (!credentials?.phone || !credentials?.password) {
+          throw new Error("Missing credentials");
+        }
+
+        try {
+          console.log('[NextAuth.Credentials.Rider] Rider login with phone:', credentials.phone);
+          const res = await fetch(`${API_BASE}/users/rider/login/`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              phone: credentials.phone,
+              password: credentials.password,
+            }),
+          });
+
+          if (!res.ok) {
+            const error = await res.json().catch(() => ({}));
+            throw new Error(error.detail || 'Invalid credentials');
+          }
+
+          const data = await res.json();
+          console.log('[NextAuth.Credentials.Rider] Login successful, userId:', data.user.id);
+          
+          return {
+            id: String(data.user.id),
+            email: data.user.email || data.user.phone,
+            name: `${data.user.first_name || ''} ${data.user.last_name || ''}`.trim() || data.user.username,
+            phone: data.user.phone,
+            role: data.user.role,
+            staff_type: data.user.staff_type,
+            is_staff: data.user.is_staff,
+            is_superuser: data.user.is_superuser,
+            token: data.token,
+          };
+        } catch (error: any) {
+          console.error('[NextAuth.Credentials.Rider] Error:', error.message);
           throw new Error(error.message || 'Authentication failed');
         }
       },
@@ -133,7 +233,23 @@ const authOptions: NextAuthOptions = {
   },
   session: {
     strategy: 'jwt',
-    maxAge: 30 * 24 * 60 * 60,
+    maxAge: 30 * 24 * 60 * 60, // 30 days
+    updateAge: 24 * 60 * 60,    // Refresh token if unused for 1 day
+  },
+  jwt: {
+    maxAge: 30 * 24 * 60 * 60,  // 30 days
+  },
+  events: {
+    async signIn({ user, account, profile, isNewUser }) {
+      console.log('[NextAuth.events.signIn] User signed in:', {
+        userId: user.id,
+        provider: account?.provider,
+        isNewUser,
+      });
+    },
+    async signOut({ token }) {
+      console.log('[NextAuth.events.signOut] User signed out, userId:', token.id);
+    },
   },
   secret: process.env.NEXTAUTH_SECRET,
 };

@@ -1,91 +1,75 @@
 "use client";
 
 import { useEffect } from 'react';
+import { useSession } from 'next-auth/react';
 import { useDispatch } from 'react-redux';
 import { setAuth, finishInitialLoad, logout } from '@/redux/features/authSlice';
-import { getStoredAuthState, isValidAuthState, AUTH_STORAGE_KEY } from '@/lib/auth';
-import { validateToken } from '@/lib/api/auth';
 
+/**
+ * Unified AuthInitializer using NextAuth as the single source of truth
+ * 
+ * This component:
+ * 1. Syncs NextAuth session to Redux state on load
+ * 2. Listens for session changes (login/logout) from ANY tab
+ * 3. Automatically handles both Google OAuth and phone/password logins
+ * 
+ * Benefits over old system:
+ * - Single source of truth (NextAuth session)
+ * - Automatic cross-tab sync
+ * - No more manual localStorage validation
+ * - Faster session restoration (NextAuth does it server-side)
+ * - Works for all authentication methods uniformly
+ */
 export default function AuthInitializer() {
+  const { data: session, status } = useSession();
   const dispatch = useDispatch();
 
   useEffect(() => {
-    const initializeAuth = async () => {
-      console.log('[AuthInitializer] Initializing auth...');
-      const storedState = getStoredAuthState();
-      console.log('[AuthInitializer] Stored state:', storedState ? { user: storedState.user.id, hasToken: !!storedState.token } : null);
+    console.log('[AuthInitializer] Session status:', status, 'Has session:', !!session?.user);
 
-      if (storedState && isValidAuthState(storedState)) {
-        console.log('[AuthInitializer] Valid stored state found, validating token...');
-        try {
-          // Attempt to validate the token
-          console.log('[AuthInitializer] Calling validateToken()');
-          const isValid = await validateToken();
-          console.log('[AuthInitializer] Token validation result:', isValid);
-          
-          if (isValid) {
-            console.log('[AuthInitializer] Token is valid, setting auth');
-            // Set the authentication state in Redux
-            dispatch(setAuth({ 
-              user: storedState.user, 
-              token: storedState.token 
-            }));
-          } else {
-            console.warn('[AuthInitializer] Token validation failed, logging out');
-            // If token is invalid, clear everything
-            dispatch(logout());
-          }
-        } catch (error) {
-          console.error('[AuthInitializer] Error validating token:', error);
-          // On network error, restore auth state instead of logging out
-          // This prevents temporary network issues from logging out users
-          console.log('[AuthInitializer] Restoring auth state after validation error');
-          dispatch(setAuth({
-            user: storedState.user,
-            token: storedState.token
-          }));
-        }
-      } else {
-        console.log('[AuthInitializer] No valid stored state found');
-      }
+    if (status === 'loading') {
+      // NextAuth is still checking for an existing session
+      // This happens on app load
+      console.log('[AuthInitializer] NextAuth is loading session data...');
+      return;
+    }
 
-      console.log('[AuthInitializer] Finishing initial load');
-      dispatch(finishInitialLoad());
-    };
+    if (status === 'authenticated' && session?.user) {
+      // Session is valid, sync it to Redux
+      console.log('[AuthInitializer] Session authenticated, syncing to Redux, userId:', session.user.id);
+      
+      const userData = {
+        id: session.user.id,
+        email: session.user.email,
+        username: session.user.name,
+        phone: (session.user as any).phone,
+        role: (session.user as any).role,
+        is_staff: (session.user as any).is_staff,
+        is_superuser: (session.user as any).is_superuser,
+        staff_type: (session.user as any).staff_type,
+      };
 
-    // Initialize immediately on first load
-    initializeAuth();
+      dispatch(setAuth({
+        user: userData,
+        token: (session.user as any).token,
+      }));
+    } else if (status === 'unauthenticated') {
+      // No session, make sure Redux is logged out too
+      console.log('[AuthInitializer] No active session, clearing Redux auth');
+      dispatch(logout());
+    }
 
-    // Set up periodic token validation (every 30 minutes instead of 5)
-    const validationInterval = setInterval(initializeAuth, 30 * 60 * 1000);
+    // Mark initial load as complete
+    dispatch(finishInitialLoad());
+  }, [status, session, dispatch]);
 
-    // Re-initialize on storage changes from other tabs/windows
-    const handleStorageChange = (event: StorageEvent) => {
-      console.log('[AuthInitializer] Storage changed:', event.key);
-      if (event.key === AUTH_STORAGE_KEY) {
-        initializeAuth();
-      }
-    };
-
-    // Re-initialize on window focus (but with debounce to reduce calls)
-    let focusTimeout: NodeJS.Timeout;
-    const handleFocus = () => {
-      console.log('[AuthInitializer] Window focused');
-      clearTimeout(focusTimeout);
-      // Debounce focus events to avoid rapid re-initialization
-      focusTimeout = setTimeout(initializeAuth, 1000);
-    };
-
-    window.addEventListener('storage', handleStorageChange);
-    window.addEventListener('focus', handleFocus);
-    
-    return () => {
-      clearInterval(validationInterval);
-      clearTimeout(focusTimeout);
-      window.removeEventListener('storage', handleStorageChange);
-      window.removeEventListener('focus', handleFocus);
-    };
-  }, [dispatch]);
+  // NextAuth handles all the session management for us:
+  // - It persists the JWT in HttpOnly cookies (if configured)
+  // - It validates sessions server-side on app load
+  // - It handles cross-tab sync via its sessionCallback
+  // - It automatically refreshes tokens (if maxAge or updateAge is set)
+  //
+  // We just mirror that state to Redux for components that don't use useSession()
 
   return null;
 }

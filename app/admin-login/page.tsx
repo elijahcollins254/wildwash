@@ -4,7 +4,7 @@ import { useState, Suspense, useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useDispatch, useSelector } from "react-redux";
 import Loading from "./loading";
-import { handleLogin, LOGIN_ENDPOINTS } from "@/lib/api/loginHelpers";
+import { phonePasswordLogin } from "@/lib/api/unifiedAuthHelpers";
 import { Spinner } from "@/components";
 import type { RootState } from "@/redux/store";
 
@@ -54,20 +54,20 @@ function AdminLoginContent() {
     setError("");
     setLoading(true);
 
-    const result = await handleLogin(
-      LOGIN_ENDPOINTS.ADMIN,
-      { phoneNumber, password },
-      dispatch
+    const result = await phonePasswordLogin(
+      phoneNumber,
+      password,
+      dispatch,
+      'admin'
     );
 
     if (result.success) {
-      // The Redux state will be updated by handleLogin, and the useEffect above
-      // will handle the redirect when auth state changes
+      // Redirect to admin dashboard or specified redirect URL
+      router.push(redirect);
     } else {
       setError(result.error || "An error occurred during login");
+      setLoading(false);
     }
-
-    setLoading(false);
   };
 
   return (

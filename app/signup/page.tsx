@@ -3,9 +3,7 @@
 import React, { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useDispatch } from "react-redux";
-import { setAuth } from "@/redux/features/authSlice";
-import { signIn } from "next-auth/react";
-import { handleLogin, LOGIN_ENDPOINTS } from '@/lib/api/loginHelpers';
+import { phonePasswordLogin } from '@/lib/api/unifiedAuthHelpers';
 import Link from "next/link";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_BASE || '';
@@ -136,15 +134,27 @@ export default function SignupPage() {
         throw new Error(body?.detail || body || `Status ${res.status}`);
       }
 
-      // After successful registration, attempt to login via our shared helper so
-      // the auth state is persisted consistently (AUTH_STORAGE_KEY)
-      const loginResult = await handleLogin(LOGIN_ENDPOINTS.USER, { username: formData.username, password: formData.password }, dispatch);
+      // After successful registration, attempt to login using unified auth
+      // This is faster and automatically syncs session
+      const loginResult = await phonePasswordLogin(
+        formData.phone,
+        formData.password,
+        dispatch,
+        'user'
+      );
+      
       if (loginResult.success) {
-        router.push("/");
+        // Redirect to appropriate page based on role
+        if (loginResult.redirectUrl) {
+          router.push(loginResult.redirectUrl);
+        } else {
+          router.push("/");
+        }
         return;
       }
 
-      // If helper fails for some reason, fall back to redirecting to login
+      // If login fails for some reason, redirect to login page
+      setError(loginResult.error || "Login failed after registration");
       router.push("/login");
     } catch (err: any) {
       setError(err?.message ?? "Registration failed");

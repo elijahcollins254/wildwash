@@ -4,11 +4,11 @@ import React, { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useDispatch, useSelector } from "react-redux";
 import Link from "next/link";
-import { signIn } from "next-auth/react";
-import { handleLogin, LOGIN_ENDPOINTS } from "@/lib/api/loginHelpers";
-import { setAuth } from "@/redux/features/authSlice";
+import { phonePasswordLogin, googleLogin } from "@/lib/api/unifiedAuthHelpers";
 import { Spinner } from "@/components";
 import type { RootState } from "@/redux/store";
+
+const API_BASE = process.env.NEXT_PUBLIC_API_BASE || '';
 
 export default function LoginPage() {
   const router = useRouter();
@@ -89,94 +89,43 @@ export default function LoginPage() {
     setError(null);
     setLoading(true);
     
-    const result = await handleLogin(
-      LOGIN_ENDPOINTS.USER,
-      { phoneNumber, password },
-      dispatch
+    // Use unified auth - much faster than the old handleLogin
+    const result = await phonePasswordLogin(
+      phoneNumber,
+      password,
+      dispatch,
+      'user'
     );
 
     if (result.success) {
-      // The Redux state will be updated by handleLogin, and the useEffect above
-      // will handle the redirect based on user role
+      // Redirect based on the result
+      if (result.redirectUrl) {
+        router.push(result.redirectUrl);
+      }
     } else {
       setError(result.error || "Login failed");
+      setLoading(false);
     }
-    
-    setLoading(false);
   }
 
   async function handleGoogleSignIn() {
     setError(null);
     setLoading(true);
     console.log('[GoogleSignIn] Starting Google sign-in...');
-    try {
-      const result = await signIn('google', { redirect: false });
-      console.log('[GoogleSignIn] signIn result:', result);
-      
-      if (result?.error) {
-        console.error('[GoogleSignIn] signIn error:', result.error);
-        setError(result.error || "Google sign-in failed");
-        setLoading(false);
-        return;
-      }
-      
-      if (result?.ok) {
-        console.log('[GoogleSignIn] Google sign-in successful, fetching session...');
-        // Fetch session to get user data
-        const response = await fetch('/api/auth/session');
-        console.log('[GoogleSignIn] Session response status:', response.status);
-        
-        if (!response.ok) {
-          console.error('[GoogleSignIn] Failed to fetch session:', response.statusText);
-          setError('Failed to fetch session data');
-          setLoading(false);
-          return;
-        }
-        
-        const session = await response.json();
-        console.log('[GoogleSignIn] Session data:', session);
-        
-        if (session?.user) {
-          console.log('[GoogleSignIn] User data from session:', session.user);
-          // Update Redux with user data from session
-          const userData = {
-            id: session.user.id,
-            email: session.user.email,
-            username: session.user.name,
-            phone: session.user.phone,
-            role: session.user.role,
-            is_staff: session.user.role === 'washer' || session.user.role === 'folder',
-            is_superuser: session.user.role === 'admin',
-            staff_type: session.user.staff_type,
-          };
-          
-          console.log('[GoogleSignIn] Dispatching setAuth with userData:', userData);
-          dispatch(setAuth({
-            user: userData,
-            token: session.user.token,
-          }));
-          
-          console.log('[GoogleSignIn] After dispatch, current Redux state:');
-          console.log('  isAuthenticated:', isAuthenticated);
-          console.log('  user:', user);
-          
-          // Redirect to home - the useEffect will handle role-based redirect
-          console.log('[GoogleSignIn] Redirecting to home...');
-          router.push('/');
-        } else {
-          console.error('[GoogleSignIn] No user data in session');
-          setError('No user data received from Google');
-          setLoading(false);
-        }
-      } else {
-        console.warn('[GoogleSignIn] signIn result not ok:', result);
-        setError('Google sign-in failed - please try again');
-        setLoading(false);
-      }
-    } catch (err: any) {
-      console.error('[GoogleSignIn] Catch error:', err);
-      setError(err.message || "Google sign-in failed");
+    
+    // Use unified auth for Google too
+    const result = await googleLogin(dispatch);
+    
+    if (!result.success) {
+      console.error('[GoogleSignIn] Google login failed:', result.error);
+      setError(result.error || "Google sign-in failed");
       setLoading(false);
+      return;
+    }
+    
+    console.log('[GoogleSignIn] Google login successful, redirecting to:', result.redirectUrl);
+    if (result.redirectUrl) {
+      router.push(result.redirectUrl);
     }
   }
 
