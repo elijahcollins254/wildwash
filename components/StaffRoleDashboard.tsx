@@ -188,30 +188,6 @@ export default function StaffRoleDashboard({ staffRole }: StaffRoleDashboardProp
     })();
   }, [fetchProfile, fetchOrders, router, staffRole]);
 
-  if (loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-b from-white via-slate-50 to-slate-100 dark:from-slate-900 dark:via-slate-800 dark:to-slate-900">
-        <div className="rounded-lg bg-white dark:bg-slate-800 p-8 shadow-lg border border-slate-200 dark:border-slate-700 flex flex-col items-center justify-center">
-          <Spinner className="w-8 h-8 text-red-600 dark:text-red-400" />
-          <div className="mt-4 text-slate-600 dark:text-slate-400 text-sm">Loading dashboard...</div>
-        </div>
-      </div>
-    );
-  }
-
-  if (error) {
-    return (
-      <div className="min-h-screen bg-gradient-to-b from-white via-slate-50 to-slate-100 dark:from-slate-900 dark:via-slate-800 dark:to-slate-900">
-        <div className="max-w-4xl mx-auto px-4 py-8">
-          <div className="rounded-lg bg-red-50 dark:bg-red-900/20 border border-red-100 dark:border-red-800 p-4 text-red-600 dark:text-red-400">
-            <div className="font-semibold">Error</div>
-            <div className="mt-1 text-sm">{error}</div>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
   const total = orders.length;
 
   const availableStatuses = Array.from(new Set(orders.map(o => (o.status ?? '').toString()))).filter(Boolean);
@@ -243,6 +219,30 @@ export default function StaffRoleDashboard({ staffRole }: StaffRoleDashboardProp
       return true;
     });
   }, [orders, statusFilter, riderFilter, searchQuery]);
+
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-b from-white via-slate-50 to-slate-100 dark:from-slate-900 dark:via-slate-800 dark:to-slate-900">
+        <div className="rounded-lg bg-white dark:bg-slate-800 p-8 shadow-lg border border-slate-200 dark:border-slate-700 flex flex-col items-center justify-center">
+          <Spinner className="w-8 h-8 text-red-600 dark:text-red-400" />
+          <div className="mt-4 text-slate-600 dark:text-slate-400 text-sm">Loading dashboard...</div>
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="min-h-screen bg-gradient-to-b from-white via-slate-50 to-slate-100 dark:from-slate-900 dark:via-slate-800 dark:to-slate-900">
+        <div className="max-w-4xl mx-auto px-4 py-8">
+          <div className="rounded-lg bg-red-50 dark:bg-red-900/20 border border-red-100 dark:border-red-800 p-4 text-red-600 dark:text-red-400">
+            <div className="font-semibold">Error</div>
+            <div className="mt-1 text-sm">{error}</div>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   const getColorClasses = (colorName: string) => {
     const colors: Record<string, Record<string, string>> = {
@@ -666,9 +666,9 @@ export default function StaffRoleDashboard({ staffRole }: StaffRoleDashboardProp
                         status: 'in_progress',
                       };
                       if (detailsForm.items !== undefined) payload.quantity = detailsForm.items;
-                      if (detailsForm.weight_kg !== undefined) payload.weight_kg = detailsForm.weight_kg;
+                      if (detailsForm.weight_kg !== undefined && detailsForm.weight_kg !== '') payload.weight_kg = Number(detailsForm.weight_kg);
                       if (detailsForm.pickup_notes !== undefined) payload.description = detailsForm.pickup_notes;
-                      if (detailsForm.actual_price !== undefined && detailsForm.actual_price !== '') payload.actual_price = detailsForm.actual_price;
+                      if (detailsForm.actual_price !== undefined && detailsForm.actual_price !== '') payload.actual_price = Number(detailsForm.actual_price);
 
                       await client.patch(`/orders/update/?id=${detailsFormOrderId}`, payload);
                       setDetailsFormOrderId(null);
