@@ -73,27 +73,28 @@ export const phonePasswordLogin = async (
       };
     }
 
-    console.log(`[UnifiedAuth] ${loginType} login successful, userId:`, session.user.id);
+    const user = session.user as any;
+    console.log(`[UnifiedAuth] ${loginType} login successful, userId:`, user.id);
 
     // Update Redux with user data from NextAuth session
     const userData = {
-      id: session.user.id,
-      email: session.user.email,
-      username: session.user.name,
-      phone: (session.user as any).phone,
-      role: (session.user as any).role,
-      is_staff: (session.user as any).is_staff,
-      is_superuser: (session.user as any).is_superuser,
-      staff_type: (session.user as any).staff_type,
+      id: user.id,
+      email: user.email,
+      username: user.name,
+      phone: user.phone,
+      role: user.role,
+      is_staff: user.is_staff,
+      is_superuser: user.is_superuser,
+      staff_type: user.staff_type,
     };
 
     dispatch(setAuth({
       user: userData,
-      token: (session.user as any).token,
+      token: user.token,
     }));
 
     // Determine redirect based on user role
-    const role = (session.user as any).role;
+    const role = user.role;
     let redirectUrl = '/';
 
     if (userData.is_superuser || role === 'admin') {
@@ -157,26 +158,27 @@ export const googleLogin = async (
       };
     }
 
-    console.log('[UnifiedAuth] Google login successful, userId:', session.user.id);
+    const user = session.user as any;
+    console.log('[UnifiedAuth] Google login successful, userId:', user.id);
 
     // Update Redux from session
     const userData = {
-      id: session.user.id,
-      email: session.user.email,
-      username: session.user.name,
-      phone: (session.user as any).phone,
-      role: (session.user as any).role,
-      is_staff: (session.user as any).is_staff,
-      is_superuser: (session.user as any).is_superuser,
-      staff_type: (session.user as any).staff_type,
+      id: user.id,
+      email: user.email,
+      username: user.name,
+      phone: user.phone,
+      role: user.role,
+      is_staff: user.is_staff,
+      is_superuser: user.is_superuser,
+      staff_type: user.staff_type,
     };
 
     dispatch(setAuth({
       user: userData,
-      token: (session.user as any).token,
+      token: user.token,
     }));
 
-    const role = (session.user as any).role;
+    const role = user.role;
     let redirectUrl = '/';
 
     if (userData.is_superuser || role === 'admin') {
@@ -233,22 +235,23 @@ export const syncSessionToRedux = async (dispatch: AppDispatch): Promise<boolean
       return false;
     }
 
-    console.log('[UnifiedAuth] Syncing session to Redux, userId:', session.user.id);
+    const user = session.user as any;
+    console.log('[UnifiedAuth] Syncing session to Redux, userId:', user.id);
     
     const userData = {
-      id: session.user.id,
-      email: session.user.email,
-      username: session.user.name,
-      phone: (session.user as any).phone,
-      role: (session.user as any).role,
-      is_staff: (session.user as any).is_staff,
-      is_superuser: (session.user as any).is_superuser,
-      staff_type: (session.user as any).staff_type,
+      id: user.id,
+      email: user.email,
+      username: user.name,
+      phone: user.phone,
+      role: user.role,
+      is_staff: user.is_staff,
+      is_superuser: user.is_superuser,
+      staff_type: user.staff_type,
     };
 
     dispatch(setAuth({
       user: userData,
-      token: (session.user as any).token,
+      token: user.token,
     }));
 
     return true;
