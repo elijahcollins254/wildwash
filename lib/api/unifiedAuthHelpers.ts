@@ -40,10 +40,15 @@ export const phonePasswordLogin = async (
     
     const providerId = `credentials-${loginType}`;
     
+    // Build credentials with the correct field name for each provider
+    // 'credentials-user' expects 'phoneNumber', others expect 'phone'
+    const credentials = loginType === 'user'
+      ? { phoneNumber: phone, password }
+      : { phone, password };
+    
     // Use NextAuth's signIn - this is MUCH faster than handleLogin
     const result = await signIn(providerId, {
-      phone,
-      password,
+      ...credentials,
       redirect: false,
     });
 
