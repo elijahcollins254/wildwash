@@ -19,6 +19,14 @@ type UserProfile = {
   pickup_address?: string;
 }
 
+type ServiceLocation = {
+  id: number;
+  name: string;
+  description: string;
+  is_active: boolean;
+  created_at: string;
+}
+
 type Offer = {
   id: number;
   title: string;
@@ -63,6 +71,8 @@ export default function ProfilePage() {
   const [saving, setSaving] = useState(false);
   const [editMode, setEditMode] = useState(false);
   const [formData, setFormData] = useState<Partial<UserProfile>>({});
+  const [locations, setLocations] = useState<ServiceLocation[]>([]);
+  const [loadingLocations, setLoadingLocations] = useState(false);
   const [userOffers, setUserOffers] = useState<UserOffer[]>([]);
   const [loadingOffers, setLoadingOffers] = useState(false);
   const [offersError, setOffersError] = useState<string | null>(null);
@@ -81,6 +91,7 @@ export default function ProfilePage() {
       return;
     }
 
+    fetchLocations();
     fetchProfile();
     fetchUserOffers();
     fetchSubscription();
@@ -93,6 +104,22 @@ export default function ProfilePage() {
       setOffersSubscribed(response.is_subscribed ?? response.is_active ?? false);
     } catch (err) {
       console.error("Error checking offers subscription status:", err);
+    }
+  };
+
+  const fetchLocations = async () => {
+    setLoadingLocations(true);
+    try {
+      const response = await client.get('/users/locations/');
+      // Handle paginated response
+      const locationsList = Array.isArray(response) ? response : (response.results || []);
+      setLocations(locationsList as ServiceLocation[]);
+      console.log('[Profile] Locations fetched:', locationsList);
+    } catch (err) {
+      console.error("Error fetching locations:", err);
+      setLocations([]);
+    } finally {
+      setLoadingLocations(false);
     }
   };
 
@@ -200,7 +227,7 @@ export default function ProfilePage() {
     }
   };
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
     setFormData(prev => ({ ...prev, [name]: value }));
   };
@@ -290,15 +317,30 @@ export default function ProfilePage() {
                 </div>
 
                 <div className="md:col-span-2">
-                  <label className="block text-xs text-slate-500 mb-1">Location</label>
-                  <input
-                    type="text"
+                  <label className="block text-xs font-semibold text-slate-600 dark:text-slate-300 mb-2">Service Location</label>
+                  <select
                     name="location"
                     value={formData.location || ""}
                     onChange={handleChange}
                     disabled={!editMode}
-                    className="w-full rounded-md border dark:border-slate-800 bg-white dark:bg-slate-900 px-3 py-2 text-sm disabled:opacity-60 disabled:cursor-not-allowed"
-                  />
+                    className="w-full rounded-lg border-2 border-slate-200 dark:border-slate-700 transition-all duration-200 bg-white dark:bg-slate-800 px-4 py-3 text-sm font-medium text-slate-900 dark:text-slate-100 shadow-sm hover:shadow-md disabled:opacity-50 disabled:cursor-not-allowed disabled:shadow-none focus:outline-none focus:border-red-500 focus:ring-2 focus:ring-red-500 focus:ring-offset-0 dark:focus:ring-red-400 appearance-none cursor-pointer"
+                    style={{
+                      backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%231f2937' d='M6 9L1 4h10z'/%3E%3C/svg%3E")`,
+                      backgroundRepeat: 'no-repeat',
+                      backgroundPosition: 'right 12px center',
+                      paddingRight: '36px',
+                    }}
+                  >
+                    <option value="">
+                      {loadingLocations ? "Loading locations..." : "Select a service location"}
+                    </option>
+                    {locations.map((loc) => (
+                      <option key={loc.id} value={loc.name}>
+                        {loc.name}
+                        {loc.description && ` - ${loc.description}`}
+                      </option>
+                    ))}
+                  </select>
                 </div>
 
                 <div className="md:col-span-2">

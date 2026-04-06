@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useDispatch } from "react-redux";
 import { phonePasswordLogin, googleLogin } from '@/lib/api/unifiedAuthHelpers';
@@ -72,9 +72,33 @@ export default function SignupPage() {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [locations, setLocations] = useState<Array<{ id: number; name: string; description: string }>>([]);
+  const [loadingLocations, setLoadingLocations] = useState(false);
+  const [locationsError, setLocationsError] = useState<string | null>(null);
 
-  // Example hard-coded locations - replace with API call if you have a locations endpoint
-  const locations = ["Juja", "Thika", "Makongeni", "Runda", "Wendani", "KM"];
+  useEffect(() => {
+    fetchLocations();
+  }, []);
+
+  const fetchLocations = async () => {
+    setLoadingLocations(true);
+    setLocationsError(null);
+    try {
+      const response = await fetch(`${API_BASE}/users/locations/`);
+      if (!response.ok) throw new Error('Failed to fetch locations');
+      const data = await response.json();
+      // Handle paginated response
+      const locationsList = Array.isArray(data) ? data : (data.results || []);
+      setLocations(locationsList);
+      console.log('[Signup] Locations fetched:', locationsList);
+    } catch (err) {
+      console.error("Error fetching locations:", err);
+      setLocationsError("Failed to load service locations");
+      setLocations([]);
+    } finally {
+      setLoadingLocations(false);
+    }
+  };
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
@@ -168,21 +192,27 @@ export default function SignupPage() {
     setLoading(true);
     console.log('[GoogleSignUp] Starting Google sign-up...');
     
-    // Use unified auth for Google signup
-    const result = await googleLogin(dispatch);
-    
-    if (!result.success) {
-      console.error('[GoogleSignUp] Google signup failed:', result.error);
-      setError(result.error || "Google sign-up failed");
+    try {
+      // Use unified auth for Google signup
+      const result = await googleLogin(dispatch);
+      
+      if (!result.success) {
+        console.error('[GoogleSignUp] Google signup failed:', result.error);
+        // Don't show error to user - just log to console
+        setLoading(false);
+        return;
+      }
+      
+      console.log('[GoogleSignUp] Google signup successful, redirecting to:', result.redirectUrl);
+      // Loading stays true while redirecting
+      if (result.redirectUrl) {
+        router.push(result.redirectUrl);
+      } else {
+        router.push('/');
+      }
+    } catch (err) {
+      console.error('[GoogleSignUp] Unexpected error:', err);
       setLoading(false);
-      return;
-    }
-    
-    console.log('[GoogleSignUp] Google signup successful, redirecting to:', result.redirectUrl);
-    if (result.redirectUrl) {
-      router.push(result.redirectUrl);
-    } else {
-      router.push('/');
     }
   }
 
@@ -255,19 +285,31 @@ export default function SignupPage() {
           </div>
 
           <div>
-            <label className="text-xs text-slate-500">Location</label>
+            <label className="text-xs font-semibold text-slate-600 dark:text-slate-300 mb-2 block">Service Location</label>
             <select
               name="location"
               value={formData.location}
               onChange={handleChange}
-              className={`mt-1 w-full rounded-md border ${errors.location ? "border-red-500" : "dark:border-slate-800"} bg-white dark:bg-slate-900 px-3 py-2 text-sm`}
+              disabled={loadingLocations || locations.length === 0}
+              className={`mt-1 w-full rounded-lg border-2 transition-all duration-200 ${errors.location || locationsError ? "border-red-500 focus:border-red-600" : "border-slate-200 dark:border-slate-700 focus:border-red-500"} bg-white dark:bg-slate-800 px-4 py-3 text-sm font-medium text-slate-900 dark:text-slate-100 shadow-sm hover:shadow-md disabled:opacity-50 disabled:cursor-not-allowed disabled:shadow-none focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-0 dark:focus:ring-red-400 appearance-none cursor-pointer`}
+              style={{
+                backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23${errors.location || locationsError ? "dc2626" : formData.location ? "1f2937" : "9ca3af"}' d='M6 9L1 4h10z'/%3E%3C/svg%3E")`,
+                backgroundRepeat: 'no-repeat',
+                backgroundPosition: 'right 12px center',
+                paddingRight: '36px',
+              }}
             >
-              <option value="">Select a location</option>
-              {locations.map((l) => (
-                <option key={l} value={l}>{l}</option>
+              <option value="">
+                {loadingLocations ? "Loading locations..." : locations.length === 0 ? "No locations available" : "Select a location"}
+              </option>
+              {locations.map((loc) => (
+                <option key={loc.id} value={typeof loc === 'string' ? loc : loc.name}>
+                  {typeof loc === 'string' ? loc : loc.name}
+                </option>
               ))}
             </select>
-            {errors.location && <p className="mt-1 text-xs text-red-600 dark:text-red-400">{errors.location}</p>}
+            {locationsError && <p className="mt-2 text-xs font-medium text-red-600 dark:text-red-400 flex items-center"><span className="mr-1">⚠️</span>{locationsError}</p>}
+            {errors.location && <p className="mt-2 text-xs font-medium text-red-600 dark:text-red-400 flex items-center"><span className="mr-1">⚠️</span>{errors.location}</p>}
           </div>
 
           <div>
