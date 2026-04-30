@@ -228,19 +228,9 @@ export default function ProfilePage() {
       setProfile(data);
       setEditMode(false);
       
-      // Update profile_complete state based on response
+      // Update local profile_complete state based on response
       if (data.profile_complete) {
         setIsProfileComplete(true);
-        
-        // Get token from localStorage and update Redux
-        const token = localStorage.getItem('access_token') || '';
-        dispatch(setAuth({
-          user: {
-            ...user!,
-            profile_complete: true,
-          },
-          token: token,
-        }));
       }
     } catch (err: any) {
       setError(err.message || "Failed to update profile");
