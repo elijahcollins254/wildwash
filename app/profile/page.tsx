@@ -93,6 +93,11 @@ export default function ProfilePage() {
       return;
     }
 
+    // Auto-enter edit mode if profile is incomplete
+    if (!isProfileComplete) {
+      setEditMode(true);
+    }
+
     fetchLocations();
     fetchProfile();
     fetchUserOffers();
