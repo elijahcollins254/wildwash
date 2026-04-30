@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { useRouter } from "next/navigation";
-import { logout } from "@/redux/features/authSlice";
+import { logout, setAuth } from "@/redux/features/authSlice";
 import RouteGuard from "@/components/RouteGuard";
 import type { RootState } from "@/redux/store";
 import { client } from "@/lib/api/client";
