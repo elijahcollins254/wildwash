@@ -91,6 +91,7 @@ export const phonePasswordLogin = async (
       is_staff: user.is_staff,
       is_superuser: user.is_superuser,
       staff_type: user.staff_type,
+      profile_complete: user.profile_complete,
     };
 
     dispatch(setAuth({
@@ -176,12 +177,22 @@ export const googleLogin = async (
       is_staff: user.is_staff,
       is_superuser: user.is_superuser,
       staff_type: user.staff_type,
+      profile_complete: user.profile_complete,
     };
 
     dispatch(setAuth({
       user: userData,
       token: user.token,
     }));
+
+    // Check if profile needs to be completed (for Google OAuth users)
+    if (!user.profile_complete && user.role === 'customer') {
+      console.log('[UnifiedAuth] Redirecting to profile setup - profile not complete');
+      return {
+        success: true,
+        redirectUrl: '/profile/setup',
+      };
+    }
 
     const role = user.role;
     let redirectUrl = '/';

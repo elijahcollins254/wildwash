@@ -2,9 +2,11 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
+import { useSelector } from 'react-redux';
 import axios from 'axios';
 import { Phone, CreditCard, Recycle, Gift } from 'lucide-react';
 import { BNPLManager } from '@/components';
+import type { RootState } from '@/redux/store';
 
 interface CheckoutForm {
   amount: string;
@@ -24,6 +26,7 @@ interface UserData {
 export default function CheckoutForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const user = useSelector((state: RootState) => state.auth.user);
   const [formData, setFormData] = useState<CheckoutForm>({
     amount: '',
     phone: '',
@@ -37,6 +40,18 @@ export default function CheckoutForm() {
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [loadingUserData, setLoadingUserData] = useState(true);
+  const [profileIncomplete, setProfileIncomplete] = useState(false);
+
+  // Check if profile is complete
+  useEffect(() => {
+    if (user && !user.profile_complete && user.role === 'customer') {
+      setProfileIncomplete(true);
+      // Show message but don't redirect immediately - let user see why
+      setTimeout(() => {
+        router.push('/profile/setup');
+      }, 2000);
+    }
+  }, [user, router]);
 
   // Auto-fill form from query params and user data on mount
   useEffect(() => {
@@ -352,6 +367,30 @@ export default function CheckoutForm() {
       setLoading(false);
     }
   };
+
+  if (profileIncomplete) {
+    return (
+      <div className="min-h-screen bg-white dark:bg-slate-950 text-slate-900 dark:text-slate-100 py-12 px-4 sm:px-6 lg:px-8 flex items-center justify-center">
+        <div className="max-w-md w-full text-center">
+          <div className="inline-flex items-center justify-center w-16 h-16 bg-yellow-100 dark:bg-yellow-900/30 rounded-full mb-4">
+            <svg className="w-8 h-8 text-yellow-600 dark:text-yellow-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4v2m0 0v2m-6-6v2m0 4v2m0 0v2m12-12v2m0 4v2m0 0v2" />
+            </svg>
+          </div>
+          <h2 className="text-2xl font-bold mb-2">Complete Your Profile First</h2>
+          <p className="text-slate-600 dark:text-slate-400 mb-6">
+            We need your complete profile information before you can place an order. You'll be redirected shortly.
+          </p>
+          <button
+            onClick={() => router.push('/profile/setup')}
+            className="inline-flex items-center justify-center px-6 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg font-medium transition-colors"
+          >
+            Go to Profile Setup
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-white dark:bg-slate-950 text-slate-900 dark:text-slate-100 py-12 px-4 sm:px-6 lg:px-8">
