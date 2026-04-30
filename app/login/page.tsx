@@ -22,18 +22,26 @@ export default function LoginPage() {
   const isLoading = useSelector((state: RootState) => state.auth.isLoading);
   const user = useSelector((state: RootState) => state.auth.user);
 
-  // If already authenticated, redirect based on user role
+  // If already authenticated, redirect based on user role and profile completion
   useEffect(() => {
     console.log('[LoginPage] Auth check:', {
       isLoading,
       isAuthenticated,
       userRole: user?.role,
+      profileComplete: user?.profile_complete,
     });
     
     if (!isLoading && isAuthenticated && user) {
       console.log('[LoginPage] User already authenticated, determining redirect...');
       const params = new URLSearchParams(window.location.search);
       const redirectUrl = params.get('redirect');
+      
+      // If profile not complete, redirect to profile to complete it
+      if (!user.profile_complete) {
+        console.log('[LoginPage] Profile incomplete, redirecting to /profile');
+        router.push('/profile');
+        return;
+      }
       
       // If explicit redirect URL provided, use it
       if (redirectUrl) {

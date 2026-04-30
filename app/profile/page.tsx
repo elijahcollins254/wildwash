@@ -84,6 +84,8 @@ export default function ProfilePage() {
   const [offersSubscriptionError, setOffersSubscriptionError] = useState<string | null>(null);
   
   const isAuthenticated = useSelector((state: RootState) => state.auth.isAuthenticated);
+  const user = useSelector((state: RootState) => state.auth.user);
+  const [isProfileComplete, setIsProfileComplete] = useState(user?.profile_complete || false);
 
   useEffect(() => {
     if (!isAuthenticated) {
@@ -220,6 +222,18 @@ export default function ProfilePage() {
       const data = await client.patch('/users/me/', formData);
       setProfile(data);
       setEditMode(false);
+      
+      // If profile was incomplete and now has all required fields, update Redux
+      if (!isProfileComplete && data.first_name && data.last_name && data.phone && data.location && data.pickup_address) {
+        dispatch(setAuth({
+          user: {
+            ...user!,
+            profile_complete: true,
+          },
+          token: user?.id,
+        }));
+        setIsProfileComplete(true);
+      }
     } catch (err: any) {
       setError(err.message || "Failed to update profile");
     } finally {
@@ -259,6 +273,23 @@ export default function ProfilePage() {
             </p>
           </header>
 
+          {/* Profile Completion Banner */}
+          {!isProfileComplete && (
+            <div className="mb-6 rounded-lg bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 p-4">
+              <div className="flex items-start gap-3">
+                <svg className="w-5 h-5 text-amber-600 dark:text-amber-400 flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
+                  <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                </svg>
+                <div className="flex-1">
+                  <h3 className="font-semibold text-amber-900 dark:text-amber-100">Complete Your Profile</h3>
+                  <p className="text-sm text-amber-800 dark:text-amber-200 mt-1">
+                    Please fill in all your profile details below to get started. This information is required before you can place orders.
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
+
           {error && (
             <div className="mb-6 rounded-lg bg-red-50 dark:bg-red-900/20 p-4 text-red-600 dark:text-red-400 text-sm">
               {error}
@@ -275,7 +306,7 @@ export default function ProfilePage() {
                     name="username"
                     value={formData.username || ""}
                     onChange={handleChange}
-                    disabled={!editMode}
+                    disabled={!editMode && isProfileComplete}
                     className="w-full rounded-md border dark:border-slate-800 bg-white dark:bg-slate-900 px-3 py-2 text-sm disabled:opacity-60 disabled:cursor-not-allowed"
                   />
                 </div>
@@ -287,7 +318,7 @@ export default function ProfilePage() {
                     name="phone"
                     value={formData.phone || ""}
                     onChange={handleChange}
-                    disabled={!editMode}
+                    disabled={!editMode && isProfileComplete}
                     className="w-full rounded-md border dark:border-slate-800 bg-white dark:bg-slate-900 px-3 py-2 text-sm disabled:opacity-60 disabled:cursor-not-allowed"
                   />
                 </div>
@@ -299,7 +330,7 @@ export default function ProfilePage() {
                     name="first_name"
                     value={formData.first_name || ""}
                     onChange={handleChange}
-                    disabled={!editMode}
+                    disabled={!editMode && isProfileComplete}
                     className="w-full rounded-md border dark:border-slate-800 bg-white dark:bg-slate-900 px-3 py-2 text-sm disabled:opacity-60 disabled:cursor-not-allowed"
                   />
                 </div>
@@ -311,7 +342,7 @@ export default function ProfilePage() {
                     name="last_name"
                     value={formData.last_name || ""}
                     onChange={handleChange}
-                    disabled={!editMode}
+                    disabled={!editMode && isProfileComplete}
                     className="w-full rounded-md border dark:border-slate-800 bg-white dark:bg-slate-900 px-3 py-2 text-sm disabled:opacity-60 disabled:cursor-not-allowed"
                   />
                 </div>
@@ -322,7 +353,7 @@ export default function ProfilePage() {
                     name="location"
                     value={formData.location || ""}
                     onChange={handleChange}
-                    disabled={!editMode}
+                    disabled={!editMode && isProfileComplete}
                     className="w-full rounded-lg border-2 border-slate-200 dark:border-slate-700 transition-all duration-200 bg-white dark:bg-slate-800 px-4 py-3 text-sm font-medium text-slate-900 dark:text-slate-100 shadow-sm hover:shadow-md disabled:opacity-50 disabled:cursor-not-allowed disabled:shadow-none focus:outline-none focus:border-red-500 focus:ring-2 focus:ring-red-500 focus:ring-offset-0 dark:focus:ring-red-400 appearance-none cursor-pointer"
                     style={{
                       backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%231f2937' d='M6 9L1 4h10z'/%3E%3C/svg%3E")`,
@@ -349,7 +380,7 @@ export default function ProfilePage() {
                     name="pickup_address"
                     value={formData.pickup_address || ""}
                     onChange={(e) => setFormData(prev => ({ ...prev, pickup_address: e.target.value }))}
-                    disabled={!editMode}
+                    disabled={!editMode && isProfileComplete}
                     placeholder="e.g., Olive Towers, 4th floor, Nairobi"
                     rows={3}
                     className="w-full rounded-md border dark:border-slate-800 bg-white dark:bg-slate-900 px-3 py-2 text-sm disabled:opacity-60 disabled:cursor-not-allowed resize-none"
@@ -359,7 +390,7 @@ export default function ProfilePage() {
               </div>
 
               <div className="flex items-center justify-end gap-3 pt-4 border-t dark:border-slate-800">
-                {editMode ? (
+                {editMode || !isProfileComplete ? (
                   <>
                     <button
                       type="button"
