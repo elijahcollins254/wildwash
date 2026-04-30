@@ -232,7 +232,8 @@ export default function ProfilePage() {
       if (data.profile_complete) {
         setIsProfileComplete(true);
         
-        // Update Redux with profile_complete
+        // Get token from localStorage and update Redux
+        const token = localStorage.getItem('access_token') || '';
         dispatch(setAuth({
           user: {
             ...user!,
