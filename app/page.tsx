@@ -82,6 +82,7 @@ export default function HomePage() {
   const [showScrollTop, setShowScrollTop] = useState(false);
   const [visibleCards, setVisibleCards] = useState<Set<number>>(new Set());
   const cardRefs = useRef<Map<number, HTMLDivElement>>(new Map());
+  const categoriesScrollRef = useRef<HTMLDivElement>(null);
   const observerRef = useRef<IntersectionObserver | null>(null);
 
   // Fetch services using Redux
@@ -102,6 +103,26 @@ export default function HomePage() {
       setTimeout(() => categories?.classList.remove("animate-bounce-custom"), 600);
     }, 100);
     return () => clearTimeout(timer);
+  }, []);
+
+  // Horizontal scroll with mouse wheel on categories
+  useEffect(() => {
+    const scrollContainer = categoriesScrollRef.current;
+    if (!scrollContainer) return;
+
+    const handleWheel = (e: WheelEvent) => {
+      // Only intercept wheel events for horizontal scrolling
+      if (Math.abs(e.deltaX) > Math.abs(e.deltaY)) {
+        // User is already trying horizontal scroll, let it happen naturally
+        return;
+      }
+      
+      e.preventDefault();
+      scrollContainer.scrollLeft += e.deltaY > 0 ? 50 : -50;
+    };
+
+    scrollContainer.addEventListener('wheel', handleWheel, { passive: false });
+    return () => scrollContainer.removeEventListener('wheel', handleWheel);
   }, []);
 
   // Setup IntersectionObserver for card animations
@@ -153,7 +174,7 @@ export default function HomePage() {
     return matchesSearch && matchesCategory;
   });
 
-  const categories = ["laundry", "duvet-cleaning", "carpet-cleaning", "house-cleaning", "fumigation", "sofa-cleaning", "moving-services", "storage-services", "tv-mounting-hot-shower-installation"];
+  const categories = ["laundry", "duvet-cleaning", "carpet-cleaning", "house-cleaning", "fumigation", "sofa-cleaning", "moving-services", "storage-services", "tv-mounting-hot-shower-installation", "subscriptions", "repairs"];
   const categoryLabels: Record<string, string> = {
     laundry: "Laundry",
     "duvet-cleaning": "Duvet",
@@ -164,6 +185,8 @@ export default function HomePage() {
     "moving-services": "Moving",
     "storage-services": "Storage",
     "tv-mounting-hot-shower-installation": "Installation",
+    subscriptions: "Subscriptions",
+    repairs: "Repairs",
   };
 
   return (
@@ -223,7 +246,7 @@ export default function HomePage() {
           id="categories-container"
           className="sticky top-16 z-40 bg-white/80 dark:bg-black/80 backdrop-blur-md py-3 mb-6 -mx-4 sm:-mx-6 px-4 sm:px-6 flex justify-center"
         >
-          <div className="flex items-center gap-2 overflow-x-auto scrollbar-hide py-2 max-w-4xl">
+          <div ref={categoriesScrollRef} className="flex items-center gap-2 overflow-x-auto scrollbar-hide py-2 max-w-4xl">
             <button
               onClick={() => setSelectedCategory(null)}
               className={`flex-shrink-0 px-5 py-2.5 rounded-full text-sm font-medium transition-all whitespace-nowrap transform active:scale-95 ${

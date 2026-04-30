@@ -50,7 +50,7 @@ const validators = {
     if (!value) return "Phone number is required";
     const cleaned = value.replace(/\D/g, "");
     if (cleaned.length < 10) return "Phone number must be at least 10 digits";
-    if (!/^(?:254|0)7\d{8}$/.test(cleaned)) return "Please enter a valid Kenya phone number";
+    if (!/^(?:254(?:7|1)|0(?:7|1))\d{8}$/.test(cleaned)) return "Please enter a valid Kenya phone number";
     return "";
   },
   location: (value: string) => {
@@ -294,7 +294,7 @@ export default function ProfileSetupPage() {
                 value={formData.phone}
                 onChange={handleChange}
                 className={`mt-1 w-full rounded-md border ${errors.phone ? "border-red-500" : "dark:border-slate-800"} bg-white dark:bg-slate-900 px-3 py-2 text-sm`}
-                placeholder="07123456789"
+                placeholder="07123456789 or 254712345678"
                 autoComplete="tel"
               />
               {errors.phone && (

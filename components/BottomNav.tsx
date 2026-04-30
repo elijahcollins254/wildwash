@@ -18,36 +18,60 @@ export default function BottomNav() {
 
   const isActive = (href: string) => pathname === href;
 
+  // Determine if we should show customer navigation
+  const showCustomerNav = isAuthenticated && !isAdmin && !isStaff && !isRider;
+  
+  // Determine navigation items based on role
+  const getNavItems = () => {
+    if (isAdmin) {
+      return ['home', 'admin', 'profile'];
+    }
+    if (isRider) {
+      return ['home', 'rider', 'profile'];
+    }
+    if (isStaff) {
+      return ['home', 'staff', 'profile'];
+    }
+    if (showCustomerNav) {
+      return ['home', 'cart', 'orders', 'profile'];
+    }
+    return ['home', 'profile'];
+  };
+
+  const navItems = getNavItems();
+
   return (
     <nav className="fixed bottom-0 left-0 right-0 z-40 md:hidden bg-white dark:bg-slate-900 border-t border-slate-200 dark:border-slate-800 shadow-lg">
       <div className="flex items-center justify-around h-16">
         {/* Home */}
-        <Link
-          href="/"
-          className={`flex flex-col items-center justify-center w-full h-full gap-1 transition-colors ${
-            isActive('/') 
-              ? 'text-red-600 dark:text-red-500' 
-              : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'
-          }`}
-          title="Home">
-          <svg
-            xmlns="http://www.w3.org/2000/svg"
-            fill={isActive('/') ? 'currentColor' : 'none'}
-            viewBox="0 0 24 24"
-            strokeWidth={1.5}
-            stroke="currentColor"
-            className="w-6 h-6">
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              d="M2.25 12l8.954-8.955c.44-.439 1.152-.439 1.591 0L21.75 12M4.5 9.75v10.125c0 .621.504 1.125 1.125 1.125H9.75v-4.875c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125V21h4.125c.621 0 1.125-.504 1.125-1.125V9.75M8.25 21h8.25"
-            />
-          </svg>
-          <span className="text-xs font-medium">Home</span>
-        </Link>
+        {navItems.includes('home') && (
+          <Link
+            href="/"
+            className={`flex flex-col items-center justify-center w-full h-full gap-1 transition-colors ${
+              isActive('/') 
+                ? 'text-red-600 dark:text-red-500' 
+                : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'
+            }`}
+            title="Home">
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              fill={isActive('/') ? 'currentColor' : 'none'}
+              viewBox="0 0 24 24"
+              strokeWidth={1.5}
+              stroke="currentColor"
+              className="w-6 h-6">
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                d="M2.25 12l8.954-8.955c.44-.439 1.152-.439 1.591 0L21.75 12M4.5 9.75v10.125c0 .621.504 1.125 1.125 1.125H9.75v-4.875c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125V21h4.125c.621 0 1.125-.504 1.125-1.125V9.75M8.25 21h8.25"
+              />
+            </svg>
+            <span className="text-xs font-medium">Home</span>
+          </Link>
+        )}
 
-        {/* Cart - Hidden for Admin/Staff/Rider */}
-        {!isAdmin && !isStaff && !isRider && (
+        {/* Cart */}
+        {navItems.includes('cart') && (
           <Link
             href="/cart"
             className={`flex flex-col items-center justify-center w-full h-full gap-1 relative transition-colors ${
@@ -80,8 +104,8 @@ export default function BottomNav() {
           </Link>
         )}
 
-        {/* Admin Dashboard - For Admin Users */}
-        {isAdmin && (
+        {/* Admin Dashboard */}
+        {navItems.includes('admin') && (
           <Link
             href="/admin"
             className={`flex flex-col items-center justify-center w-full h-full gap-1 transition-colors ${
@@ -100,8 +124,8 @@ export default function BottomNav() {
           </Link>
         )}
 
-        {/* Rider Orders - For Rider Users (Center Button) */}
-        {isRider && (
+        {/* Rider Orders */}
+        {navItems.includes('rider') && (
           <Link
             href="/rider"
             className={`flex flex-col items-center justify-center w-full h-full gap-1 transition-colors ${
@@ -120,32 +144,34 @@ export default function BottomNav() {
           </Link>
         )}
 
-        {/* Staff Panel - For Staff Users (Center Button with Role-Specific Navigation) */}
-        {isStaff && (
+        {/* Staff Dashboard - Role Specific */}
+        {navItems.includes('staff') && (
           <Link
-            href={staffType === 'folder' ? '/staff/folder' : '/staff/washer'}
+            href={staffType === 'folder' ? '/staff/folder' : staffType === 'fumigator' ? '/staff/fumigator' : '/staff/washer'}
             className={`flex flex-col items-center justify-center w-full h-full gap-1 transition-colors ${
-              (staffType === 'folder' ? isActive('/staff/folder') : isActive('/staff/washer'))
+              (staffType === 'folder' ? isActive('/staff/folder') : staffType === 'fumigator' ? isActive('/staff/fumigator') : isActive('/staff/washer'))
                 ? 'text-blue-600 dark:text-blue-500' 
                 : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'
             }`}
-            title={staffType === 'folder' ? 'Folder Dashboard' : 'Washer Dashboard'}>
+            title={staffType === 'folder' ? 'Folder Dashboard' : staffType === 'fumigator' ? 'Fumigator Dashboard' : 'Washer Dashboard'}>
             <svg
               fill="currentColor"
               viewBox="0 0 24 24"
               className="w-6 h-6">
               {staffType === 'folder' ? (
                 <path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/>
+              ) : staffType === 'fumigator' ? (
+                <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.42 0-8-3.58-8-8s3.58-8 8-8 8 3.58 8 8-3.58 8-8 8zm3.5-9c.83 0 1.5-.67 1.5-1.5S16.33 8 15.5 8 14 8.67 14 9.5s.67 1.5 1.5 1.5zm-7 0c.83 0 1.5-.67 1.5-1.5S9.33 8 8.5 8 7 8.67 7 9.5 7.67 11 8.5 11zm3.5 6.5c2.33 0 4.31-1.46 5.11-3.5H6.89c.8 2.04 2.78 3.5 5.11 3.5z"/>
               ) : (
                 <path d="M19.35 10.04C18.67 6.59 15.64 4 12 4 9.11 4 6.6 5.64 5.35 8.04 2.34 8.36 0 10.91 0 14c0 3.31 2.69 6 6 6h13c2.76 0 5-2.24 5-5 0-2.64-2.05-4.78-4.65-4.96z"/>
               )}
             </svg>
-            <span className="text-xs font-medium">{staffType === 'folder' ? 'Folder' : 'Washer'}</span>
+            <span className="text-xs font-medium">{staffType === 'folder' ? 'Folder' : staffType === 'fumigator' ? 'Fumigator' : 'Washer'}</span>
           </Link>
         )}
 
-        {/* Orders - Hidden for Admin/Staff/Rider */}
-        {isAuthenticated && !isAdmin && !isStaff && !isRider && (
+        {/* Orders */}
+        {navItems.includes('orders') && (
           <Link
             href="/orders"
             className={`flex flex-col items-center justify-center w-full h-full gap-1 transition-colors ${
@@ -172,54 +198,56 @@ export default function BottomNav() {
         )}
 
         {/* Profile */}
-        {isAuthenticated ? (
-          <Link
-            href="/profile"
-            className={`flex flex-col items-center justify-center w-full h-full gap-1 transition-colors ${
-              isActive('/profile') 
-                ? 'text-red-600 dark:text-red-500' 
-                : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'
-            }`}
-            title="Profile">
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              fill={isActive('/profile') ? 'currentColor' : 'none'}
-              viewBox="0 0 24 24"
-              strokeWidth={1.5}
-              stroke="currentColor"
-              className="w-6 h-6">
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                d="M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.501 20.118a7.5 7.5 0 0114.998 0A17.933 17.933 0 0112 21.75c-2.676 0-5.216-.584-7.499-1.632z"
-              />
-            </svg>
-            <span className="text-xs font-medium">Profile</span>
-          </Link>
-        ) : (
-          <Link
-            href="/login"
-            className={`flex flex-col items-center justify-center w-full h-full gap-1 transition-colors ${
-              isActive('/login') 
-                ? 'text-red-600 dark:text-red-500' 
-                : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'
-            }`}
-            title="Sign In">
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              fill={isActive('/login') ? 'currentColor' : 'none'}
-              viewBox="0 0 24 24"
-              strokeWidth={1.5}
-              stroke="currentColor"
-              className="w-6 h-6">
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                d="M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.501 20.118a7.5 7.5 0 0114.998 0A17.933 17.933 0 0112 21.75c-2.676 0-5.216-.584-7.499-1.632z"
-              />
-            </svg>
-            <span className="text-xs font-medium">Sign In</span>
-          </Link>
+        {navItems.includes('profile') && (
+          isAuthenticated ? (
+            <Link
+              href="/profile"
+              className={`flex flex-col items-center justify-center w-full h-full gap-1 transition-colors ${
+                isActive('/profile') 
+                  ? 'text-red-600 dark:text-red-500' 
+                  : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'
+              }`}
+              title="Profile">
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                fill={isActive('/profile') ? 'currentColor' : 'none'}
+                viewBox="0 0 24 24"
+                strokeWidth={1.5}
+                stroke="currentColor"
+                className="w-6 h-6">
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  d="M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.501 20.118a7.5 7.5 0 0114.998 0A17.933 17.933 0 0112 21.75c-2.676 0-5.216-.584-7.499-1.632z"
+                />
+              </svg>
+              <span className="text-xs font-medium">Profile</span>
+            </Link>
+          ) : (
+            <Link
+              href="/login"
+              className={`flex flex-col items-center justify-center w-full h-full gap-1 transition-colors ${
+                isActive('/login') 
+                  ? 'text-red-600 dark:text-red-500' 
+                  : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'
+              }`}
+              title="Sign In">
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                fill={isActive('/login') ? 'currentColor' : 'none'}
+                viewBox="0 0 24 24"
+                strokeWidth={1.5}
+                stroke="currentColor"
+                className="w-6 h-6">
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  d="M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.501 20.118a7.5 7.5 0 0114.998 0A17.933 17.933 0 0112 21.75c-2.676 0-5.216-.584-7.499-1.632z"
+                />
+              </svg>
+              <span className="text-xs font-medium">Sign In</span>
+            </Link>
+          )
         )}
       </div>
     </nav>
