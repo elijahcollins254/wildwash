@@ -9,9 +9,10 @@ type RouteGuardProps = {
   children: React.ReactNode;
   requireAdmin?: boolean;
   requireRider?: boolean;
+  requireStaff?: boolean;
 };
 
-export default function RouteGuard({ children, requireAdmin = false, requireRider = false }: RouteGuardProps) {
+export default function RouteGuard({ children, requireAdmin = false, requireRider = false, requireStaff = false }: RouteGuardProps) {
   const router = useRouter();
   const pathname = usePathname();
   const isAuthenticated = useSelector((state: RootState) => state.auth.isAuthenticated);
@@ -27,6 +28,7 @@ export default function RouteGuard({ children, requireAdmin = false, requireRide
       userRole,
       requireAdmin,
       requireRider,
+      requireStaff,
       pathname
     });
 
@@ -43,6 +45,8 @@ export default function RouteGuard({ children, requireAdmin = false, requireRide
         router.push(`/admin-login?redirect=${pathname}`);
       } else if (requireRider) {
         router.push(`/rider-login?redirect=${pathname}`);
+      } else if (requireStaff) {
+        router.push(`/login?redirect=${pathname}`);
       } else {
         router.push(`/login?redirect=${pathname}`);
       }
@@ -50,10 +54,14 @@ export default function RouteGuard({ children, requireAdmin = false, requireRide
     }
 
     // Check if user has the required role
-    const hasRequiredRole = (requireAdmin && userRole === 'admin') || (requireRider && userRole === 'rider');
-    console.log('Role check:', { requireAdmin, requireRider, userRole, hasRequiredRole });
+    const staffRoles = ['staff', 'washer', 'folder', 'fumigator', 'rider'];
+    const hasRequiredRole = 
+      (requireAdmin && userRole === 'admin') || 
+      (requireRider && userRole === 'rider') ||
+      (requireStaff && staffRoles.includes(userRole || ''));
+    console.log('Role check:', { requireAdmin, requireRider, requireStaff, userRole, hasRequiredRole });
 
-    if (requireAdmin || requireRider) {
+    if (requireAdmin || requireRider || requireStaff) {
       if (!hasRequiredRole) {
         console.log('Insufficient permissions, showing error...');
         setShowError(true);
@@ -63,6 +71,8 @@ export default function RouteGuard({ children, requireAdmin = false, requireRide
             router.push('/rider-login');
           } else if (requireAdmin) {
             router.push('/admin-login');
+          } else if (requireStaff) {
+            router.push('/staff');
           } else {
             router.push('/login');
           }
@@ -70,7 +80,7 @@ export default function RouteGuard({ children, requireAdmin = false, requireRide
         return () => clearTimeout(timer);
       }
     }
-  }, [isAuthenticated, isLoading, userRole, requireAdmin, requireRider, router, pathname]);
+  }, [isAuthenticated, isLoading, userRole, requireAdmin, requireRider, requireStaff, router, pathname]);
 
   if (isLoading) {
     return null; // Return null while loading to avoid showing login page temporarily
@@ -80,7 +90,7 @@ export default function RouteGuard({ children, requireAdmin = false, requireRide
     return null;
   }
 
-  if ((requireAdmin && userRole !== 'admin') || (requireRider && userRole !== 'rider')) {
+  if ((requireAdmin && userRole !== 'admin') || (requireRider && userRole !== 'rider') || (requireStaff && !['staff', 'washer', 'folder', 'fumigator', 'rider'].includes(userRole || ''))) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gradient-to-b from-white via-[#f8fafc] to-[#eef2ff] dark:from-[#071025] dark:via-[#041022] dark:to-[#011018]">
         <div className="max-w-md w-full p-8 bg-white dark:bg-slate-800 rounded-2xl shadow-lg">
@@ -89,7 +99,9 @@ export default function RouteGuard({ children, requireAdmin = false, requireRide
             <p className="text-slate-600 dark:text-slate-400 mb-4">
               {requireAdmin 
                 ? "Sorry, this page is only accessible to administrators."
-                : "Sorry, this page is only accessible to riders."}
+                : requireRider 
+                ? "Sorry, this page is only accessible to riders."
+                : "Sorry, this page is only accessible to staff members."}
               You will be redirected to the home page shortly.
             </p>
           </div>
