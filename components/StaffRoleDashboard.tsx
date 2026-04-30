@@ -374,7 +374,7 @@ export default function StaffRoleDashboard({ staffRole }: StaffRoleDashboardProp
                   return (
                     <tr key={o.id ?? o.code} className="border-b border-slate-100 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700/50">
                       <td className="py-2 px-3 font-mono text-left">
-                        <Link href={`/orders/${o.code}`} className="text-indigo-600 dark:text-indigo-400 hover:underline">
+                        <Link href={`/staff/order/${o.code}`} className="text-indigo-600 dark:text-indigo-400 hover:underline">
                           {o.code}
                         </Link>
                       </td>
