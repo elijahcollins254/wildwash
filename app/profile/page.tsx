@@ -228,16 +228,18 @@ export default function ProfilePage() {
       setProfile(data);
       setEditMode(false);
       
-      // If profile was incomplete and now has all required fields, update Redux
-      if (!isProfileComplete && data.first_name && data.last_name && data.phone && data.location && data.pickup_address) {
+      // Update profile_complete state based on response
+      if (data.profile_complete) {
+        setIsProfileComplete(true);
+        
+        // Update Redux with profile_complete
         dispatch(setAuth({
           user: {
             ...user!,
             profile_complete: true,
           },
-          token: user?.id,
+          token: token,
         }));
-        setIsProfileComplete(true);
       }
     } catch (err: any) {
       setError(err.message || "Failed to update profile");
