@@ -468,12 +468,22 @@ export default function StaffRoleDashboard({ staffRole }: StaffRoleDashboardProp
                         <div className="flex items-center justify-end gap-2">
                           <button
                             onClick={() => {
+                              // Map generic field names to role-specific field names for loading
+                              const roleFieldMap: Record<string, { price: string; items: string; notes: string; weight: string }> = {
+                                washer: { price: 'washer_price', items: 'washer_items', notes: 'washer_notes', weight: 'washer_weight' },
+                                folder: { price: 'folder_price', items: 'folder_items', notes: 'folder_notes', weight: 'folder_weight' },
+                                fumigator: { price: 'fumigator_price', items: 'fumigator_items', notes: 'fumigator_notes', weight: 'fumigator_weight' },
+                                staff: { price: 'staff_price', items: 'staff_items', notes: 'staff_notes', weight: 'staff_weight' },
+                              };
+                              
+                              const fieldMap = roleFieldMap[staffRole];
+                              
                               setDetailsFormOrderId(o.id);
                               setDetailsForm({
-                                items: o.items ?? 1,
-                                weight_kg: o.weight_kg ? String(o.weight_kg) : '',
-                                pickup_notes: o.pickup_notes ?? '',
-                                actual_price: o.actual_price !== undefined && o.actual_price !== null ? String(o.actual_price) : ''
+                                items: o[fieldMap.items] ?? o.items ?? 1,
+                                weight_kg: o[fieldMap.weight] ? String(o[fieldMap.weight]) : (o.weight_kg ? String(o.weight_kg) : ''),
+                                pickup_notes: o[fieldMap.notes] ?? o.pickup_notes ?? '',
+                                actual_price: o[fieldMap.price] !== undefined && o[fieldMap.price] !== null ? String(o[fieldMap.price]) : (o.actual_price !== undefined && o.actual_price !== null ? String(o.actual_price) : '')
                               });
                             }}
                             className="px-3 py-1 text-xs rounded-lg bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400 hover:bg-red-200 dark:hover:bg-red-900/50 font-medium transition-colors shadow-sm hover:shadow-md"
