@@ -53,6 +53,7 @@ export default function StaffRoleDashboard({ staffRole }: StaffRoleDashboardProp
   const [statusFilter, setStatusFilter] = useState<string>('');
   const [riderFilter, setRiderFilter] = useState<string>('');
   const [searchQuery, setSearchQuery] = useState<string>('');
+  const [displayLimit, setDisplayLimit] = useState<number>(20); // Start with 20 items
   const [showCreateOrderModal, setShowCreateOrderModal] = useState(false);
   const [creatingOrder, setCreatingOrder] = useState(false);
   const [createOrderForm, setCreateOrderForm] = useState({
@@ -338,8 +339,20 @@ export default function StaffRoleDashboard({ staffRole }: StaffRoleDashboardProp
               className="rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 px-3 py-2 text-sm text-slate-900 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500 shadow-sm focus:outline-none focus:ring-2 focus:ring-red-500 transition-all"
             />
 
+            <select
+              value={displayLimit}
+              onChange={(e) => setDisplayLimit(Number(e.target.value))}
+              className="rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 px-3 py-2 text-sm text-slate-900 dark:text-slate-100 shadow-sm hover:shadow-md transition-shadow"
+              title="Show this many items per page"
+            >
+              <option value={20}>Show 20</option>
+              <option value={50}>Show 50</option>
+              <option value={100}>Show 100</option>
+              <option value={200}>Show 200</option>
+            </select>
+
             <button 
-              onClick={() => { setStatusFilter(''); setRiderFilter(''); setSearchQuery(''); }} 
+              onClick={() => { setStatusFilter(''); setRiderFilter(''); setSearchQuery(''); setDisplayLimit(20); }} 
               className="text-sm text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300"
             >
               Reset
@@ -375,7 +388,7 @@ export default function StaffRoleDashboard({ staffRole }: StaffRoleDashboardProp
                   const dateA = a.created_at ? new Date(a.created_at).getTime() : 0;
                   const dateB = b.created_at ? new Date(b.created_at).getTime() : 0;
                   return dateB - dateA; // Latest first
-                }).slice(0, 200).map((o) => {
+                }).slice(0, displayLimit).map((o) => {
                   const urgency = calculateOrderUrgency(o);
                   const label = getUrgencyLabel(urgency.score);
                   return (
@@ -527,9 +540,22 @@ export default function StaffRoleDashboard({ staffRole }: StaffRoleDashboardProp
               </tbody>
             </table>
           </div>
-        </div>
 
-        {/* Create Order Modal */}
+          {/* Pagination / Load More */}
+          {filteredOrders.length > displayLimit && (
+            <div className="mt-4 flex items-center justify-between">
+              <div className="text-sm text-slate-600 dark:text-slate-400">
+                Showing <span className="font-semibold">{displayLimit}</span> of <span className="font-semibold">{filteredOrders.length}</span> orders
+              </div>
+              <button
+                onClick={() => setDisplayLimit(prev => Math.min(prev + 50, filteredOrders.length))}
+                className="px-4 py-2 rounded-lg bg-red-600 text-white hover:bg-red-700 dark:bg-red-700 dark:hover:bg-red-600 text-sm font-semibold transition-colors shadow-md hover:shadow-lg"
+              >
+                Load More
+              </button>
+            </div>
+          )}
+        </div>
         {showCreateOrderModal && (
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm" onClick={() => setShowCreateOrderModal(false)}>
             <div className="w-full max-w-md bg-white dark:bg-slate-800 rounded-3xl shadow-2xl p-6 max-h-[90vh] overflow-y-auto border border-slate-200 dark:border-slate-700" onClick={(e) => e.stopPropagation()}>
