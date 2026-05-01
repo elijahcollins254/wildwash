@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useState, useCallback, useMemo } from "react";
+import React, { useEffect, useState, useCallback, useMemo, useRef } from "react";
 import { useRouter } from "next/navigation";
 import Link from 'next/link';
 import { client } from '@/lib/api/client';
@@ -157,6 +157,9 @@ export default function StaffRoleDashboard({ staffRole }: StaffRoleDashboardProp
     }
   }, [createOrderForm, fetchOrders, staffRole]);
 
+  // Track loaded data sections to avoid re-fetching
+  const loadedSectionsRef = useRef<Set<string>>(new Set());
+
   useEffect(() => {
     const stored = typeof window !== 'undefined' ? getStoredAuthState() : null;
 
@@ -175,11 +178,15 @@ export default function StaffRoleDashboard({ staffRole }: StaffRoleDashboardProp
       setLoading(true);
       setError(null);
       try {
+        // Load profile first (fast)
         const me = await fetchProfile();
         console.log(`[${staffRole.toUpperCase()}] Profile object:`, me);
         console.log(`[${staffRole.toUpperCase()}] Staff location:`, me?.service_location);
         console.log(`[${staffRole.toUpperCase()}] Staff location display:`, me?.service_location_display);
+        
+        // Then load orders (also fast, but sequential)
         await fetchOrders();
+        loadedSectionsRef.current.add('orders');
       } catch (err: any) {
         setError(err?.message ?? `Failed to load ${staffRole} dashboard`);
       } finally {

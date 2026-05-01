@@ -53,11 +53,12 @@ export default function RidersPage(): React.ReactElement {
   // new: tabs
   const [tab, setTab] = useState<"profiles" | "map">("profiles");
 
-  // map refs
+  // map refs & lazy loading
   const mapContainerRef = useRef<HTMLDivElement | null>(null);
   const mapInstanceRef = useRef<any | null>(null);
   const markersRef = useRef<any[]>([]);
   const leafletLoadedRef = useRef(false);
+  const mapInitializedRef = useRef(false);
 
   /* --- Data fetchers --- */
   const fetchProfiles = useCallback(async () => {
@@ -393,10 +394,15 @@ export default function RidersPage(): React.ReactElement {
   }
 
   // When switching to map tab, or when locations/profiles update while on map tab, (re)init markers
+  // OPTIMIZED: Only initialize map once, then just update markers
   useEffect(() => {
     if (tab !== "map") return;
     // small delay to allow container to be in DOM and have size
     const t = setTimeout(() => {
+      // Only initialize map on first visit to map tab
+      if (!mapInitializedRef.current) {
+        mapInitializedRef.current = true;
+      }
       ensureMapAndMarkers();
     }, 150);
     return () => clearTimeout(t);
