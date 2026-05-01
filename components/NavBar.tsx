@@ -14,6 +14,7 @@ export default function NavBar() {
   const dispatch = useDispatch();
   const isAuthenticated = useSelector((state: RootState) => state.auth.isAuthenticated);
   const userRole = useSelector((state: RootState) => state.auth.user?.role);
+  const staffType = useSelector((state: RootState) => state.auth.user?.staff_type);
   const userName = useSelector((state: RootState) => state.auth.user?.username);
   const totalCartItems = useSelector(selectCartTotalItems);
   const { availableOrdersCount } = useRiderOrderNotifications();
@@ -26,6 +27,9 @@ export default function NavBar() {
   const appsDropdownRef = useRef<HTMLDivElement>(null);
   const mobileMenuRef = useRef<HTMLDivElement>(null);
   const isRider = userRole === 'rider';
+  const isWasher = userRole === 'staff' && staffType === 'washer';
+  const isFolder = userRole === 'staff' && staffType === 'folder';
+  const isFumigator = userRole === 'staff' && staffType === 'fumigator';
 
   const handleLogout = () => {
     localStorage.removeItem('access_token');
@@ -274,17 +278,45 @@ export default function NavBar() {
                           </Link>
                         </>
                       )}
-                      {userRole === 'staff' && (
+                      {isWasher && (
                         <>
                           <div className="border-t border-slate-200 dark:border-slate-700 my-1"></div>
                           <Link
-                            href="/staff"
+                            href="/staff/washer"
                             className="block px-4 py-2 text-sm font-semibold text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 flex items-center gap-2"
                             onClick={() => setProfileOpen(false)}>
                             <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
-                              <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
+                              <path d="M19.35 10.04C18.67 6.59 15.64 4 12 4 9.11 4 6.6 5.64 5.35 8.04 2.34 8.36 0 10.91 0 14c0 3.31 2.69 6 6 6h13c2.76 0 5-2.24 5-5 0-2.64-2.05-4.78-4.65-4.96z"/>
                             </svg>
-                            Staff Panel
+                            Washer Dashboard
+                          </Link>
+                        </>
+                      )}
+                      {isFolder && (
+                        <>
+                          <div className="border-t border-slate-200 dark:border-slate-700 my-1"></div>
+                          <Link
+                            href="/staff/folder"
+                            className="block px-4 py-2 text-sm font-semibold text-purple-600 dark:text-purple-400 hover:bg-purple-50 dark:hover:bg-purple-900/20 flex items-center gap-2"
+                            onClick={() => setProfileOpen(false)}>
+                            <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+                              <path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/>
+                            </svg>
+                            Folder Dashboard
+                          </Link>
+                        </>
+                      )}
+                      {isFumigator && (
+                        <>
+                          <div className="border-t border-slate-200 dark:border-slate-700 my-1"></div>
+                          <Link
+                            href="/staff/fumigator"
+                            className="block px-4 py-2 text-sm font-semibold text-amber-600 dark:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-900/20 flex items-center gap-2"
+                            onClick={() => setProfileOpen(false)}>
+                            <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+                              <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.42 0-8-3.58-8-8s3.58-8 8-8 8 3.58 8 8-3.58 8-8 8zm3.5-9c.83 0 1.5-.67 1.5-1.5S16.33 8 15.5 8 14 8.67 14 9.5s.67 1.5 1.5 1.5zm-7 0c.83 0 1.5-.67 1.5-1.5S9.33 8 8.5 8 7 8.67 7 9.5 7.67 11 8.5 11zm3.5 6.5c2.33 0 4.31-1.46 5.11-3.5H6.89c.8 2.04 2.78 3.5 5.11 3.5z"/>
+                            </svg>
+                            Fumigator Dashboard
                           </Link>
                         </>
                       )}
@@ -447,16 +479,42 @@ export default function NavBar() {
               </Link>
             )}
 
-            {/* Staff Panel - only for staff users */}
-            {userRole === 'staff' && (
+            {/* Washer Dashboard - only for washer users */}
+            {isWasher && (
               <Link
-                href="/staff"
-                className="flex flex-col items-center justify-center p-4 rounded-xl bg-gradient-to-br from-indigo-50 to-indigo-100 dark:from-indigo-900/30 dark:to-indigo-800/30 hover:from-indigo-100 hover:to-indigo-200 dark:hover:from-indigo-900/50 dark:hover:to-indigo-800/50 transition-colors group"
+                href="/staff/washer"
+                className="flex flex-col items-center justify-center p-4 rounded-xl bg-gradient-to-br from-blue-50 to-blue-100 dark:from-blue-900/30 dark:to-blue-800/30 hover:from-blue-100 hover:to-blue-200 dark:hover:from-blue-900/50 dark:hover:to-blue-800/50 transition-colors group"
                 onClick={() => setAppsOpen(false)}>
-                <svg className="w-8 h-8 text-indigo-600 dark:text-indigo-400 mb-2 group-hover:scale-110 transition-transform" fill="currentColor" viewBox="0 0 24 24">
-                  <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
+                <svg className="w-8 h-8 text-blue-600 dark:text-blue-400 mb-2 group-hover:scale-110 transition-transform" fill="currentColor" viewBox="0 0 24 24">
+                  <path d="M19.35 10.04C18.67 6.59 15.64 4 12 4 9.11 4 6.6 5.64 5.35 8.04 2.34 8.36 0 10.91 0 14c0 3.31 2.69 6 6 6h13c2.76 0 5-2.24 5-5 0-2.64-2.05-4.78-4.65-4.96z"/>
                 </svg>
-                <span className="text-xs font-medium text-center">Staff</span>
+                <span className="text-xs font-medium text-center">Washer</span>
+              </Link>
+            )}
+
+            {/* Folder Dashboard - only for folder users */}
+            {isFolder && (
+              <Link
+                href="/staff/folder"
+                className="flex flex-col items-center justify-center p-4 rounded-xl bg-gradient-to-br from-purple-50 to-purple-100 dark:from-purple-900/30 dark:to-purple-800/30 hover:from-purple-100 hover:to-purple-200 dark:hover:from-purple-900/50 dark:hover:to-purple-800/50 transition-colors group"
+                onClick={() => setAppsOpen(false)}>
+                <svg className="w-8 h-8 text-purple-600 dark:text-purple-400 mb-2 group-hover:scale-110 transition-transform" fill="currentColor" viewBox="0 0 24 24">
+                  <path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/>
+                </svg>
+                <span className="text-xs font-medium text-center">Folder</span>
+              </Link>
+            )}
+
+            {/* Fumigator Dashboard - only for fumigator users */}
+            {isFumigator && (
+              <Link
+                href="/staff/fumigator"
+                className="flex flex-col items-center justify-center p-4 rounded-xl bg-gradient-to-br from-amber-50 to-amber-100 dark:from-amber-900/30 dark:to-amber-800/30 hover:from-amber-100 hover:to-amber-200 dark:hover:from-amber-900/50 dark:hover:to-amber-800/50 transition-colors group"
+                onClick={() => setAppsOpen(false)}>
+                <svg className="w-8 h-8 text-amber-600 dark:text-amber-400 mb-2 group-hover:scale-110 transition-transform" fill="currentColor" viewBox="0 0 24 24">
+                  <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.42 0-8-3.58-8-8s3.58-8 8-8 8 3.58 8 8-3.58 8-8 8zm3.5-9c.83 0 1.5-.67 1.5-1.5S16.33 8 15.5 8 14 8.67 14 9.5s.67 1.5 1.5 1.5zm-7 0c.83 0 1.5-.67 1.5-1.5S9.33 8 8.5 8 7 8.67 7 9.5 7.67 11 8.5 11zm3.5 6.5c2.33 0 4.31-1.46 5.11-3.5H6.89c.8 2.04 2.78 3.5 5.11 3.5z"/>
+                </svg>
+                <span className="text-xs font-medium text-center">Fumigator</span>
               </Link>
             )}
           </div>
