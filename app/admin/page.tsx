@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useState, useCallback, useMemo } from "react";
+import React, { useEffect, useState, useCallback, useMemo, useRef } from "react";
 import Link from "next/link";
 import RouteGuard from "@/components/RouteGuard";
 import OrderStaffDetailsViewer from "@/components/OrderStaffDetailsViewer";
@@ -370,16 +370,36 @@ export default function AdminPage(): React.ReactElement {
     setEditModalOpen(true);
   };
 
-  // Initial data load
+  // Track which tabs have been loaded to avoid re-fetching
+  const loadedTabsRef = useRef<Set<string>>(new Set());
+
+  // Initial data load - ONLY orders & locations for fast initial render
   useEffect(() => {
     dispatch(fetchOrders());
     dispatch(fetchLocations());
-    dispatch(fetchUsers());
-    dispatch(fetchLoans());
-    dispatch(fetchTradeIns());
-    dispatch(fetchBNPL());
-    dispatch(fetchTransactions());
+    dispatch(fetchUsers()); // Users needed for rider assignment
+    loadedTabsRef.current.add('orders');
+    loadedTabsRef.current.add('riders');
+    loadedTabsRef.current.add('users');
   }, [dispatch]);
+
+  // Lazy load other tabs when clicked
+  useEffect(() => {
+    if (activeTab === 'loans' && !loadedTabsRef.current.has('loans')) {
+      dispatch(fetchLoans());
+      loadedTabsRef.current.add('loans');
+    } else if (activeTab === 'tradeins' && !loadedTabsRef.current.has('tradeins')) {
+      dispatch(fetchTradeIns());
+      loadedTabsRef.current.add('tradeins');
+    } else if (activeTab === 'bnpl' && !loadedTabsRef.current.has('bnpl')) {
+      dispatch(fetchBNPL());
+      loadedTabsRef.current.add('bnpl');
+    } else if (activeTab === 'transactions' && !loadedTabsRef.current.has('transactions')) {
+      dispatch(fetchTransactions());
+      loadedTabsRef.current.add('transactions');
+    }
+    // 'analytics' tab uses existing orders data, no fetch needed
+  }, [activeTab, dispatch]);
 
   // Derived metrics
   const totalOrders = orders.length;
@@ -756,9 +776,9 @@ export default function AdminPage(): React.ReactElement {
               </button>
             </div>
 
-            <div className="overflow-x-auto overflow-y-auto max-h-[500px] scrollbar-thin scrollbar-thumb-gray-400 scrollbar-track-gray-100 dark:scrollbar-thumb-gray-600 dark:scrollbar-track-gray-800">
+            <div className="overflow-x-auto overflow-y-auto max-h-[600px] scrollbar-thin scrollbar-thumb-gray-400 scrollbar-track-gray-100 dark:scrollbar-thumb-gray-600 dark:scrollbar-track-gray-800">
               <table className="min-w-full text-sm divide-y divide-slate-200/50 dark:divide-slate-800/50">
-                <thead className="text-slate-600 dark:text-slate-400">
+                <thead className="sticky top-0 text-slate-600 dark:text-slate-400 bg-white/50 dark:bg-slate-900/50 z-10">
                   <tr>
                     <th className="text-left py-3 px-4 font-medium">Code</th>
                     <th className="text-left py-3 px-4 font-medium">Status</th>
@@ -772,7 +792,7 @@ export default function AdminPage(): React.ReactElement {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-200/50 dark:divide-slate-800/50">
-                  {filteredOrders.slice(0, 50).map((o) => (
+                  {filteredOrders.slice(0, 100).map((o) => (
                     <tr key={o.id ?? o.code} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/50 transition-colors duration-150">
                       <td className="py-3 px-4 font-mono text-indigo-600 dark:text-indigo-400">
                         <Link href={`/admin/order/${o.code}`} className="hover:underline">
