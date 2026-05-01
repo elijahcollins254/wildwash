@@ -98,7 +98,8 @@ export default function OrderDetailsPage() {
         headers["Authorization"] = `Token ${token}`;
       }
 
-      const response = await fetch(`${API_BASE}/orders/${params.code}/`, {
+      // Use the list endpoint with code filter (same as fetchOrder)
+      const response = await fetch(`${API_BASE}/orders?code=${encodeURIComponent(params.code)}`, {
         method: "GET",
         credentials: "include",
         headers,
@@ -108,7 +109,22 @@ export default function OrderDetailsPage() {
         throw new Error(`Failed to fetch order: ${response.statusText}`);
       }
 
-      const latestOrder = await response.json();
+      const data = await response.json();
+      
+      // Handle paginated or list response
+      let latestOrder;
+      if (data.results && Array.isArray(data.results)) {
+        latestOrder = data.results[0];
+      } else if (Array.isArray(data)) {
+        latestOrder = data[0];
+      } else {
+        latestOrder = data;
+      }
+
+      if (!latestOrder) {
+        throw new Error('Order not found');
+      }
+
       const latestPrice = (latestOrder.price || latestOrder.actual_price || '0').toString().replace(/[^0-9.]/g, '');
       
       // Redirect to checkout with the latest price from the server
