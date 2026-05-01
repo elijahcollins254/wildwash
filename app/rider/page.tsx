@@ -4,7 +4,6 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { RefreshCw, MapPin, Package, Eye } from "lucide-react";
 import Link from "next/link";
 import RouteGuard from "@/components/RouteGuard";
-import { useRiderNotifications } from "@/lib/hooks/useRiderNotifications";
 import { useRiderOrderNotifications } from "@/lib/hooks/useRiderOrderNotifications";
 import { useBackgroundOrderPolling, useOrderPollingRefresh } from "@/lib/hooks/useBackgroundOrderPolling";
 import { useGetRiderProfilesQuery, useGetRiderLocationsQuery } from "@/redux/services/apiSlice";
@@ -132,16 +131,8 @@ export default function RiderMapPage(): React.ReactElement {
     fetchAndUpdateOrdersCount();
   }, []);
 
-  // Request notification permission on component mount
-  useEffect(() => {
-    if ('Notification' in window && Notification.permission === 'default') {
-      Notification.requestPermission();
-    }
-  }, []);
-
-  // Set up notifications with sound for new orders - conditionally at top level
-  // Only set up polling if token is available
-  useRiderNotifications(token, !!token, 15000); // Poll notifications every 15 seconds when token is available
+  // Sound notifications disabled - SMS Africa handles audio notifications instead
+  // useRiderNotifications hook removed as it was creating duplicate notifications
 
   const refresh = async () => {
     await Promise.all([fetchOrders(), refetchProfiles(), refetchLocations()]);
@@ -573,12 +564,6 @@ export default function RiderMapPage(): React.ReactElement {
       <div className="min-h-screen bg-gradient-to-b from-white via-[#f8fafc] to-[#eef2ff] dark:from-[#071025] dark:via-[#041022] dark:to-[#011018] text-slate-900 dark:text-slate-100 py-12">
         <div className="max-w-6xl mx-auto px-4">
           <header className="flex items-start justify-between gap-4 mb-6">
-            <div>
-              <h1 className="text-3xl font-extrabold">Rider Map</h1>
-              <p className="mt-1 text-sm text-slate-600 dark:text-slate-300">
-                View nearby orders and other riders on the map
-              </p>
-            </div>
             <button
               onClick={refresh}
               className="inline-flex items-center gap-2 rounded-full border dark:border-slate-700 px-3 py-2 bg-white/80 dark:bg-white/5 text-sm"
