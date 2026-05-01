@@ -321,18 +321,11 @@ export default function HomePage() {
         <div className="flex items-center justify-between mb-8">
           <h2 className="text-xl font-semibold text-slate-900 dark:text-slate-50">
             {selectedCategory ? categoryLabels[selectedCategory] : "All Services"}
-            <span className="text-slate-500 dark:text-slate-400 font-normal ml-2 text-base">
-              {isFiltered ? (
-                <>
-                  {filteredServices.length} result{filteredServices.length !== 1 ? 's' : ''}
-                  {searchTerm && <> for "{searchTerm}"</>}
-                </>
-              ) : (
-                filteredServices.length > 0 && totalCount > 0 
-                  ? `${filteredServices.length} of ${totalCount}`
-                  : filteredServices.length
-              )}
-            </span>
+            {isFiltered && (
+              <span className="text-slate-500 dark:text-slate-400 font-normal ml-2 text-base">
+                ({filteredServices.length} result{filteredServices.length !== 1 ? 's' : ''}{searchTerm && ` for "${searchTerm}"`})
+              </span>
+            )}
           </h2>
           {selectedCategory && (
             <button
@@ -454,8 +447,8 @@ export default function HomePage() {
           </div>
         )}
 
-        {/* Infinite scroll loader trigger */}
-        {hasMore && !loading && (
+        {/* Infinite scroll loader trigger - always visible so observer keeps tracking it */}
+        {hasMore && (
           <div ref={observerTarget} className="h-10 mt-8" />
         )}
 
@@ -472,20 +465,16 @@ export default function HomePage() {
         {!hasMore && allServices.length > 0 && (
           <div className="text-center py-8">
             <p className="text-slate-500 dark:text-slate-400 text-sm">
-              {isFiltered ? (
-                <>✓ Showing {filteredServices.length} filtered {selectedCategory ? 'services' : 'results'}</> 
-              ) : (
-                <>✓ All {totalCount} services loaded</>
-              )}
+              ✓ All {allServices.length} services loaded
             </p>
           </div>
         )}
         
-        {/* Filtered results notice */}
+        {/* Filtered results notice - only show when actually filtering */}
         {isFiltered && filteredServices.length > 0 && (
           <div className="text-center py-4">
             <p className="text-slate-500 dark:text-slate-400 text-sm">
-              Showing {filteredServices.length} of {allServices.length} loaded services
+              Showing {filteredServices.length} result{filteredServices.length !== 1 ? 's' : ''}
             </p>
           </div>
         )}
