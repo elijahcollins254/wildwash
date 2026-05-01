@@ -113,20 +113,29 @@ export default function HomePage() {
     image_url: s.image_url || (getImageForService(s.name) ? `/images/${getImageForService(s.name)}` : null),
   })), [allServices]);
 
-  // Check if there are more pages to load - based on total count accumulated
-  // When filtering by search or category, disable infinite scroll since we're only showing filtered results
+  // Auto-load all pages on home page (no pagination cutoff)
+  // For home page, we want to load all services at once
   const isFiltered = searchTerm || selectedCategory;
-  const hasMore = !isFiltered && allServices.length < totalCount;
+  const hasMore = allServices.length < totalCount;
 
-  // Infinite scroll trigger
+  // Auto-fetch all pages on mount/when more pages become available
+  useEffect(() => {
+    if (hasMore && !loading && !isFiltered && currentPage * 25 <= totalCount) {
+      // Small delay to avoid race conditions
+      const timer = setTimeout(() => {
+        setCurrentPage((prev) => prev + 1);
+      }, 100);
+      return () => clearTimeout(timer);
+    }
+  }, [hasMore, loading, isFiltered, currentPage, totalCount]);
+
+  // Infinite scroll trigger (kept for compatibility, but loading all pages automatically)
   const observerTarget = useInfiniteScroll({
     onLoadMore: () => {
-      if (hasMore && !loading && !isFiltered) {
-        setCurrentPage((prev) => prev + 1);
-      }
+      // No-op since we're loading all pages automatically
     },
-    hasMore,
-    isLoading: loading,
+    hasMore: false,
+    isLoading: false,
     threshold: 500,
   });
 
