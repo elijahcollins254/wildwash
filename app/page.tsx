@@ -113,8 +113,8 @@ export default function HomePage() {
     image_url: s.image_url || (getImageForService(s.name) ? `/images/${getImageForService(s.name)}` : null),
   })), [allServices]);
 
-  // Check if there are more pages to load
-  const hasMore = currentPage === 1 ? allServices.length < totalCount : (paginatedData?.next !== null);
+  // Check if there are more pages to load - based on total count accumulated
+  const hasMore = allServices.length < totalCount;
 
   // Infinite scroll trigger
   const observerTarget = useInfiniteScroll({
