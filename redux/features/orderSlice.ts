@@ -5,6 +5,17 @@ import { createSelector } from '@reduxjs/toolkit';
 //
 // Types (mirror what your frontend expects)
 //
+type StaffInputDetail = {
+  staff_member: string;
+  staff_role: 'Washer' | 'Folder' | 'Fumigator';
+  items?: number;
+  weight_kg?: number;
+  description?: string;
+  actual_price?: number | null;
+  status_recorded?: string;
+  recorded_at?: string;
+};
+
 type BackendOrder = {
   id: number;
   code: string;
@@ -20,6 +31,7 @@ type BackendOrder = {
   estimated_delivery?: string | null;
   delivered_at?: string | null;
   is_paid?: boolean;
+  staff_input_details?: StaffInputDetail[];
 };
 
 export type Order = {
@@ -33,6 +45,7 @@ export type Order = {
   price: string; // formatted for display
   price_display?: string | null;
   actual_price?: string | null; // price entered by staff
+  staff_input_details?: StaffInputDetail[];
   status: "Received" | "Washing" | "Drying" | "Ready" | "Delivered" | "Cancelled";
   eta?: string | null;
   estimated_delivery?: string | null;
@@ -114,6 +127,7 @@ function backendToFrontend(o: BackendOrder): Order {
     package: pkg,
     price,
     price_display: o.price_display,
+    staff_input_details: o.staff_input_details,
     status: statusMap[o.status] ?? "Received",
     eta,
     estimated_delivery: o.estimated_delivery,

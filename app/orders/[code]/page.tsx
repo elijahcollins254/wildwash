@@ -3,6 +3,7 @@
 import React, { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
+import { getLatestActualPrice, getActualPriceStaffInfo, formatActualPrice } from "@/lib/utils/orderPricing";
 
 type StatusPoint = {
   key: string;
@@ -126,15 +127,14 @@ export default function OrderDetailsPage() {
         throw new Error('Order not found');
       }
 
-      // ONLY use actual_price - no fallback to estimate
-      if (!latestOrder.actual_price) {
+      // Get the actual_price from staff input details
+      const actualPrice = getLatestActualPrice(latestOrder.staff_input_details);
+      if (!actualPrice) {
         throw new Error('This order does not have a final price set. Please contact staff to set the actual price before proceeding to checkout.');
       }
 
-      const latestPrice = latestOrder.actual_price.toString().replace(/[^0-9.]/g, '');
-      
       // Redirect to checkout with the latest actual_price from the server
-      router.push(`/checkout?order_id=${encodeURIComponent(latestOrder.code)}&amount=${encodeURIComponent(latestPrice)}`);
+      router.push(`/checkout?order_id=${encodeURIComponent(latestOrder.code)}&amount=${encodeURIComponent(String(actualPrice))}`);
     } catch (err: any) {
       console.error('Error preparing checkout:', err);
       alert(`Error preparing checkout: ${err?.message || 'Unknown error'}`);
@@ -199,9 +199,10 @@ export default function OrderDetailsPage() {
         const { cleanAddress: cleanPickup, phone: pickupPhone } = extractPhoneFromAddress(found.pickup_address);
         const { cleanAddress: cleanDropoff } = extractPhoneFromAddress(found.dropoff_address);
         
-        // Show actual_price if set, otherwise show estimate (for display only)
-        const displayPrice = found.actual_price 
-          ? `KSh ${Number(found.actual_price).toLocaleString()}` 
+        // Show actual_price from staff_input_details if set, otherwise show estimate
+        const actualPriceNum = getLatestActualPrice(found.staff_input_details);
+        const displayPrice = actualPriceNum 
+          ? formatActualPrice(actualPriceNum)
           : found.price_display ?? (found.total_price ? `KSh ${Number(found.total_price).toLocaleString()}` : (found.price ? `KSh ${Number(found.price).toLocaleString()}` : ""));
         
         const mapped: Order = {
@@ -227,7 +228,7 @@ export default function OrderDetailsPage() {
           })(),
           price: displayPrice,
           priceDisplay: found.price_display ?? null,
-          actual_price: found.actual_price ?? null,
+          actual_price: actualPriceNum ? String(actualPriceNum) : null,
           status: mapStatus(found.status ?? found.status_code ?? ""),
           eta: found.estimated_delivery ? new Date(found.estimated_delivery).toLocaleString() : undefined,
           deliveredAt: found.delivered_at ? new Date(found.delivered_at).toLocaleString() : undefined,

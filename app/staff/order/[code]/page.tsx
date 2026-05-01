@@ -5,6 +5,7 @@ import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { useDispatch } from "react-redux";
 import { client } from "@/lib/api/client";
+import { getLatestActualPrice, getActualPriceStaffInfo, formatActualPrice } from "@/lib/utils/orderPricing";
 import RouteGuard from "@/components/RouteGuard";
 import OrderStaffDetailsViewer from "@/components/OrderStaffDetailsViewer";
 import { addToCart } from "@/redux/features/cartSlice";
@@ -140,22 +141,22 @@ export default function StaffOrderDetailPage() {
       return;
     }
 
-    // IMPORTANT: Only use actual_price if it's set
-    if (!order.actual_price) {
+    // Get the latest actual_price from staff input details
+    const actualPrice = getLatestActualPrice(order.staff_input_details);
+    if (!actualPrice) {
       alert('Cannot initiate payment: Staff has not set the actual price for this order. Please set the actual_price before attempting checkout.');
       return;
     }
 
     setInitiatingPayment(true);
     try {
-      const amount = order.actual_price.toString().replace(/[^0-9.]/g, '');
       const customerPhone = order.raw?.user?.phone || order.user?.phone;
       
       // Initiate STK push for customer on behalf of staff
       const response = await client.post('/payments/mpesa/stk-push/', {
         order_id: order.code,  // Backend expects 'order_id', not 'order_code'
         phone: customerPhone,
-        amount: parseFloat(amount),
+        amount: actualPrice,
       });
 
       if (response.status === 'success' || response.success) {
@@ -253,13 +254,19 @@ export default function StaffOrderDetailPage() {
               <div className="text-right">
                 <div className="text-xs text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-1">Total Amount</div>
                 <div className="text-3xl font-bold text-slate-900 dark:text-white">
-                  KSh {Number(order.actual_price ?? order.price ?? 0).toLocaleString()}
+                  {formatActualPrice(getLatestActualPrice(order.staff_input_details))}
                 </div>
-                {order.created_at && (
-                  <div className="text-xs text-slate-500 dark:text-slate-400 mt-2">
-                    {new Date(order.created_at).toLocaleDateString()} at {new Date(order.created_at).toLocaleTimeString()}
-                  </div>
-                )}
+                {(() => {
+                  const staffInfo = getActualPriceStaffInfo(order.staff_input_details);
+                  return staffInfo ? (
+                    <div className="text-xs text-slate-500 dark:text-slate-400 mt-2">
+                      Set by {staffInfo.staffMember} ({staffInfo.role})<br/>
+                      {new Date(staffInfo.recordedAt).toLocaleDateString()}
+                    </div>
+                  ) : (
+                    <div className="text-xs text-red-500 dark:text-red-400 mt-2">Not yet set by any staff</div>
+                  );
+                })()}
               </div>
             </div>
 
@@ -418,8 +425,16 @@ export default function StaffOrderDetailPage() {
                 <div className="text-right">
                   <p className="text-xs text-slate-500 dark:text-slate-400 font-medium uppercase mb-1">Amount Due</p>
                   <p className="text-2xl font-bold text-slate-900 dark:text-white">
-                    KSh {Number(order.actual_price ?? order.price ?? 0).toLocaleString()}
+                    {formatActualPrice(getLatestActualPrice(order.staff_input_details))}
                   </p>
+                  {(() => {
+                    const staffInfo = getActualPriceStaffInfo(order.staff_input_details);
+                    return staffInfo && (
+                      <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+                        Set by {staffInfo.staffMember}
+                      </p>
+                    );
+                  })()}
                 </div>
               </div>
 
@@ -428,7 +443,7 @@ export default function StaffOrderDetailPage() {
                 <div className="flex gap-3">
                   <button
                     onClick={handleInitiatePayment}
-                    disabled={initiatingPayment}
+                    disabled={initiatingPayment || !getLatestActualPrice(order.staff_input_details)}
                     className="flex-1 px-4 py-3 bg-red-600 text-white font-semibold rounded-lg hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center justify-center gap-2"
                   >
                     {initiatingPayment ? (
@@ -446,6 +461,16 @@ export default function StaffOrderDetailPage() {
                 </div>
               )}
 
+              {/* Warning: actual_price not set */}
+              {!getLatestActualPrice(order.staff_input_details) && (
+                <div className="p-3 bg-red-50 dark:bg-red-900/20 rounded-lg border border-red-200 dark:border-red-800">
+                  <p className="text-xs text-red-600 dark:text-red-400 font-semibold uppercase mb-1">⚠️ Action Required</p>
+                  <p className="text-sm text-red-700 dark:text-red-300">
+                    Actual price has not been set by any staff member. A washer, folder, or fumigator must enter the final price before customer can proceed to checkout. The calculated price from packages is only an estimate.
+                  </p>
+                </div>
+              )}
+
               {/* Payment Info */}
               <div className="p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800">
                 <p className="text-xs text-blue-600 dark:text-blue-400 font-semibold uppercase mb-1">Payment Method</p>
@@ -453,7 +478,9 @@ export default function StaffOrderDetailPage() {
                   M-Pesa STK Push to <span className="font-mono font-bold">{order.raw?.user?.phone || order.user?.phone || 'N/A'}</span>
                 </p>
                 <p className="text-xs text-blue-600 dark:text-blue-400 mt-2">
-                  Click "Initiate M-Pesa Payment" to send STK push. Customer will enter their PIN to complete payment.
+                  {getLatestActualPrice(order.staff_input_details)
+                    ? 'Click "Initiate M-Pesa Payment" to send STK push. Customer will enter their PIN to complete payment.' 
+                    : 'Wait for staff to set the actual_price to enable payment initiation.'}
                 </p>
               </div>
             </div>

@@ -4,6 +4,7 @@ import React, { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { client } from "@/lib/api/client";
+import { getLatestActualPrice, getActualPriceStaffInfo, formatActualPrice } from "@/lib/utils/orderPricing";
 import RouteGuard from "@/components/RouteGuard";
 import OrderStaffDetailsViewer from "@/components/OrderStaffDetailsViewer";
 import { Eye, ArrowLeft, Loader2, AlertCircle, Send, RefreshCw, CheckCircle } from "lucide-react";
@@ -123,22 +124,22 @@ export default function RiderOrderDetailPage() {
       return;
     }
 
-    // IMPORTANT: Only use actual_price if it's set
-    if (!order.actual_price) {
+    // Get the latest actual_price from staff input details
+    const actualPrice = getLatestActualPrice(order.staff_input_details);
+    if (!actualPrice) {
       alert('Cannot initiate payment: Staff has not set the actual price for this order. Please set the actual_price before attempting checkout.');
       return;
     }
 
     setInitiatingPayment(true);
     try {
-      const amount = order.actual_price.toString().replace(/[^0-9.]/g, '');
       const customerPhone = order.raw?.user?.phone || order.user?.phone;
       
       // Initiate STK push for customer on behalf of rider
       const response = await client.post('/payments/mpesa/stk-push/', {
         order_id: order.code,
         phone: customerPhone,
-        amount: parseFloat(amount),
+        amount: actualPrice,
       });
 
       if (response.status === 'success' || response.success) {
@@ -229,7 +230,7 @@ export default function RiderOrderDetailPage() {
               </div>
               <div className="text-right">
                 <div className="text-3xl font-bold text-slate-900 dark:text-white">
-                  KSh {(order.actual_price ?? order.price ?? 0).toLocaleString()}
+                  KSh {formatActualPrice(getLatestActualPrice(order.staff_input_details))}
                 </div>
                 <div className={`mt-2 inline-block px-4 py-1 rounded-full text-sm font-semibold ${
                   order.status === 'delivered' ? 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400' :
@@ -344,7 +345,7 @@ export default function RiderOrderDetailPage() {
             {!order.is_paid && (
               <button
                 onClick={handleInitiatePayment}
-                disabled={initiatingPayment}
+                disabled={initiatingPayment || !getLatestActualPrice(order.staff_input_details)}
                 className="mt-4 w-full flex items-center justify-center gap-2 px-4 py-3 bg-blue-600 hover:bg-blue-700 disabled:bg-slate-400 text-white rounded-lg font-semibold transition-colors"
               >
                 {initiatingPayment ? (

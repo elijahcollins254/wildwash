@@ -4,6 +4,7 @@ import React, { useEffect, useMemo, useState, useCallback } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useDispatch, useSelector, TypedUseSelectorHook } from "react-redux";
+import { getLatestActualPrice, formatActualPrice } from "@/lib/utils/orderPricing";
 import {
   Package,
   Truck,
@@ -113,15 +114,14 @@ export default function OrdersPage(): React.JSX.Element {
       return;
     }
 
-    // ONLY use actual_price - no fallback to estimate
-    if (!order.actual_price) {
+    // Get the actual_price from staff input details
+    const actualPrice = getLatestActualPrice(order.staff_input_details);
+    if (!actualPrice) {
       setErrorMessage('This order does not have a final price set. Please contact staff to set the actual price before proceeding to checkout.');
       return;
     }
 
-    const price = order.actual_price.toString().replace(/[^0-9.]/g, '');
-    
-    router.push(`/checkout?order_id=${encodeURIComponent(order.code)}&amount=${encodeURIComponent(price)}`);
+    router.push(`/checkout?order_id=${encodeURIComponent(order.code)}&amount=${encodeURIComponent(String(actualPrice))}`);
   }, [orders, router]);
 
   // Local controlled search / filter bound to redux meta
