@@ -616,6 +616,7 @@ export default function RiderMapPage(): React.ReactElement {
           )}
         </div>
       </div>
+      </div>
     </RouteGuard>
   );
 }
