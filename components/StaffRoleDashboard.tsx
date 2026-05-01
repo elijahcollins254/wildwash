@@ -458,6 +458,20 @@ export default function StaffRoleDashboard({ staffRole }: StaffRoleDashboardProp
                       </td>
                       <td className="py-2 px-3 text-right text-slate-900 dark:text-slate-300">
                         {(() => {
+                          // Map role-specific price fields
+                          const roleFieldMap: Record<string, { price: string; items: string; notes: string; weight: string }> = {
+                            washer: { price: 'washer_price', items: 'washer_items', notes: 'washer_notes', weight: 'washer_weight' },
+                            folder: { price: 'folder_price', items: 'folder_items', notes: 'folder_notes', weight: 'folder_weight' },
+                            fumigator: { price: 'fumigator_price', items: 'fumigator_items', notes: 'fumigator_notes', weight: 'fumigator_weight' },
+                            staff: { price: 'staff_price', items: 'staff_items', notes: 'staff_notes', weight: 'staff_weight' },
+                          };
+                          
+                          const rolePrice = o[roleFieldMap[staffRole]?.price];
+                          
+                          // Check role-specific price first, then fall back to actual_price
+                          if (rolePrice !== undefined && rolePrice !== null && !isNaN(Number(rolePrice))) {
+                            return `KSh ${Number(rolePrice).toLocaleString()}`;
+                          }
                           if (o.actual_price !== undefined && o.actual_price !== null && !isNaN(Number(o.actual_price))) {
                             return `KSh ${Number(o.actual_price).toLocaleString()}`;
                           }
@@ -726,13 +740,16 @@ export default function StaffRoleDashboard({ staffRole }: StaffRoleDashboardProp
 
                       console.log('[SaveDetails] Sending payload:', payload);
                       
+                      // Store the order ID before clearing it
+                      const orderId = detailsFormOrderId;
+                      
                       // Store original order for rollback
-                      const originalOrder = orders.find(o => o.id === detailsFormOrderId);
+                      const originalOrder = orders.find(o => o.id === orderId);
                       
                       // Optimistically update the order immediately
                       setOrders(prevOrders =>
                         prevOrders.map(order =>
-                          order.id === detailsFormOrderId
+                          order.id === orderId
                             ? {
                                 ...order,
                                 status: payload.status,
@@ -748,7 +765,10 @@ export default function StaffRoleDashboard({ staffRole }: StaffRoleDashboardProp
                       setDetailsFormOrderId(null);
                       
                       // Make the API call
-                      await client.patch(`/orders/update/?id=${detailsFormOrderId}`, payload);
+                      await client.patch(`/orders/update/?id=${orderId}`, payload);
+                      
+                      // Refresh orders from server to ensure data is up-to-date
+                      await fetchOrders();
                     } catch (err: any) {
                       console.error('Failed to save details:', err);
                       // Revert to original data on error
