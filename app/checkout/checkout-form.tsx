@@ -42,16 +42,54 @@ export default function CheckoutForm() {
   const [loadingUserData, setLoadingUserData] = useState(true);
   const [profileIncomplete, setProfileIncomplete] = useState(false);
 
-  // Check if profile is complete
+  // Check if profile is complete - fetch fresh data to avoid stale Redux state
   useEffect(() => {
-    if (user && !user.profile_complete && user.role === 'customer') {
-      setProfileIncomplete(true);
-      // Show message but don't redirect immediately - let user see why
-      setTimeout(() => {
-        router.push('/profile/setup');
-      }, 2000);
-    }
-  }, [user, router]);
+    const checkProfileStatus = async () => {
+      try {
+        let token = null;
+        if (typeof window !== 'undefined') {
+          const authState = localStorage.getItem('wildwash_auth_state');
+          if (authState) {
+            try {
+              const parsed = JSON.parse(authState);
+              token = parsed.token;
+            } catch (e) {
+              console.error('Error parsing auth state:', e);
+            }
+          }
+        }
+
+        const apiBase = process.env.NEXT_PUBLIC_API_BASE;
+        if (!apiBase) return;
+
+        const response = await axios.get<any>(`${apiBase}/users/me/`, {
+          headers: {
+            ...(token && { 'Authorization': `Token ${token}` }),
+          },
+        });
+
+        // Check the fresh profile_complete status from the API
+        if (response.data && !response.data.profile_complete && response.data.role === 'customer') {
+          setProfileIncomplete(true);
+          // Show message but don't redirect immediately - let user see why
+          setTimeout(() => {
+            router.push('/profile');
+          }, 2000);
+        }
+      } catch (err) {
+        console.error('Error checking profile status:', err);
+        // Fall back to Redux user if API fails
+        if (user && !user.profile_complete && user.role === 'customer') {
+          setProfileIncomplete(true);
+          setTimeout(() => {
+            router.push('/profile');
+          }, 2000);
+        }
+      }
+    };
+
+    checkProfileStatus();
+  }, [router]);
 
   // Auto-fill form from query params and user data on mount
   useEffect(() => {

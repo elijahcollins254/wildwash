@@ -98,7 +98,7 @@ export default function OrderDetailsPage() {
         headers["Authorization"] = `Token ${token}`;
       }
 
-      const response = await fetch(`${API_BASE}/orders/orders/${params.code}/`, {
+      const response = await fetch(`${API_BASE}/orders/${params.code}/`, {
         method: "GET",
         credentials: "include",
         headers,
