@@ -1,11 +1,11 @@
 "use client";
 
-import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { RefreshCw, MapPin, Package, Eye } from "lucide-react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
+import { MapPin, Package, Eye } from "lucide-react";
 import Link from "next/link";
 import RouteGuard from "@/components/RouteGuard";
 import { useRiderOrderNotifications } from "@/lib/hooks/useRiderOrderNotifications";
-import { useBackgroundOrderPolling, useOrderPollingRefresh } from "@/lib/hooks/useBackgroundOrderPolling";
+import { useBackgroundOrderPolling } from "@/lib/hooks/useBackgroundOrderPolling";
 import { useGetRiderProfilesQuery, useGetRiderLocationsQuery } from "@/redux/services/apiSlice";
 import type { RiderProfile, RiderLocation } from "@/redux/services/apiSlice";
 
@@ -84,10 +84,9 @@ export default function RiderMapPage(): React.ReactElement {
   );
   const token = authState.token || null;
 
-  // Use background polling for orders - silent updates without page reload
-  const backgroundOrders = useBackgroundOrderPolling(token, true, 15000);
+  // Use background polling for orders - smart updates without page reload
+  const backgroundOrders = useBackgroundOrderPolling(token, true, 60000); // 60 second default interval
   const orders = backgroundOrders;
-  const refreshOrders = useOrderPollingRefresh();
 
   // Update loading state when orders arrive
   useEffect(() => {
@@ -105,38 +104,15 @@ export default function RiderMapPage(): React.ReactElement {
     };
   }, []);
 
-  // map refs - Temporarily commented out
-  /*
-  const mapContainerRef = useRef<HTMLDivElement | null>(null);
-  const mapInstanceRef = useRef<any | null>(null);
-  const markersRef = useRef<any[]>([]);
-  const leafletLoadedRef = useRef(false);
-  */
-
-  /* --- Data fetchers --- */
-  // fetchOrders is now handled by background polling service
-  const fetchOrders = useCallback(async () => {
-    if (!token) return;
-    try {
-      await refreshOrders(token);
-    } catch (err: any) {
-      console.error("Manual orders refresh error:", err);
-      setErrorOrders(err?.message ?? "Failed to refresh orders");
-    }
-  }, [token, refreshOrders]);
+ manual refresh needed - polling handles it intelligently
 
   useEffect(() => {
-    fetchOrders();
     // Initialize order notification count on page load
     fetchAndUpdateOrdersCount();
   }, []);
 
   // Sound notifications disabled - SMS Africa handles audio notifications instead
   // useRiderNotifications hook removed as it was creating duplicate notifications
-
-  const refresh = async () => {
-    await Promise.all([fetchOrders(), refetchProfiles(), refetchLocations()]);
-  };
 
   const handleOpenDetailsForm = (order: Order) => {
     setDetailsOrderId(order.id);
@@ -196,9 +172,9 @@ export default function RiderMapPage(): React.ReactElement {
         throw new Error(errorData.error || `Failed to update order: ${res.status}`);
       }
 
-      // Close form and refresh
+      // Close form and let background polling refresh
       handleCloseDetailsForm();
-      await refreshOrders(token);
+      // Background polling will pick up the change
       setCurrentStatus('picked');
     } catch (err: any) {
       console.error('Failed to save order details:', err);
@@ -252,7 +228,7 @@ export default function RiderMapPage(): React.ReactElement {
       }
 
       // Refresh the orders list and switch to picked page
-      await refreshOrders(token);
+      // Background polling will pick up the change
       setCurrentStatus('picked'); // Switch to picked page after completion
     } catch (err: any) {
       console.error('Failed to complete pickup:', err);
@@ -300,7 +276,7 @@ export default function RiderMapPage(): React.ReactElement {
       }
 
       // Refresh orders and switch to delivered view
-      await refreshOrders(token);
+      // Background polling will pick up the change
       setCurrentStatus('delivered');
     } catch (err: any) {
       console.error('Failed to mark delivered:', err);
@@ -394,184 +370,11 @@ export default function RiderMapPage(): React.ReactElement {
     return `<?xml version='1.0' encoding='UTF-8'?><svg xmlns='http://www.w3.org/2000/svg' width='36' height='36' viewBox='0 0 24 24'><path d='M12 2C8 2 5 5 5 9c0 5 7 13 7 13s7-8 7-13c0-4-3-7-7-7z' fill='#105969'/><circle cx='12' cy='9' r='2.5' fill='#fff'/></svg>`;
   }
 
-  /* --- Map initialization & markers --- Temporarily commented out
-  /*
-  async function ensureMapAndMarkers() {
-    try {
-      await injectLeafletCss();
-      const mod = await import("leaflet");
-      const L = (mod as any).default || mod;
-      leafletLoadedRef.current = true;
-
-      if (!mapContainerRef.current) return;
-
-      // Initialize map if needed
-      if (!mapInstanceRef.current) {
-        const map = L.map(mapContainerRef.current, { center: [0, 0], zoom: 2, preferCanvas: true });
-        L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-          maxZoom: 19,
-          attribution: '&copy; OpenStreetMap contributors',
-        }).addTo(map);
-        mapInstanceRef.current = map;
-        // sometimes container size hasn't been calculated yet
-        setTimeout(() => map.invalidateSize(true), 120);
-      }
-
-      // Clear existing markers
-      markersRef.current.forEach((m) => {
-        try {
-          mapInstanceRef.current.removeLayer(m);
-        } catch {}
-      });
-      markersRef.current = [];
-
-      const map = mapInstanceRef.current;
-      const bounds: any[] = [];
-
-      // Add order markers
-      for (const order of filteredOrders) {
-        // pickup
-        if (order.pickup_location) {
-          const icon = L.icon({
-            iconUrl: svgDataUrl(getOrderMarkerSvg(order.status, true)),
-            iconSize: [32, 32],
-            iconAnchor: [16, 32],
-            popupAnchor: [0, -30],
-          });
-
-          const marker = L.marker([order.pickup_location.lat, order.pickup_location.lng], { icon }).addTo(map);
-
-          const pickupHtmlParts = [
-            `<div style="font-size:13px">`,
-            `<div style="font-weight:600">Order ${escapeHtml(order.code)}</div>`,
-            `<div style="color:#666">Pickup Location</div>`,
-            `<div style="margin-top:4px">${escapeHtml(order.pickup_address)}</div>`,
-            `<div style="color:#666;margin-top:4px">Status: ${escapeHtml(capitalize(order.status))}<br/>Items: ${escapeHtml(String(order.items))}<br/>Created: ${escapeHtml(formatDateTime(order.created_at))}</div>`,
-            `</div>`,
-          ].join("");
-
-          marker.bindPopup(pickupHtmlParts);
-          markersRef.current.push(marker);
-          bounds.push([order.pickup_location.lat, order.pickup_location.lng]);
-        }
-
-        // dropoff
-        if (order.dropoff_location) {
-          const icon = L.icon({
-            iconUrl: svgDataUrl(getOrderMarkerSvg(order.status, false)),
-            iconSize: [32, 32],
-            iconAnchor: [16, 32],
-            popupAnchor: [0, -30],
-          });
-
-          const marker = L.marker([order.dropoff_location.lat, order.dropoff_location.lng], { icon }).addTo(map);
-
-          const est = order.estimated_delivery ? `Est. Delivery: ${formatDateTime(order.estimated_delivery)}` : "";
-          const dropHtmlParts = [
-            `<div style="font-size:13px">`,
-            `<div style="font-weight:600">Order ${escapeHtml(order.code)}</div>`,
-            `<div style="color:#666">Dropoff Location</div>`,
-            `<div style="margin-top:4px">${escapeHtml(order.dropoff_address)}</div>`,
-            `<div style="color:#666;margin-top:4px">Status: ${escapeHtml(capitalize(order.status))}<br/>Items: ${escapeHtml(String(order.items))}${est ? "<br/>" + escapeHtml(est) : ""}</div>`,
-            `</div>`,
-          ].join("");
-
-          marker.bindPopup(dropHtmlParts);
-          markersRef.current.push(marker);
-          bounds.push([order.dropoff_location.lat, order.dropoff_location.lng]);
-        }
-      }
-
-      // Add rider markers
-      for (const [key, loc] of latestLocationByRider.entries()) {
-        if (!loc.latitude || !loc.longitude) continue;
-
-        const vehicleType = profiles.find((p) => String(p.id) === String(loc.rider) || String(p.user) === String(loc.rider))?.vehicle_type;
-
-        const icon = L.icon({
-          iconUrl: svgDataUrl(getRiderMarkerSvg(vehicleType || undefined)),
-          iconSize: [36, 36],
-          iconAnchor: [18, 36],
-          popupAnchor: [0, -30],
-        });
-
-        const marker = L.marker([loc.latitude, loc.longitude], { icon }).addTo(map);
-
-        const title = loc.rider_display ?? String(loc.rider ?? key ?? "Rider");
-        const when = loc.recorded_at ? new Date(loc.recorded_at).toLocaleString() : "unknown";
-        const vehicleLabel = (vehicleType ? `${String(vehicleType)}` : "unknown vehicle").replace(/^[a-z]/, (c) => c.toUpperCase());
-
-        const popupHtml = [
-          `<div style="font-size:13px">`,
-          `<div style="font-weight:600">${escapeHtml(title)}</div>`,
-          `<div style="font-size:12px;color:#444">${escapeHtml(vehicleLabel)}</div>`,
-          `<div style="font-size:12px;color:#666;margin-top:6px">Last seen: ${escapeHtml(when)}</div>`,
-          `</div>`,
-        ].join("");
-
-        marker.bindPopup(popupHtml);
-        markersRef.current.push(marker);
-        bounds.push([loc.latitude, loc.longitude]);
-      }
-
-      // Fit bounds if we have markers
-      if (bounds.length) {
-        try {
-          map.invalidateSize(true);
-          map.fitBounds(bounds, { padding: [60, 60], maxZoom: 16 });
-        } catch (err) {
-          console.warn("fitBounds failed, falling back to first point", err);
-          map.setView(bounds[0], 12);
-        }
-      } else {
-        map.setView([0, 0], 2);
-      }
-    } catch (err) {
-      console.error("ensureMapAndMarkers error:", err);
-    }
-  }
-
-  // Update map when data changes
-  useEffect(() => {
-    const t = setTimeout(() => ensureMapAndMarkers(), 150);
-    return () => clearTimeout(t);
-  }, [filteredOrders, locations, profiles]);
-
-  // Create map once and cleanup on unmount
-  useEffect(() => {
-    return () => {
-      // destroy map and markers on unmount
-      try {
-        markersRef.current.forEach((m) => {
-          try {
-            mapInstanceRef.current?.removeLayer?.(m);
-          } catch {}
-        });
-        markersRef.current = [];
-        if (mapInstanceRef.current) {
-          mapInstanceRef.current.remove(); // leaflet map remove
-          mapInstanceRef.current = null;
-        }
-      } catch {}
-      leafletLoadedRef.current = false;
-    };
-  }, []);
-  */
-
   /* --- Render --- */
   return (
     <RouteGuard requireRider>
       <div className="min-h-screen bg-gradient-to-b from-white via-[#f8fafc] to-[#eef2ff] dark:from-[#071025] dark:via-[#041022] dark:to-[#011018] text-slate-900 dark:text-slate-100 py-12">
         <div className="max-w-6xl mx-auto px-4">
-          <header className="flex items-start justify-between gap-4 mb-6">
-            <button
-              onClick={refresh}
-              className="inline-flex items-center gap-2 rounded-full border dark:border-slate-700 px-3 py-2 bg-white/80 dark:bg-white/5 text-sm"
-            >
-              <RefreshCw className="w-4 h-4" /> Refresh
-            </button>
-          </header>
-
           <div className="grid grid-cols-1 gap-6">
             {/* Left: Order list & filters */}
             <section className="rounded-2xl bg-white/80 dark:bg-white/5 p-4 shadow">
@@ -697,38 +500,6 @@ export default function RiderMapPage(): React.ReactElement {
                 </div>
               )}
             </section>
-
-            {/* Right: Map - Temporarily commented out
-            <aside className="rounded-2xl bg-white/80 dark:bg-white/5 p-4 shadow space-y-4">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <MapPin className="w-5 h-5 text-red-600" />
-                  <h3 className="font-semibold">Live Map</h3>
-                </div>
-              </div>
-
-              <div className="space-y-3">
-                <div ref={mapContainerRef} style={{ height: 600, width: "100%" }} className="rounded" />
-                <div className="text-xs text-slate-500">
-                  <div className="font-semibold mb-1">Legend:</div>
-                  <div>Orders:</div>
-                  <div className="grid grid-cols-2 gap-2">
-                    <div>🔴 Requested</div>
-                    <div>🔵 Picked Up</div>
-                    <div>🟡 In Progress</div>
-                    <div>🟢 Ready</div>
-                  </div>
-                  <div className="mt-2">Riders:</div>
-                  <div className="grid grid-cols-2 gap-2">
-                    <div>🚗 Car/Van</div>
-                    <div>🏍️ Motorbike</div>
-                    <div>🚲 Bicycle</div>
-                  </div>
-                </div>
-              </div>
-            </aside>
-            */}
-          </div>
 
           {/* Details Modal - Minimalistic */}
           {detailsOrderId !== null && (

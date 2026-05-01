@@ -24,6 +24,16 @@ class OrderPollingService {
   private isPolling: boolean = false;
   private apiBase: string = process.env.NEXT_PUBLIC_API_BASE || '';
   private lastOrderIds: Set<number> = new Set(); // Track seen order IDs
+  
+  // Smart polling features
+  private errorCount: number = 0;
+  private maxErrorCount: number = 5;
+  private baseInterval: number = 60000; // 1 minute
+  private currentInterval: number = this.baseInterval;
+  private lastPollTime: number = 0;
+  private pendingRequest: Promise<void> | null = null;
+  private isPageVisible: boolean = true;
+  private currentToken: string | null = null;
 
   private constructor() {}
 
@@ -38,34 +48,42 @@ class OrderPollingService {
   }
 
   /**
-   * Start background polling
+   * Start background polling with smart interval management
    */
   startPolling(token: string, intervalMs: number = 60000): void {
-    if (this.isPolling) {
+    if (this.isPolling && this.currentToken === token) {
       console.log('Order polling already active');
       return;
     }
 
-    this.pollDuration = intervalMs;
+    this.baseInterval = Math.max(30000, intervalMs); // Minimum 30 seconds
+    this.currentInterval = this.baseInterval;
+    this.currentToken = token;
+    this.errorCount = 0;
     this.isPolling = true;
 
-    console.log(`Starting order polling every ${intervalMs}ms`);
+    console.log(`Starting order polling with base interval ${this.baseInterval}ms`);
+
+    // Set up page visibility listener
+    this.setupVisibilityListener();
 
     // Poll immediately on start
-    this.fetchOrders(token).catch(err => 
+    this.executePoll(token).catch(err => 
       console.error('Initial order poll failed:', err)
     );
 
     // Set up interval
     this.pollingInterval = setInterval(() => {
-      this.fetchOrders(token).catch(err =>
-        console.error('Order polling error:', err)
-      );
-    }, this.pollDuration);
+      if (this.isPageVisible && this.isPolling) {
+        this.executePoll(token).catch(err =>
+          console.error('Order polling error:', err)
+        );
+      }
+    }, this.currentInterval);
   }
 
   /**
-   * Stop background polling
+   * Stop background polling and cleanup
    */
   stopPolling(): void {
     if (this.pollingInterval) {
@@ -73,6 +91,15 @@ class OrderPollingService {
       this.pollingInterval = null;
     }
     this.isPolling = false;
+    this.currentToken = null;
+    this.errorCount = 0;
+    this.currentInterval = this.baseInterval;
+    
+    // Remove visibility listener
+    if (typeof document !== 'undefined') {
+      document.removeEventListener('visibilitychange', () => {});
+    }
+    
     console.log('Order polling stopped');
   }
 
@@ -94,6 +121,71 @@ class OrderPollingService {
    */
   getCachedOrders(): Order[] {
     return [...this.cachedOrders];
+  }
+
+  /**
+   * Execute poll with deduplication and error handling
+   */
+  private async executePoll(token: string): Promise<void> {
+    // Prevent duplicate concurrent requests
+    if (this.pendingRequest) {
+      return;
+    }
+
+    // Prevent polling too frequently
+    const now = Date.now();
+    if (now - this.lastPollTime < 5000) {
+      return;
+    }
+
+    this.lastPollTime = now;
+    this.pendingRequest = this.fetchOrders(token);
+
+    try {
+      await this.pendingRequest;
+      // Reset interval on successful poll
+      this.errorCount = 0;
+      this.currentInterval = this.baseInterval;
+    } catch (err) {
+      // Exponential backoff on error
+      this.errorCount++;
+      const backoffMultiplier = Math.pow(1.5, Math.min(this.errorCount, this.maxErrorCount));
+      this.currentInterval = Math.min(
+        this.baseInterval * backoffMultiplier,
+        this.baseInterval * 5 // Max 5x base interval
+      );
+      console.warn(`Poll error #${this.errorCount}, backing off to ${this.currentInterval}ms`);
+    } finally {
+      this.pendingRequest = null;
+    }
+  }
+
+  /**
+   * Setup page visibility listener to pause polling when tab is hidden
+   */
+  private setupVisibilityListener(): void {
+    if (typeof document === 'undefined') return;
+
+    const handleVisibilityChange = () => {
+      this.isPageVisible = !document.hidden;
+      console.log(`Page visibility changed: ${this.isPageVisible ? 'visible' : 'hidden'}`);
+
+      // If page becomes visible, poll immediately
+      if (this.isPageVisible && this.isPolling && this.currentToken) {
+        console.log('Page became visible, polling immediately');
+        this.executePoll(this.currentToken).catch(err =>
+          console.error('Immediate poll on visibility change failed:', err)
+        );
+      }
+    };
+
+    // Only add listener once
+    if (!this.isPageVisible) {
+      // Already listening
+      return;
+    }
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
   }
 
   /**
