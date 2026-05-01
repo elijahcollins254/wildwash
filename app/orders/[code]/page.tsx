@@ -80,7 +80,7 @@ export default function OrderDetailsPage() {
   const handleProceedToCheckout = async () => {
     setCheckoutLoading(true);
     try {
-      // Fetch latest order data to ensure we use the current price
+      // Fetch latest order data to ensure we use the current actual_price
       let token = null;
       if (typeof window !== 'undefined') {
         const authState = localStorage.getItem('wildwash_auth_state');
@@ -126,9 +126,14 @@ export default function OrderDetailsPage() {
         throw new Error('Order not found');
       }
 
-      const latestPrice = (latestOrder.price || latestOrder.actual_price || '0').toString().replace(/[^0-9.]/g, '');
+      // ONLY use actual_price - no fallback to estimate
+      if (!latestOrder.actual_price) {
+        throw new Error('This order does not have a final price set. Please contact staff to set the actual price before proceeding to checkout.');
+      }
+
+      const latestPrice = latestOrder.actual_price.toString().replace(/[^0-9.]/g, '');
       
-      // Redirect to checkout with the latest price from the server
+      // Redirect to checkout with the latest actual_price from the server
       router.push(`/checkout?order_id=${encodeURIComponent(latestOrder.code)}&amount=${encodeURIComponent(latestPrice)}`);
     } catch (err: any) {
       console.error('Error preparing checkout:', err);
@@ -194,6 +199,11 @@ export default function OrderDetailsPage() {
         const { cleanAddress: cleanPickup, phone: pickupPhone } = extractPhoneFromAddress(found.pickup_address);
         const { cleanAddress: cleanDropoff } = extractPhoneFromAddress(found.dropoff_address);
         
+        // Show actual_price if set, otherwise show estimate (for display only)
+        const displayPrice = found.actual_price 
+          ? `KSh ${Number(found.actual_price).toLocaleString()}` 
+          : found.price_display ?? (found.total_price ? `KSh ${Number(found.total_price).toLocaleString()}` : (found.price ? `KSh ${Number(found.price).toLocaleString()}` : ""));
+        
         const mapped: Order = {
           id: found.id,
           code: found.code || `WW-${found.id}`,
@@ -215,8 +225,9 @@ export default function OrderDetailsPage() {
             if (found.service && typeof found.service === "object") return found.service.name ?? "Standard";
             return found.package ?? "Standard";
           })(),
-          price: found.price_display ?? (found.total_price ? `KSh ${Number(found.total_price).toLocaleString()}` : (found.price ? `KSh ${Number(found.price).toLocaleString()}` : "")),
+          price: displayPrice,
           priceDisplay: found.price_display ?? null,
+          actual_price: found.actual_price ?? null,
           status: mapStatus(found.status ?? found.status_code ?? ""),
           eta: found.estimated_delivery ? new Date(found.estimated_delivery).toLocaleString() : undefined,
           deliveredAt: found.delivered_at ? new Date(found.delivered_at).toLocaleString() : undefined,
