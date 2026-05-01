@@ -373,14 +373,28 @@ export default function AdminPage(): React.ReactElement {
   // Track which tabs have been loaded to avoid re-fetching
   const loadedTabsRef = useRef<Set<string>>(new Set());
 
-  // Initial data load - ONLY orders & locations for fast initial render
+  // Initial data load - SEQUENTIAL for optimal performance
+  // Orders → Locations → Users (each waits for previous to complete)
   useEffect(() => {
-    dispatch(fetchOrders());
-    dispatch(fetchLocations());
-    dispatch(fetchUsers()); // Users needed for rider assignment
-    loadedTabsRef.current.add('orders');
-    loadedTabsRef.current.add('riders');
-    loadedTabsRef.current.add('users');
+    const loadInitialData = async () => {
+      try {
+        // Step 1: Load orders first (most critical)
+        await dispatch(fetchOrders()).unwrap().catch(() => {});
+        loadedTabsRef.current.add('orders');
+        
+        // Step 2: Load locations (for rider tracking)
+        await dispatch(fetchLocations()).unwrap().catch(() => {});
+        loadedTabsRef.current.add('riders');
+        
+        // Step 3: Load users (for rider assignment dropdown)
+        await dispatch(fetchUsers()).unwrap().catch(() => {});
+        loadedTabsRef.current.add('users');
+      } catch (err) {
+        console.error('Error loading initial data:', err);
+      }
+    };
+
+    loadInitialData();
   }, [dispatch]);
 
   // Lazy load other tabs when clicked
