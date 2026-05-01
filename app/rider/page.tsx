@@ -104,7 +104,9 @@ export default function RiderMapPage(): React.ReactElement {
     };
   }, []);
 
- manual refresh needed - polling handles it intelligently
+  /* --- Data fetchers --- */
+  // Orders are fetched automatically via background polling service
+  // No manual refresh needed - polling handles it intelligently
 
   useEffect(() => {
     // Initialize order notification count on page load
