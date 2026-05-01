@@ -191,6 +191,9 @@ export default function StaffRoleDashboard({ staffRole }: StaffRoleDashboardProp
   const loadedSectionsRef = useRef<Set<string>>(new Set());
   const observerTarget = useRef<HTMLDivElement>(null);
 
+  // Check if there are more pages to load
+  const hasMore = allOrders.length < totalOrdersCount && totalOrdersCount > 0;
+
   // Infinite scroll trigger
   const scrollObserverTarget = useInfiniteScroll({
     onLoadMore: () => {
@@ -202,9 +205,6 @@ export default function StaffRoleDashboard({ staffRole }: StaffRoleDashboardProp
     isLoading: ordersLoading,
     threshold: 500,
   });
-
-  // Check if there are more pages to load
-  const hasMore = allOrders.length < totalOrdersCount && totalOrdersCount > 0;
 
   // Update orders from allOrders when page changes
   useEffect(() => {

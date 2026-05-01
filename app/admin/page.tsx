@@ -308,6 +308,9 @@ export default function AdminPage(): React.ReactElement {
     }
   }, [ordersPage, fetchOrdersPage]);
 
+  // Display orders: use paginated orders if available, fallback to Redux orders
+  const displayOrders = allOrders.length > 0 ? allOrders : orders;
+
   // Helper function to calculate price from order_items with quantities
   const calculateOrderPrice = (order: any): number => {
     if (order.order_items && Array.isArray(order.order_items) && order.order_items.length > 0) {
@@ -498,9 +501,6 @@ export default function AdminPage(): React.ReactElement {
     }
     return Array.from(map.entries()).map(([riderKey, loc]) => ({ riderKey, ...loc }));
   })();
-
-  // Use allOrders for display (infinite scroll enabled), fallback to Redux orders
-  const displayOrders = allOrders.length > 0 ? allOrders : orders;
 
   const riderCount = latestLocationByRider.length;
 
