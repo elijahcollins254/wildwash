@@ -114,12 +114,14 @@ export default function HomePage() {
   })), [allServices]);
 
   // Check if there are more pages to load - based on total count accumulated
-  const hasMore = allServices.length < totalCount;
+  // When filtering by search or category, disable infinite scroll since we're only showing filtered results
+  const isFiltered = searchTerm || selectedCategory;
+  const hasMore = !isFiltered && allServices.length < totalCount;
 
   // Infinite scroll trigger
   const observerTarget = useInfiniteScroll({
     onLoadMore: () => {
-      if (hasMore && !loading) {
+      if (hasMore && !loading && !isFiltered) {
         setCurrentPage((prev) => prev + 1);
       }
     },
@@ -320,10 +322,16 @@ export default function HomePage() {
           <h2 className="text-xl font-semibold text-slate-900 dark:text-slate-50">
             {selectedCategory ? categoryLabels[selectedCategory] : "All Services"}
             <span className="text-slate-500 dark:text-slate-400 font-normal ml-2 text-base">
-              {filteredServices.length > 0 && totalCount > 0 
-                ? `${filteredServices.length} of ${totalCount}`
-                : filteredServices.length
-              }
+              {isFiltered ? (
+                <>
+                  {filteredServices.length} result{filteredServices.length !== 1 ? 's' : ''}
+                  {searchTerm && <> for "{searchTerm}"</>}
+                </>
+              ) : (
+                filteredServices.length > 0 && totalCount > 0 
+                  ? `${filteredServices.length} of ${totalCount}`
+                  : filteredServices.length
+              )}
             </span>
           </h2>
           {selectedCategory && (
@@ -464,7 +472,20 @@ export default function HomePage() {
         {!hasMore && allServices.length > 0 && (
           <div className="text-center py-8">
             <p className="text-slate-500 dark:text-slate-400 text-sm">
-              ✓ All {totalCount} services loaded
+              {isFiltered ? (
+                <>✓ Showing {filteredServices.length} filtered {selectedCategory ? 'services' : 'results'}</> 
+              ) : (
+                <>✓ All {totalCount} services loaded</>
+              )}
+            </p>
+          </div>
+        )}
+        
+        {/* Filtered results notice */}
+        {isFiltered && filteredServices.length > 0 && (
+          <div className="text-center py-4">
+            <p className="text-slate-500 dark:text-slate-400 text-sm">
+              Showing {filteredServices.length} of {allServices.length} loaded services
             </p>
           </div>
         )}
