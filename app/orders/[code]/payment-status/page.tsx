@@ -178,7 +178,7 @@ export default function PaymentStatusPage() {
       }
 
       const latestOrder = await response.json();
-      const latestPrice = (latestOrder.price || latestOrder.actual_price || '0').toString().replace(/[^0-9.]/g, '');
+      const latestPrice = (latestOrder.actual_price || latestOrder.price || '0').toString().replace(/[^0-9.]/g, '');
       
       // Redirect to checkout with the latest price from the server
       window.location.href = `/checkout?order_id=${encodeURIComponent(latestOrder.code)}&amount=${encodeURIComponent(latestPrice)}`;

@@ -111,15 +111,18 @@ export default function OrdersPage(): React.JSX.Element {
       return;
     }
 
-    // Extract price - try multiple sources to get the correct value
+    // Extract price - prioritize actual_price if staff entered it, then fall back to price
     let price = '0';
     
-    if (order.price) {
+    if (order.actual_price) {
+      const extracted = order.actual_price.toString().replace(/[^0-9.]/g, '');
+      if (extracted) price = extracted;
+    } else if (order.price) {
       const extracted = order.price.toString().replace(/[^0-9.]/g, '');
       if (extracted) price = extracted;
     }
     
-    if (order.price_display && price === '0') {
+    if (price === '0' && order.price_display) {
       price = order.price_display.toString().replace(/[^0-9.]/g, '');
     }
     
