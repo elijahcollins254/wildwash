@@ -44,6 +44,8 @@ type Order = {
   weight_kg?: number | null;
   package: string;
   price: string; // formatted for display
+  price_display?: string | null;
+  actual_price?: string | null; // price entered by staff
   status: "Received" | "Washing" | "Drying" | "Ready" | "Delivered" | "Cancelled";
   eta?: string | null;
   estimated_delivery?: string | null;

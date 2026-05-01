@@ -15,6 +15,7 @@ export type Order = {
   package: string;
   price: string;
   price_display?: string;
+  actual_price?: string | null; // price entered by staff
   status: OrderStatus;
   eta?: string;
   estimated_delivery?: string;

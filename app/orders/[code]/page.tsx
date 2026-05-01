@@ -28,6 +28,7 @@ type Order = {
   package: string;
   price: string;
   priceDisplay?: string | null;
+  actual_price?: string | null; // price entered by staff
   status: string;
   eta?: string;
   deliveredAt?: string;

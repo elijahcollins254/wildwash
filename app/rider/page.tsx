@@ -28,6 +28,7 @@ type Order = {
   items: number;
   weight_kg?: number | null;
   price?: number | null;
+  actual_price?: string | number | null; // price entered by staff
   created_at: string;
   estimated_delivery?: string | null;
   delivered_at?: string | null;
