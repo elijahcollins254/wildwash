@@ -115,21 +115,28 @@ export default function HomePage() {
 
   // Auto-load all pages on home page (no pagination cutoff)
   // For home page, we want to load all services at once
-  const isFiltered = searchTerm || selectedCategory;
   const hasMore = allServices.length < totalCount;
 
-  // Auto-fetch all pages on mount/when more pages become available
+  // Auto-fetch all pages on mount and when more pages become available
   useEffect(() => {
-    if (hasMore && !loading && !isFiltered && currentPage * 25 <= totalCount) {
-      // Small delay to avoid race conditions
-      const timer = setTimeout(() => {
-        setCurrentPage((prev) => prev + 1);
-      }, 100);
-      return () => clearTimeout(timer);
-    }
-  }, [hasMore, loading, isFiltered, currentPage, totalCount]);
+    // If all pages are loaded, stop
+    if (!hasMore || totalCount === 0) return;
+    
+    // If currently loading, wait
+    if (loading) return;
+    
+    // If filtering, don't auto-fetch (filtering is done in-memory on loaded services)
+    if (isFiltered) return;
+    
+    // Increment page to fetch more
+    const timer = setTimeout(() => {
+      setCurrentPage((prev) => prev + 1);
+    }, 100);
+    
+    return () => clearTimeout(timer);
+  }, [hasMore, totalCount, loading, isFiltered]);
 
-  // Infinite scroll trigger (kept for compatibility, but loading all pages automatically)
+  // Infinite scroll trigger (disabled - we load all pages automatically)
   const observerTarget = useInfiniteScroll({
     onLoadMore: () => {
       // No-op since we're loading all pages automatically
@@ -474,7 +481,7 @@ export default function HomePage() {
         {!hasMore && allServices.length > 0 && (
           <div className="text-center py-8">
             <p className="text-slate-500 dark:text-slate-400 text-sm">
-              ✓ All {allServices.length} services loaded
+              ✓ All {totalCount} services loaded
             </p>
           </div>
         )}
