@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { useSelector } from "react-redux";
 import Link from "next/link";
@@ -18,7 +18,8 @@ import {
 } from "@heroicons/react/24/outline";
 import { useAppDispatch } from "@/redux/hooks";
 import { addToCart } from "@/redux/features/cartSlice";
-import { useGetServicesQuery } from "@/redux/services/apiSlice";
+import { useGetServicesPaginatedQuery } from "@/redux/services/apiSlice";
+import { useInfiniteScroll } from "@/lib/hooks/useInfiniteScroll";
 import type { Service } from "@/redux/services/apiSlice";
 import type { RootState } from "@/redux/store";
 
@@ -81,19 +82,51 @@ export default function HomePage() {
   const [addedItem, setAddedItem] = useState<number | null>(null);
   const [showScrollTop, setShowScrollTop] = useState(false);
   const [visibleCards, setVisibleCards] = useState<Set<number>>(new Set());
+  const [currentPage, setCurrentPage] = useState(1);
+  const [allServices, setAllServices] = useState<Service[]>([]);
+  const [totalCount, setTotalCount] = useState(0);
   const cardRefs = useRef<Map<number, HTMLDivElement>>(new Map());
   const categoriesScrollRef = useRef<HTMLDivElement>(null);
   const observerRef = useRef<IntersectionObserver | null>(null);
+  const loadMoreRef = useRef<HTMLDivElement>(null);
 
-  // Fetch services using Redux
-  const { data: servicesData, isLoading: loading, error: servicesError } = useGetServicesQuery();
+  // Fetch services page by page using Redux
+  const { data: paginatedData, isLoading: loading, error: servicesError } = useGetServicesPaginatedQuery(currentPage);
 
-  // Transform services with images and icons (safely handle undefined/null data)
-  const services: ServiceWithUI[] = (Array.isArray(servicesData) ? servicesData : []).map((s): ServiceWithUI => ({
+  // Update total count and accumulate services
+  useEffect(() => {
+    if (paginatedData?.results) {
+      setTotalCount(paginatedData.count || 0);
+      setAllServices((prev) => {
+        // Avoid duplicates when refetching
+        const existingIds = new Set(prev.map(s => s.id));
+        const newServices = paginatedData.results.filter(s => !existingIds.has(s.id));
+        return [...prev, ...newServices];
+      });
+    }
+  }, [paginatedData]);
+
+  // Transform services with images and icons
+  const services = useMemo(() => allServices.map((s): ServiceWithUI => ({
     ...s,
     icon: getIconForCategory(s.category || "other"),
     image_url: s.image_url || (getImageForService(s.name) ? `/images/${getImageForService(s.name)}` : null),
-  }));
+  })), [allServices]);
+
+  // Check if there are more pages to load
+  const hasMore = currentPage === 1 ? allServices.length < totalCount : (paginatedData?.next !== null);
+
+  // Infinite scroll trigger
+  const observerTarget = useInfiniteScroll({
+    onLoadMore: () => {
+      if (hasMore && !loading) {
+        setCurrentPage((prev) => prev + 1);
+      }
+    },
+    hasMore,
+    isLoading: loading,
+    threshold: 500,
+  });
 
   // Initial load bounce
   useEffect(() => {
@@ -103,6 +136,15 @@ export default function HomePage() {
       setTimeout(() => categories?.classList.remove("animate-bounce-custom"), 600);
     }, 100);
     return () => clearTimeout(timer);
+  }, []);
+
+  // Scroll to top button visibility
+  useEffect(() => {
+    const handleScroll = () => {
+      setShowScrollTop(window.scrollY > 300);
+    };
+    window.addEventListener('scroll', handleScroll);
+    return () => window.removeEventListener('scroll', handleScroll);
   }, []);
 
   // Horizontal scroll with mouse wheel on categories
@@ -278,7 +320,10 @@ export default function HomePage() {
           <h2 className="text-xl font-semibold text-slate-900 dark:text-slate-50">
             {selectedCategory ? categoryLabels[selectedCategory] : "All Services"}
             <span className="text-slate-500 dark:text-slate-400 font-normal ml-2 text-base">
-              {filteredServices.length}
+              {filteredServices.length > 0 && totalCount > 0 
+                ? `${filteredServices.length} of ${totalCount}`
+                : filteredServices.length
+              }
             </span>
           </h2>
           {selectedCategory && (
@@ -398,6 +443,29 @@ export default function HomePage() {
                 </Link>
               </div>
             ))}
+          </div>
+        )}
+
+        {/* Infinite scroll loader trigger */}
+        {hasMore && !loading && (
+          <div ref={observerTarget} className="h-10 mt-8" />
+        )}
+
+        {/* Loading indicator when fetching more */}
+        {loading && currentPage > 1 && (
+          <div className="flex justify-center py-8">
+            <div className="animate-spin">
+              <div className="w-8 h-8 border-4 border-slate-200 dark:border-slate-800 border-t-red-600 rounded-full" />
+            </div>
+          </div>
+        )}
+
+        {/* All loaded indicator */}
+        {!hasMore && allServices.length > 0 && (
+          <div className="text-center py-8">
+            <p className="text-slate-500 dark:text-slate-400 text-sm">
+              ✓ All {totalCount} services loaded
+            </p>
           </div>
         )}
       </div>

@@ -71,6 +71,13 @@ export type Service = {
   processing_time?: number; // Processing time in hours
 };
 
+export type PaginatedResponse<T> = {
+  count: number;
+  next: string | null;
+  previous: string | null;
+  results: T[];
+};
+
 export type RiderProfile = {
   id: number;
   user?: string | null;
@@ -166,6 +173,11 @@ export const apiSlice = createApi({
       query: (id) => `/services/${id}/`,
       providesTags: (result, error, id) => [{ type: 'Services', id }],
     }),
+    // Paginated service endpoint for infinite scroll
+    getServicesPaginated: builder.query<PaginatedResponse<Service>, number>({
+      query: (page = 1) => `/services/?page=${page}`,
+      providesTags: ['Services'],
+    }),
     // Rider endpoints
     getRiderProfiles: builder.query<RiderProfile[], void>({
       query: () => '/riders/profiles/',
@@ -193,6 +205,7 @@ export const {
   useGetInvestmentDetailQuery,
   useGetServicesQuery,
   useGetServiceDetailQuery,
+  useGetServicesPaginatedQuery,
   useGetRiderProfilesQuery,
   useGetRiderLocationsQuery,
 } = apiSlice;
