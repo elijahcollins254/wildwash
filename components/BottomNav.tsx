@@ -10,35 +10,28 @@ export default function BottomNav() {
   const pathname = usePathname();
   const isAuthenticated = useSelector((state: RootState) => state.auth.isAuthenticated);
   const userRole = useSelector((state: RootState) => state.auth.user?.role);
-  const staffType = useSelector((state: RootState) => state.auth.user?.staff_type);
   const totalCartItems = useSelector(selectCartTotalItems);
-  const isAdmin = userRole === 'admin';
-  const isStaff = userRole === 'staff';
-  const isRider = userRole === 'rider';
-  const isWasher = isStaff && staffType === 'washer';
-  const isFolder = isStaff && staffType === 'folder';
-  const isFumigator = isStaff && staffType === 'fumigator';
 
   const isActive = (href: string) => pathname === href;
 
   // Determine if we should show customer navigation
-  const showCustomerNav = isAuthenticated && !isAdmin && !isStaff && !isRider;
+  const showCustomerNav = isAuthenticated && userRole !== 'admin' && userRole !== 'washer' && userRole !== 'folder' && userRole !== 'fumigator' && userRole !== 'rider';
   
   // Determine navigation items based on role
   const getNavItems = () => {
-    if (isAdmin) {
+    if (userRole === 'admin') {
       return ['home', 'admin', 'profile'];
     }
-    if (isRider) {
+    if (userRole === 'rider') {
       return ['home', 'rider', 'profile'];
     }
-    if (isWasher) {
+    if (userRole === 'washer') {
       return ['home', 'washer', 'profile'];
     }
-    if (isFolder) {
+    if (userRole === 'folder') {
       return ['home', 'folder', 'profile'];
     }
-    if (isFumigator) {
+    if (userRole === 'fumigator') {
       return ['home', 'fumigator', 'profile'];
     }
     if (showCustomerNav) {
