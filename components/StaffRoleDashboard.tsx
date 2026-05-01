@@ -7,6 +7,7 @@ import { client } from '@/lib/api/client';
 import { getStoredAuthState, isValidAuthState } from '@/lib/auth';
 import { Spinner, OrderStatusUpdate } from '@/components';
 import { sortByUrgency, calculateOrderUrgency, getUrgencyLabel } from '@/lib/orderUrgency';
+import { useInfiniteScroll } from '@/lib/hooks/useInfiniteScroll';
 
 type Order = Record<string, any>;
 
@@ -48,12 +49,16 @@ export default function StaffRoleDashboard({ staffRole }: StaffRoleDashboardProp
   const [error, setError] = useState<string | null>(null);
   const [profile, setProfile] = useState<any | null>(null);
   const [orders, setOrders] = useState<Order[]>([]);
+  const [allOrders, setAllOrders] = useState<Order[]>([]);
+  const [totalOrdersCount, setTotalOrdersCount] = useState<number>(0);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [ordersLoading, setOrdersLoading] = useState(false);
   const [detailsFormOrderId, setDetailsFormOrderId] = useState<number | null>(null);
   const [detailsForm, setDetailsForm] = useState<{ items?: number; weight_kg?: string; pickup_notes?: string; actual_price?: string }>({});
   const [statusFilter, setStatusFilter] = useState<string>('');
   const [riderFilter, setRiderFilter] = useState<string>('');
   const [searchQuery, setSearchQuery] = useState<string>('');
-  const [displayLimit, setDisplayLimit] = useState<number>(20); // Start with 20 items
+  const [displayLimit, setDisplayLimit] = useState<number>(20); // Keep for manual load more option
   const [showCreateOrderModal, setShowCreateOrderModal] = useState(false);
   const [creatingOrder, setCreatingOrder] = useState(false);
   const [createOrderForm, setCreateOrderForm] = useState({
@@ -78,17 +83,28 @@ export default function StaffRoleDashboard({ staffRole }: StaffRoleDashboardProp
     }
   }, [staffRole]);
 
-  const fetchOrders = useCallback(async (locationId?: number) => {
+  const fetchOrders = useCallback(async (page: number = 1) => {
     try {
-      const data = await client.get('/orders/');
-      console.log(`[${staffRole.toUpperCase()}] Raw orders response:`, data);
-      const list: any[] = Array.isArray(data) ? data : Array.isArray(data?.results) ? data.results : [];
-      console.log(`[${staffRole.toUpperCase()}] Orders list:`, list);
+      setOrdersLoading(true);
+      // Fetch with pagination using page parameter (25 items per page from backend)
+      const data = await client.get(`/orders/?page=${page}`);
+      console.log(`[${staffRole.toUpperCase()}] Raw orders response for page ${page}:`, data);
+      
+      // Handle paginated response
+      const paginatedData = data;
+      const list: any[] = Array.isArray(paginatedData?.results) ? paginatedData.results : [];
+      const count = paginatedData?.count || 0;
+      
+      console.log(`[${staffRole.toUpperCase()}] Orders list for page ${page}:`, list);
+      console.log(`[${staffRole.toUpperCase()}] Total count:`, count);
       console.log(`[${staffRole.toUpperCase()}] List length:`, list.length);
       
-      if (list.length === 0) {
+      if (list.length === 0 && page === 1) {
         console.log(`[${staffRole.toUpperCase()}] ⚠️ No orders returned from API`);
       }
+      
+      // Update total count
+      setTotalOrdersCount(count);
       
       // Sort orders by date (latest first)
       const sortedList = list.sort((a, b) => {
@@ -97,9 +113,20 @@ export default function StaffRoleDashboard({ staffRole }: StaffRoleDashboardProp
         return dateB - dateA; // descending order (newest first)
       });
       
-      setOrders(sortedList);
+      // Accumulate orders (avoid duplicates)
+      setAllOrders((prev) => {
+        if (page === 1) {
+          return sortedList; // Reset on first page
+        }
+        const existingIds = new Set(prev.map(o => o.id));
+        const newOrders = sortedList.filter(o => !existingIds.has(o.id));
+        return [...prev, ...newOrders];
+      });
+      
+      setOrdersLoading(false);
     } catch (err: any) {
       console.error(`[${staffRole.toUpperCase()}] Error fetching orders:`, err);
+      setOrdersLoading(false);
       throw err;
     }
   }, [staffRole]);
@@ -148,7 +175,9 @@ export default function StaffRoleDashboard({ staffRole }: StaffRoleDashboardProp
         order_type: 'walk_in'
       });
       
-      await fetchOrders();
+      await fetchOrders(1); // Reset to page 1
+      setCurrentPage(1);
+      setAllOrders([]);
       alert('Order created successfully!');
     } catch (err: any) {
       console.error(`[${staffRole.toUpperCase()}] Failed to create order:`, err);
@@ -160,6 +189,34 @@ export default function StaffRoleDashboard({ staffRole }: StaffRoleDashboardProp
 
   // Track loaded data sections to avoid re-fetching
   const loadedSectionsRef = useRef<Set<string>>(new Set());
+  const observerTarget = useRef<HTMLDivElement>(null);
+
+  // Infinite scroll trigger
+  const scrollObserverTarget = useInfiniteScroll({
+    onLoadMore: () => {
+      if (hasMore && !ordersLoading) {
+        setCurrentPage((prev) => prev + 1);
+      }
+    },
+    hasMore,
+    isLoading: ordersLoading,
+    threshold: 500,
+  });
+
+  // Check if there are more pages to load
+  const hasMore = allOrders.length < totalOrdersCount && totalOrdersCount > 0;
+
+  // Update orders from allOrders when page changes
+  useEffect(() => {
+    setOrders(allOrders);
+  }, [allOrders]);
+
+  // Fetch next page when currentPage changes
+  useEffect(() => {
+    if (currentPage > 1) {
+      fetchOrders(currentPage);
+    }
+  }, [currentPage, fetchOrders]);
 
   useEffect(() => {
     const stored = typeof window !== 'undefined' ? getStoredAuthState() : null;
@@ -185,8 +242,9 @@ export default function StaffRoleDashboard({ staffRole }: StaffRoleDashboardProp
         console.log(`[${staffRole.toUpperCase()}] Staff location:`, me?.service_location);
         console.log(`[${staffRole.toUpperCase()}] Staff location display:`, me?.service_location_display);
         
-        // Then load orders (also fast, but sequential)
-        await fetchOrders();
+        // Then load first page of orders
+        await fetchOrders(1);
+        setCurrentPage(1);
         loadedSectionsRef.current.add('orders');
       } catch (err: any) {
         setError(err?.message ?? `Failed to load ${staffRole} dashboard`);
@@ -196,7 +254,7 @@ export default function StaffRoleDashboard({ staffRole }: StaffRoleDashboardProp
     })();
   }, [fetchProfile, fetchOrders, router, staffRole]);
 
-  const total = orders.length;
+  const total = totalOrdersCount || orders.length;
 
   const availableStatuses = Array.from(new Set(orders.map(o => (o.status ?? '').toString()))).filter(Boolean);
   const availableRiders = Array.from(new Set(orders.map(o => {
@@ -364,6 +422,7 @@ export default function StaffRoleDashboard({ staffRole }: StaffRoleDashboardProp
           <div className="inline-flex items-center gap-4">
             <div className="text-sm text-slate-500 dark:text-slate-400">Total orders for location</div>
             <div className="text-2xl font-bold text-slate-900 dark:text-slate-100">{total}</div>
+            {ordersLoading && <span className="text-xs text-slate-400">Loading...</span>}
           </div>
         </div>
 
@@ -422,7 +481,7 @@ export default function StaffRoleDashboard({ staffRole }: StaffRoleDashboardProp
                                   } catch (err: any) {
                                     console.error('Failed to update status:', err);
                                     // Revert on error by fetching fresh data
-                                    await fetchOrders();
+                                    await fetchOrders(1);
                                     alert(err?.message || 'Failed to update status');
                                   }
                                 }}
@@ -541,7 +600,30 @@ export default function StaffRoleDashboard({ staffRole }: StaffRoleDashboardProp
             </table>
           </div>
 
-          {/* Pagination / Load More */}
+          {/* Infinite scroll loader trigger */}
+          {hasMore && !ordersLoading && (
+            <div ref={scrollObserverTarget} className="h-10 mt-8" />
+          )}
+
+          {/* Loading indicator when fetching more */}
+          {ordersLoading && currentPage > 1 && (
+            <div className="flex justify-center py-8">
+              <div className="animate-spin">
+                <div className="w-8 h-8 border-4 border-slate-200 dark:border-slate-800 border-t-red-600 rounded-full" />
+              </div>
+            </div>
+          )}
+
+          {/* All loaded indicator */}
+          {!hasMore && orders.length > 0 && (
+            <div className="text-center py-8">
+              <p className="text-slate-500 dark:text-slate-400 text-sm">
+                ✓ All {totalOrdersCount} orders loaded
+              </p>
+            </div>
+          )}
+
+          {/* Manual load more option (kept for backwards compatibility) */}
           {filteredOrders.length > displayLimit && (
             <div className="mt-4 flex items-center justify-between">
               <div className="text-sm text-slate-600 dark:text-slate-400">
@@ -800,12 +882,12 @@ export default function StaffRoleDashboard({ staffRole }: StaffRoleDashboardProp
                       // Make the API call
                       await client.patch(`/orders/update/?id=${orderId}`, payload);
                       
-                      // Refresh orders from server to ensure data is up-to-date
-                      await fetchOrders();
+                      // Refresh first page of orders from server to ensure data is up-to-date
+                      await fetchOrders(1);
                     } catch (err: any) {
                       console.error('Failed to save details:', err);
                       // Revert to original data on error
-                      await fetchOrders();
+                      await fetchOrders(1);
                       alert(err?.message || 'Failed to save details');
                     }
                   }}

@@ -193,6 +193,10 @@ export const apiSlice = createApi({
       },
       providesTags: ['RiderLocations'],
     }),
+    // Paginated rider orders endpoint for infinite scroll
+    getRiderOrdersPaginated: builder.query<PaginatedResponse<Order>, number>({
+      query: (page = 1) => `/orders/rider/?page=${page}`,
+    }),
   }),
 });
 
@@ -208,4 +212,5 @@ export const {
   useGetServicesPaginatedQuery,
   useGetRiderProfilesQuery,
   useGetRiderLocationsQuery,
+  useGetRiderOrdersPaginatedQuery,
 } = apiSlice;

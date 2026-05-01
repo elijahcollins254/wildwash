@@ -7,6 +7,7 @@ import OrderStaffDetailsViewer from "@/components/OrderStaffDetailsViewer";
 import { client } from "@/lib/api/client";
 import { useDispatch, useSelector } from "react-redux";
 import { RootState, AppDispatch } from "@/redux/store";
+import { useInfiniteScroll } from "@/lib/hooks/useInfiniteScroll";
 import {
   fetchOrders,
   fetchLocations,
@@ -213,6 +214,10 @@ export default function AdminPage(): React.ReactElement {
 
   // Local UI state
   const [activeTab, setActiveTab] = useState<'orders' | 'riders' | 'users' | 'loans' | 'tradeins' | 'bnpl' | 'transactions' | 'analytics'>('orders');
+  const [ordersPage, setOrdersPage] = useState(1);
+  const [totalOrdersCount, setTotalOrdersCount] = useState(0);
+  const [allOrders, setAllOrders] = useState<Order[]>([]);
+  const [ordersPageLoading, setOrdersPageLoading] = useState(false);
   const [statusFilter, setStatusFilter] = useState<string>('');
   const [riderFilter, setRiderFilter] = useState<string>('');
   const [locationFilter, setLocationFilter] = useState<string>('');
@@ -246,6 +251,62 @@ export default function AdminPage(): React.ReactElement {
   useEffect(() => {
     setAdminApiClient(client);
   }, []);
+
+  // Fetch orders page by page for infinite scroll
+  const fetchOrdersPage = useCallback(async (page: number) => {
+    try {
+      setOrdersPageLoading(true);
+      const data = await client.get(`/orders/?page=${page}`);
+      const paginatedData = data;
+      const list: any[] = Array.isArray(paginatedData?.results) ? paginatedData.results : [];
+      const count = paginatedData?.count || 0;
+      
+      setTotalOrdersCount(count);
+      
+      // Transform with 'raw' property for admin compatibility
+      const transformedOrders = list.map((order: any) => ({
+        ...order,
+        raw: order
+      }));
+      
+      // Accumulate orders (avoid duplicates)
+      setAllOrders((prev) => {
+        if (page === 1) {
+          return transformedOrders; // Reset on first page
+        }
+        const existingIds = new Set(prev.map(o => o.id));
+        const newOrders = transformedOrders.filter(o => !existingIds.has(o.id));
+        return [...prev, ...newOrders];
+      });
+      
+      setOrdersPageLoading(false);
+    } catch (err: any) {
+      console.error('Error fetching orders page:', err);
+      setOrdersPageLoading(false);
+    }
+  }, []);
+
+  // Check if there are more pages to load
+  const hasMoreOrders = allOrders.length < totalOrdersCount && totalOrdersCount > 0;
+
+  // Infinite scroll trigger
+  const scrollObserverTarget = useInfiniteScroll({
+    onLoadMore: () => {
+      if (hasMoreOrders && !ordersPageLoading && activeTab === 'orders') {
+        setOrdersPage((prev) => prev + 1);
+      }
+    },
+    hasMore: hasMoreOrders,
+    isLoading: ordersPageLoading,
+    threshold: 500,
+  });
+
+  // Fetch next page when ordersPage changes
+  useEffect(() => {
+    if (ordersPage > 0) {
+      fetchOrdersPage(ordersPage);
+    }
+  }, [ordersPage, fetchOrdersPage]);
 
   // Helper function to calculate price from order_items with quantities
   const calculateOrderPrice = (order: any): number => {
@@ -378,8 +439,9 @@ export default function AdminPage(): React.ReactElement {
   useEffect(() => {
     const loadInitialData = async () => {
       try {
-        // Step 1: Load orders first (most critical)
-        await dispatch(fetchOrders()).unwrap().catch(() => {});
+        // Step 1: Load first page of orders
+        await fetchOrdersPage(1);
+        setOrdersPage(1);
         loadedTabsRef.current.add('orders');
         
         // Step 2: Load locations (for rider tracking)
@@ -395,7 +457,7 @@ export default function AdminPage(): React.ReactElement {
     };
 
     loadInitialData();
-  }, [dispatch]);
+  }, [dispatch, fetchOrdersPage]);
 
   // Lazy load other tabs when clicked
   useEffect(() => {
@@ -416,10 +478,10 @@ export default function AdminPage(): React.ReactElement {
   }, [activeTab, dispatch]);
 
   // Derived metrics
-  const totalOrders = orders.length;
-  const completed = orders.filter((o) => String(o.status ?? "").toLowerCase() === "delivered").length;
-  const inProgress = orders.filter((o) => String(o.status ?? "").toLowerCase() !== "delivered").length;
-  const totalRevenue = orders.reduce((sum, o) => {
+  const totalOrders = totalOrdersCount || displayOrders.length;
+  const completed = displayOrders.filter((o) => String(o.status ?? "").toLowerCase() === "delivered").length;
+  const inProgress = displayOrders.filter((o) => String(o.status ?? "").toLowerCase() !== "delivered").length;
+  const totalRevenue = displayOrders.reduce((sum, o) => {
     const price = Number(o.price ?? 0);
     return sum + (isNaN(price) ? 0 : price);
   }, 0);
@@ -437,11 +499,14 @@ export default function AdminPage(): React.ReactElement {
     return Array.from(map.entries()).map(([riderKey, loc]) => ({ riderKey, ...loc }));
   })();
 
+  // Use allOrders for display (infinite scroll enabled), fallback to Redux orders
+  const displayOrders = allOrders.length > 0 ? allOrders : orders;
+
   const riderCount = latestLocationByRider.length;
 
   // daily stats for charts
   const dailyStats = Object.values(
-    orders.reduce((acc: Record<string, { date: string; orders: number; revenue: number }>, o) => {
+    displayOrders.reduce((acc: Record<string, { date: string; orders: number; revenue: number }>, o) => {
       const date = o.created_at?.split?.("T")?.[0] ?? new Date().toISOString().split("T")[0];
       if (!acc[date]) acc[date] = { date, orders: 0, revenue: 0 };
       acc[date].orders += 1;
@@ -452,7 +517,9 @@ export default function AdminPage(): React.ReactElement {
   );
 
   const refreshAll = async () => {
-    dispatch(fetchOrders());
+    // Reset orders to first page and refresh from API
+    await fetchOrdersPage(1);
+    setOrdersPage(1);
     dispatch(fetchLocations());
     dispatch(fetchUsers());
     dispatch(fetchLoans());
@@ -466,9 +533,9 @@ export default function AdminPage(): React.ReactElement {
     return getRiderNameHelper(rider);
   }, []);
 
-  const availableStatuses = Array.from(new Set(orders.map(o => (o.status ?? '').toString()))).filter(Boolean);
-  const availableRiders = Array.from(new Set(orders.map(o => getRiderName(o.rider)))).filter(Boolean);
-  const availableLocations = Array.from(new Set(orders.map(o => (o.raw?.user?.location || '').toString()))).filter(Boolean);
+  const availableStatuses = Array.from(new Set(displayOrders.map(o => (o.status ?? '').toString()))).filter(Boolean);
+  const availableRiders = Array.from(new Set(displayOrders.map(o => getRiderName(o.rider)))).filter(Boolean);
+  const availableLocations = Array.from(new Set(displayOrders.map(o => (o.raw?.user?.location || '').toString()))).filter(Boolean);
 
   const getDateRange = useCallback(() => {
     const today = new Date();
@@ -505,7 +572,7 @@ export default function AdminPage(): React.ReactElement {
   }, [dateFilter, startDate, endDate]);
 
   const filteredOrders = useMemo(() => {
-    return orders.filter(o => {
+    return displayOrders.filter(o => {
       if (statusFilter && String(o.status ?? '').toLowerCase() !== statusFilter.toLowerCase()) return false;
       if (riderFilter && getRiderName(o.rider).toLowerCase() !== riderFilter.toLowerCase()) return false;
       if (locationFilter) {
@@ -528,7 +595,7 @@ export default function AdminPage(): React.ReactElement {
 
       return true;
     });
-  }, [orders, statusFilter, riderFilter, locationFilter, searchQuery, dateFilter, startDate, endDate, getRiderName, getDateRange]);
+  }, [displayOrders, statusFilter, riderFilter, locationFilter, searchQuery, dateFilter, startDate, endDate, getRiderName, getDateRange]);
 
   const filteredUsers = useMemo(() => {
     return users.filter(u => {
@@ -871,6 +938,29 @@ export default function AdminPage(): React.ReactElement {
                 </tbody>
               </table>
             </div>
+
+            {/* Infinite scroll loader trigger */}
+            {hasMoreOrders && !ordersPageLoading && (
+              <div ref={scrollObserverTarget} className="h-10 mt-8" />
+            )}
+
+            {/* Loading indicator when fetching more */}
+            {ordersPageLoading && ordersPage > 1 && (
+              <div className="flex justify-center py-8">
+                <div className="animate-spin">
+                  <div className="w-8 h-8 border-4 border-slate-200 dark:border-slate-800 border-t-red-600 rounded-full" />
+                </div>
+              </div>
+            )}
+
+            {/* All loaded indicator */}
+            {!hasMoreOrders && displayOrders.length > 0 && (
+              <div className="text-center py-8">
+                <p className="text-slate-500 dark:text-slate-400 text-sm">
+                  ✓ Loaded {displayOrders.length} of {totalOrdersCount} orders
+                </p>
+              </div>
+            )}
           </div>
         </div>
         )}

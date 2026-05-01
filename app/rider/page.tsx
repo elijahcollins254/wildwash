@@ -6,7 +6,8 @@ import Link from "next/link";
 import RouteGuard from "@/components/RouteGuard";
 import { useRiderOrderNotifications } from "@/lib/hooks/useRiderOrderNotifications";
 import { useBackgroundOrderPolling } from "@/lib/hooks/useBackgroundOrderPolling";
-import { useGetRiderProfilesQuery, useGetRiderLocationsQuery } from "@/redux/services/apiSlice";
+import { useInfiniteScroll } from "@/lib/hooks/useInfiniteScroll";
+import { useGetRiderProfilesQuery, useGetRiderLocationsQuery, useGetRiderOrdersPaginatedQuery } from "@/redux/services/apiSlice";
 import type { RiderProfile, RiderLocation } from "@/redux/services/apiSlice";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_BASE || '';
@@ -76,6 +77,12 @@ export default function RiderMapPage(): React.ReactElement {
     description: '',
   });
 
+  // Pagination state for infinite scroll
+  const [ordersPage, setOrdersPage] = useState(1);
+  const [allRiderOrders, setAllRiderOrders] = useState<Order[]>([]);
+  const [totalRiderOrdersCount, setTotalRiderOrdersCount] = useState(0);
+  const [ordersPageLoading, setOrdersPageLoading] = useState(false);
+
   // Get the order notification hook
   const { decrementCount: decrementOrderCount, setAvailableOrdersCount: setOrdersCount, fetchAndUpdateOrdersCount } = useRiderOrderNotifications();
 
@@ -116,6 +123,56 @@ export default function RiderMapPage(): React.ReactElement {
 
   // Sound notifications disabled - SMS Africa handles audio notifications instead
   // useRiderNotifications hook removed as it was creating duplicate notifications
+
+  // Fetch paginated rider orders
+  const fetchOrdersPage = async (page: number) => {
+    try {
+      setOrdersPageLoading(true);
+      const authState = JSON.parse(localStorage.getItem('wildwash_auth_state') || '{}');
+      const token = authState.token;
+      if (!token) {
+        throw new Error('Authentication required');
+      }
+
+      const response = await fetch(`${API_BASE}/orders/rider/?page=${page}`, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Token ${token}`,
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error(`Failed to fetch rider orders: ${response.status}`);
+      }
+
+      const data = await response.json();
+      const { count = 0, results = [] } = data;
+
+      // Accumulate orders avoiding duplicates
+      if (page === 1) {
+        setAllRiderOrders(results);
+      } else {
+        setAllRiderOrders(prev => {
+          const existingIds = new Set(prev.map(o => o.id));
+          const newOrders = results.filter((o: Order) => !existingIds.has(o.id));
+          return [...prev, ...newOrders];
+        });
+      }
+
+      setTotalRiderOrdersCount(count);
+      setOrdersPage(page);
+    } catch (err: any) {
+      console.error('Error fetching paginated orders:', err);
+    } finally {
+      setOrdersPageLoading(false);
+    }
+  };
+
+  // Initialize paginated orders on mount
+  useEffect(() => {
+    fetchOrdersPage(1);
+  }, []);
 
   const handleOpenDetailsForm = (order: Order) => {
     setDetailsOrderId(order.id);
@@ -302,14 +359,30 @@ export default function RiderMapPage(): React.ReactElement {
     return m;
   }, [locations]);
 
+  // Display orders: use paginated orders if available, otherwise use background polling
+  const displayOrders = allRiderOrders.length > 0 ? allRiderOrders : orders;
+  const hasMoreOrders = allRiderOrders.length < totalRiderOrdersCount;
+
+  // Infinite scroll hook for loading more orders
+  const scrollObserverRef = useInfiniteScroll({
+    onLoadMore: () => {
+      if (hasMoreOrders && !ordersPageLoading) {
+        fetchOrdersPage(ordersPage + 1);
+      }
+    },
+    hasMore: hasMoreOrders,
+    isLoading: ordersPageLoading,
+    threshold: 500,
+  });
+
   // Filter orders by selected status
   const filteredOrders = useMemo(() => {
     if (currentStatus === 'in_progress') {
       // Show picked, ready and in_progress orders for the in_progress tab (active orders)
-      return orders.filter((o) => o.status === 'picked' || o.status === 'ready' || o.status === 'in_progress');
+      return displayOrders.filter((o) => o.status === 'picked' || o.status === 'ready' || o.status === 'in_progress');
     }
-    return orders.filter((o) => o.status === currentStatus);
-  }, [orders, currentStatus]);
+    return displayOrders.filter((o) => o.status === currentStatus);
+  }, [displayOrders, currentStatus]);
 
   /* --- Map helpers --- */
   async function injectLeafletCss() {
@@ -431,8 +504,9 @@ export default function RiderMapPage(): React.ReactElement {
               ) : filteredOrders.length === 0 ? (
                 <div className="py-6 text-center text-slate-500">No orders found.</div>
               ) : (
-                <div className="space-y-3">
-                  {filteredOrders.map((order) => (
+                <div>
+                  <div className="space-y-3">
+                    {filteredOrders.map((order) => (
                     <Link
                       key={order.id}
                       href={`/rider/order/${order.code}`}
@@ -499,7 +573,31 @@ export default function RiderMapPage(): React.ReactElement {
                         </div>
                       )}
                     </Link>
-                  ))}
+                    ))}
+                  </div>
+
+                  {/* Infinite scroll loader trigger */}
+                  {hasMoreOrders && !ordersPageLoading && (
+                    <div ref={scrollObserverRef} className="h-10 mt-8" />
+                  )}
+
+                  {/* Loading indicator when fetching more */}
+                  {ordersPageLoading && ordersPage > 1 && (
+                    <div className="flex justify-center py-8">
+                      <div className="animate-spin">
+                        <div className="w-8 h-8 border-4 border-slate-200 dark:border-slate-800 border-t-red-600 rounded-full" />
+                      </div>
+                    </div>
+                  )}
+
+                  {/* All loaded indicator */}
+                  {!hasMoreOrders && displayOrders.length > 0 && (
+                    <div className="text-center py-8">
+                      <p className="text-slate-500 dark:text-slate-400 text-sm">
+                        ✓ Loaded {displayOrders.length} of {totalRiderOrdersCount} orders
+                      </p>
+                    </div>
+                  )}
                 </div>
               )}
             </section>
