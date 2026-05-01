@@ -211,6 +211,10 @@ export default function ProfilePage() {
       const data = await client.get('/users/me/');
       setProfile(data);
       setFormData(data);
+      // Update profile completion status based on API response
+      if (data.profile_complete) {
+        setIsProfileComplete(true);
+      }
     } catch (err: any) {
       setError(err.message || "An error occurred");
     } finally {
