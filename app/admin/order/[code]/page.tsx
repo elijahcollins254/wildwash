@@ -140,9 +140,15 @@ export default function AdminOrderDetailPage() {
       return;
     }
 
+    // IMPORTANT: Only use actual_price if it's set
+    if (!order.actual_price) {
+      alert('Cannot initiate payment: Staff has not set the actual price for this order. Please set the actual_price before attempting checkout.');
+      return;
+    }
+
     setInitiatingPayment(true);
     try {
-      const amount = (order.actual_price ?? order.price ?? '0').toString().replace(/[^0-9.]/g, '');
+      const amount = order.actual_price.toString().replace(/[^0-9.]/g, '');
       const customerPhone = order.raw?.user?.phone || order.user?.phone;
       
       // Initiate STK push for customer on behalf of admin/rider
@@ -423,7 +429,7 @@ export default function AdminOrderDetailPage() {
                 <div className="flex gap-3">
                   <button
                     onClick={handleInitiatePayment}
-                    disabled={initiatingPayment}
+                    disabled={initiatingPayment || !order.actual_price}
                     className="flex-1 px-4 py-3 bg-red-600 text-white font-semibold rounded-lg hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center justify-center gap-2"
                   >
                     {initiatingPayment ? (
@@ -441,6 +447,16 @@ export default function AdminOrderDetailPage() {
                 </div>
               )}
 
+              {/* Warning: actual_price not set */}
+              {!order.actual_price && (
+                <div className="p-3 bg-red-50 dark:bg-red-900/20 rounded-lg border border-red-200 dark:border-red-800">
+                  <p className="text-xs text-red-600 dark:text-red-400 font-semibold uppercase mb-1">⚠️ Action Required</p>
+                  <p className="text-sm text-red-700 dark:text-red-300">
+                    Actual price has not been set. Set the actual_price before customer can proceed to checkout. The calculated price from packages is only an estimate.
+                  </p>
+                </div>
+              )}
+
               {/* Payment Info */}
               <div className="p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800">
                 <p className="text-xs text-blue-600 dark:text-blue-400 font-semibold uppercase mb-1">Payment Method</p>
@@ -448,7 +464,9 @@ export default function AdminOrderDetailPage() {
                   M-Pesa STK Push to <span className="font-mono font-bold">{order.raw?.user?.phone || order.user?.phone || 'N/A'}</span>
                 </p>
                 <p className="text-xs text-blue-600 dark:text-blue-400 mt-2">
-                  Click "Initiate M-Pesa Payment" to send STK push. Customer will enter their PIN to complete payment.
+                  {order.actual_price 
+                    ? 'Click "Initiate M-Pesa Payment" to send STK push. Customer will enter their PIN to complete payment.' 
+                    : 'Set the actual_price first to enable payment initiation.'}
                 </p>
               </div>
             </div>

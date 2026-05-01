@@ -182,8 +182,20 @@ export default function CheckoutForm() {
   };
 
   const validateForm = (): boolean => {
-    if (!formData.amount || !formData.phone || !formData.order_id) {
-      setError('Phone number and order ID are required');
+    if (!formData.order_id) {
+      setError('Order ID is required');
+      return false;
+    }
+
+    // Check if amount is set and greater than 0
+    const amount = parseFloat(formData.amount);
+    if (!formData.amount || amount <= 0) {
+      setError('This order does not have a price set. Please contact staff to set the actual price for this order before proceeding to checkout.');
+      return false;
+    }
+
+    if (!formData.phone) {
+      setError('Phone number is required');
       return false;
     }
 

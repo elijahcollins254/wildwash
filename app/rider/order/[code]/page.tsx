@@ -123,9 +123,15 @@ export default function RiderOrderDetailPage() {
       return;
     }
 
+    // IMPORTANT: Only use actual_price if it's set
+    if (!order.actual_price) {
+      alert('Cannot initiate payment: Staff has not set the actual price for this order. Please set the actual_price before attempting checkout.');
+      return;
+    }
+
     setInitiatingPayment(true);
     try {
-      const amount = (order.actual_price ?? order.price ?? '0').toString().replace(/[^0-9.]/g, '');
+      const amount = order.actual_price.toString().replace(/[^0-9.]/g, '');
       const customerPhone = order.raw?.user?.phone || order.user?.phone;
       
       // Initiate STK push for customer on behalf of rider
