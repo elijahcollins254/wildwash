@@ -116,6 +116,7 @@ export default function HomePage() {
   // Auto-load all pages on home page (no pagination cutoff)
   // For home page, we want to load all services at once
   const hasMore = allServices.length < totalCount;
+  const isFiltered = Boolean(searchTerm || selectedCategory);
 
   // Auto-fetch all pages on mount and when more pages become available
   useEffect(() => {
