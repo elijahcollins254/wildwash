@@ -218,6 +218,7 @@ export default function AdminPage(): React.ReactElement {
   const [totalOrdersCount, setTotalOrdersCount] = useState(0);
   const [allOrders, setAllOrders] = useState<Order[]>([]);
   const [ordersPageLoading, setOrdersPageLoading] = useState(false);
+  const [reachedEndOfOrders, setReachedEndOfOrders] = useState(false);
   const [statusFilter, setStatusFilter] = useState<string>('');
   const [riderFilter, setRiderFilter] = useState<string>('');
   const [locationFilter, setLocationFilter] = useState<string>('');
@@ -279,19 +280,32 @@ export default function AdminPage(): React.ReactElement {
         return [...prev, ...newOrders];
       });
       
+      // Stop pagination if:
+      // 1. This page returned fewer items than PAGE_SIZE (last page)
+      // 2. This page returned 0 items (past the end)
+      const PAGE_SIZE = 50;
+      if (list.length < PAGE_SIZE) {
+        setReachedEndOfOrders(true);
+      }
+      
       setOrdersPageLoading(false);
     } catch (err: any) {
       console.error('Error fetching orders page:', err);
+      // Stop pagination when we encounter an error
+      setReachedEndOfOrders(true);
       setOrdersPageLoading(false);
     }
-  }, []);
+  }, [allOrders.length]);
 
   // Check if there are more pages to load
-  const hasMoreOrders = allOrders.length < totalOrdersCount && totalOrdersCount > 0;
+  const PAGE_SIZE = 50;
+  const maxPossiblePages = Math.ceil(totalOrdersCount / PAGE_SIZE);
+  const hasMoreOrders = !reachedEndOfOrders && allOrders.length < totalOrdersCount && totalOrdersCount > 0 && ordersPage <= maxPossiblePages;
 
   // Infinite scroll trigger
   const scrollObserverTarget = useInfiniteScroll({
     onLoadMore: () => {
+      // Only load next page if we haven't reached the end and aren't already loading
       if (hasMoreOrders && !ordersPageLoading && activeTab === 'orders') {
         setOrdersPage((prev) => prev + 1);
       }
@@ -304,6 +318,10 @@ export default function AdminPage(): React.ReactElement {
   // Fetch next page when ordersPage changes
   useEffect(() => {
     if (ordersPage > 0) {
+      // Reset the end flag when fetching page 1 (fresh load)
+      if (ordersPage === 1) {
+        setReachedEndOfOrders(false);
+      }
       fetchOrdersPage(ordersPage);
     }
   }, [ordersPage, fetchOrdersPage]);
@@ -437,23 +455,29 @@ export default function AdminPage(): React.ReactElement {
   // Track which tabs have been loaded to avoid re-fetching
   const loadedTabsRef = useRef<Set<string>>(new Set());
 
-  // Initial data load - SEQUENTIAL for optimal performance
-  // Orders → Locations → Users (each waits for previous to complete)
+  // Initial data load - PARALLEL for optimal performance
+  // Orders, Locations, and Users load simultaneously
   useEffect(() => {
     const loadInitialData = async () => {
       try {
-        // Step 1: Load first page of orders
-        await fetchOrdersPage(1);
-        setOrdersPage(1);
-        loadedTabsRef.current.add('orders');
-        
-        // Step 2: Load locations (for rider tracking)
-        await dispatch(fetchLocations()).unwrap().catch(() => {});
-        loadedTabsRef.current.add('riders');
-        
-        // Step 3: Load users (for rider assignment dropdown)
-        await dispatch(fetchUsers()).unwrap().catch(() => {});
-        loadedTabsRef.current.add('users');
+        // Load ALL initial data in parallel (not sequential)
+        await Promise.all([
+          // Step 1: Load first page of orders (priority)
+          fetchOrdersPage(1).then(() => {
+            setOrdersPage(1);
+            loadedTabsRef.current.add('orders');
+          }),
+          
+          // Step 2: Load locations in parallel (for rider tracking)
+          dispatch(fetchLocations()).unwrap().catch(() => {
+            loadedTabsRef.current.add('riders');
+          }),
+          
+          // Step 3: Load users in parallel (for rider assignment dropdown)
+          dispatch(fetchUsers()).unwrap().catch(() => {
+            loadedTabsRef.current.add('users');
+          })
+        ]);
       } catch (err) {
         console.error('Error loading initial data:', err);
       }
@@ -645,15 +669,8 @@ export default function AdminPage(): React.ReactElement {
 
   // Compute body JSX separately to avoid complex inline nested ternaries in JSX
   const body = (() => {
-    // Show full loading only on initial load (first time fetching)
-    if (ordersLoading || locationsLoading) {
-      return (
-        <div className="flex justify-center items-center py-20">
-          <Loader2 className="animate-spin text-red-600 w-6 h-6" />
-        </div>
-      );
-    }
-    if (ordersError || locationsError) {
+    // Show error state only if there's an actual error (not loading)
+    if ((ordersError || locationsError) && !ordersLoading && !locationsLoading) {
       return (
         <div className="py-8">
           {ordersError && <div className="mb-2 text-red-600 flex items-center gap-2"><AlertCircle className="w-4 h-4"/> Orders error: {ordersError}</div>}
@@ -857,6 +874,18 @@ export default function AdminPage(): React.ReactElement {
               </button>
             </div>
 
+            {/* Show skeleton loader while orders are loading and no orders are displayed yet */}
+            {ordersLoading && allOrders.length === 0 && (
+              <div className="space-y-3">
+                <div className="h-12 bg-slate-200 dark:bg-slate-700 rounded-lg animate-pulse"></div>
+                {[...Array(5)].map((_, i) => (
+                  <div key={i} className="h-16 bg-slate-200 dark:bg-slate-700 rounded-lg animate-pulse"></div>
+                ))}
+              </div>
+            )}
+
+            {/* Show table when orders are loaded or loading is done */}
+            {!ordersLoading || allOrders.length > 0 ? (
             <div className="overflow-x-auto overflow-y-auto max-h-[600px] scrollbar-thin scrollbar-thumb-gray-400 scrollbar-track-gray-100 dark:scrollbar-thumb-gray-600 dark:scrollbar-track-gray-800">
               <table className="min-w-full text-sm divide-y divide-slate-200/50 dark:divide-slate-800/50">
                 <thead className="sticky top-0 text-slate-600 dark:text-slate-400 bg-white/50 dark:bg-slate-900/50 z-10">
@@ -938,6 +967,7 @@ export default function AdminPage(): React.ReactElement {
                 </tbody>
               </table>
             </div>
+            ) : null}
 
             {/* Infinite scroll loader trigger */}
             {hasMoreOrders && !ordersPageLoading && (

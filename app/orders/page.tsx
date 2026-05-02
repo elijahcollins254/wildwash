@@ -107,12 +107,19 @@ export default function OrdersPage(): React.JSX.Element {
 
   // Local UI state
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [showErrorModal, setShowErrorModal] = useState(false);
+
+  const closeErrorModal = useCallback(() => {
+    setShowErrorModal(false);
+    setErrorMessage(null);
+  }, []);
 
   const handleProceedToCheckout = useCallback((orderCode: string) => {
     // Find the order in Redux state
     const order = orders.find(o => o.code === orderCode);
     if (!order) {
       setErrorMessage('Order not found');
+      setShowErrorModal(true);
       return;
     }
 
@@ -120,6 +127,7 @@ export default function OrdersPage(): React.JSX.Element {
     const actualPrice = getLatestActualPrice(order.staff_input_details);
     if (!actualPrice) {
       setErrorMessage('This order does not have a final price set. Please contact staff to set the actual price before proceeding to checkout.');
+      setShowErrorModal(true);
       return;
     }
 
@@ -260,6 +268,33 @@ export default function OrdersPage(): React.JSX.Element {
           {errorMessage && <div className="mt-4 text-sm text-red-500">{errorMessage}</div>}
         </main>
       </div>
+
+      {/* Error Modal */}
+      {showErrorModal && (
+        <div className="fixed inset-0 bg-black/50 dark:bg-black/70 flex items-center justify-center z-50">
+          <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-2xl max-w-md w-full mx-4 p-6 animate-in fade-in zoom-in duration-200">
+            <div className="flex items-start gap-4">
+              <div className="flex-shrink-0">
+                <AlertCircle className="w-6 h-6 text-red-600 dark:text-red-400" />
+              </div>
+              <div className="flex-1">
+                <h3 className="font-semibold text-lg text-slate-900 dark:text-slate-100 mb-2">
+                  Unable to Proceed
+                </h3>
+                <p className="text-sm text-slate-600 dark:text-slate-300 leading-relaxed">
+                  {errorMessage}
+                </p>
+              </div>
+            </div>
+            <button
+              onClick={closeErrorModal}
+              className="w-full mt-6 px-4 py-2.5 rounded-lg bg-red-600 hover:bg-red-700 text-white font-semibold text-sm transition-colors"
+            >
+              Got it
+            </button>
+          </div>
+        </div>
+      )}
       </div>
     </RouteGuard>
   );
@@ -293,18 +328,14 @@ const OrderCard = React.memo(({ order: o, onCheckout }: { order: Order; onChecko
           <div className="text-xs text-slate-500 dark:text-slate-400 uppercase tracking-wider">Actual Price</div>
           <div className="text-2xl font-bold text-slate-900 dark:text-slate-100">
             {actualPrice ? (
-              typeof actualPrice === 'string' && actualPrice.includes('KSh') 
-                ? actualPrice 
-                : `KSh ${Number(actualPrice).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+              formatActualPrice(actualPrice)
             ) : (
               <span className="text-red-500">Not Set</span>
             )}
           </div>
           {o.price && (
             <div className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-              Est: {typeof o.price === 'string' && o.price.includes('KSh') 
-                ? o.price 
-                : `KSh ${Number(o.price).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
+              Est: {formatActualPrice(o.price)}
             </div>
           )}
           {isPaid && (
