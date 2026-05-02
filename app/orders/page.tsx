@@ -47,12 +47,14 @@ type Order = {
   price: string; // formatted for display
   price_display?: string | null;
   actual_price?: string | null; // price entered by staff
+  staff_input_details?: any; // staff input with actual price
   status: "Received" | "Washing" | "Drying" | "Ready" | "Delivered" | "Cancelled";
   eta?: string | null;
   estimated_delivery?: string | null;
   deliveredAt?: string | null;
   delivered_at?: string | null;
   is_paid?: boolean;
+  payment_method?: string | null; // 'mpesa', 'bnpl', 'tradein', 'gift', etc.
 };
 
 const useAppDispatch = () => useDispatch<AppDispatch>();
@@ -269,6 +271,7 @@ const OrderCard = React.memo(({ order: o, onCheckout }: { order: Order; onChecko
   const IconComponent = STATUS_ICONS[o.status as keyof typeof STATUS_ICONS] || Package;
   const isPaid = o.is_paid ?? false;
   const orderDate = new Date(o.created_at || o.date || '');
+  const actualPrice = getLatestActualPrice(o.staff_input_details);
 
   return (
     <article className={`rounded-xl ${colors.bg} ${colors.border} bg-white/80 dark:bg-white/5 p-4 shadow-sm hover:shadow-md transition-all`}>
@@ -287,22 +290,18 @@ const OrderCard = React.memo(({ order: o, onCheckout }: { order: Order; onChecko
         </div>
         
         <div className="text-right">
-          <div className="text-xs text-slate-500 dark:text-slate-400 uppercase tracking-wider">Amount</div>
+          <div className="text-xs text-slate-500 dark:text-slate-400 uppercase tracking-wider">Actual Price</div>
           <div className="text-2xl font-bold text-slate-900 dark:text-slate-100">
-            {o.actual_price ? (
-              typeof o.actual_price === 'string' && o.actual_price.includes('KSh') 
-                ? o.actual_price 
-                : `KSh ${Number(o.actual_price).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+            {actualPrice ? (
+              typeof actualPrice === 'string' && actualPrice.includes('KSh') 
+                ? actualPrice 
+                : `KSh ${Number(actualPrice).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
             ) : (
-              o.price ? (
-                typeof o.price === 'string' && o.price.includes('KSh') 
-                  ? o.price 
-                  : `KSh ${Number(o.price).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
-              ) : 'KSh 0.00'
+              <span className="text-red-500">Not Set</span>
             )}
           </div>
-          {o.actual_price && o.price && (
-            <div className="text-xs text-slate-500 dark:text-slate-400 line-through mt-1">
+          {o.price && (
+            <div className="text-xs text-slate-500 dark:text-slate-400 mt-1">
               Est: {typeof o.price === 'string' && o.price.includes('KSh') 
                 ? o.price 
                 : `KSh ${Number(o.price).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
@@ -310,7 +309,7 @@ const OrderCard = React.memo(({ order: o, onCheckout }: { order: Order; onChecko
           )}
           {isPaid && (
             <div className="text-xs font-semibold text-green-600 dark:text-green-400 mt-1 flex items-center justify-end gap-1">
-              <CheckCircle className="w-3 h-3" /> Paid
+              <CheckCircle className="w-3 h-3" /> {o.payment_method === 'bnpl' ? 'Financed' : 'Paid'}
             </div>
           )}
         </div>

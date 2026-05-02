@@ -29,6 +29,7 @@ export default function BNPLManager() {
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [paymentPending, setPaymentPending] = useState(false);
   const isAuthenticated = useSelector((state: RootState) => state.auth.isAuthenticated);
 
   const fetchBNPLStatus = async () => {
@@ -115,6 +116,48 @@ export default function BNPLManager() {
       }
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handlePayBalance = async () => {
+    try {
+      setLoading(true);
+      setPaymentPending(true);
+      const data = await client.post('/payments/bnpl/pay_balance/', { 
+        phone_number: profile?.phone || status?.phone_number
+      });
+      
+      setError('');
+      
+      // Show message and auto-refresh after 5 seconds (give M-Pesa callback time to process)
+      alert(`STK push sent to your phone. Please enter your M-Pesa PIN. We'll refresh your balance in a moment...`);
+      
+      // Auto-refresh after 5 seconds
+      setTimeout(async () => {
+        try {
+          const newStatus = await client.post('/payments/bnpl/refresh_status/', {});
+          if (newStatus.status === 'success') {
+            setStatus(newStatus.data);
+            setPaymentPending(false);
+            if (newStatus.data.current_balance === 0) {
+              // Success - balance cleared
+              setError('');
+            } else {
+              // Balance not yet cleared, maybe callback is still processing
+              setError('Payment is being processed. Balance will update shortly.');
+            }
+          }
+        } catch (refreshErr: any) {
+          console.error('Error refreshing status:', refreshErr);
+          setPaymentPending(false);
+        }
+        setLoading(false);
+      }, 5000);
+      
+    } catch (err: any) {
+      setPaymentPending(false);
+      setLoading(false);
+      setError(err.message || 'Failed to initiate balance payment');
     }
   };
 
@@ -240,14 +283,58 @@ export default function BNPLManager() {
                     <svg className="h-5 w-5 text-yellow-400 flex-shrink-0 mt-0.5 sm:mt-0" viewBox="0 0 20 20" fill="currentColor">
                       <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
                     </svg>
-                    <span className="text-sm text-yellow-700 dark:text-yellow-300">Clear balance of KES {status.current_balance.toLocaleString()} to opt out</span>
+                    <span className="text-sm text-yellow-700 dark:text-yellow-300">
+                      Outstanding balance of KES {status.current_balance.toLocaleString()}
+                      {paymentPending && ' (Payment processing...)'}
+                    </span>
                   </div>
-                  <a
-                    href="/orders"
-                    className="inline-flex items-center justify-center sm:justify-start px-3 h-8 text-sm font-medium text-yellow-800 dark:text-yellow-200 hover:bg-yellow-100 dark:hover:bg-yellow-900/40 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-yellow-50 focus:ring-yellow-600 rounded-md whitespace-nowrap"
-                  >
-                    View Orders
-                  </a>
+                  <div className="flex items-center gap-2 sm:gap-3">
+                    <button
+                      onClick={handlePayBalance}
+                      disabled={loading}
+                      className="inline-flex items-center justify-center px-3 h-8 text-sm font-medium text-white bg-yellow-600 hover:bg-yellow-700 disabled:opacity-50 disabled:hover:bg-yellow-600 rounded-md whitespace-nowrap transition-colors"
+                    >
+                      {loading ? (
+                        <>
+                          <Spinner className="h-4 w-4 text-white -ml-1 mr-2" />
+                          Processing...
+                        </>
+                      ) : (
+                        'Pay Now'
+                      )}
+                    </button>
+                    {paymentPending && (
+                      <button
+                        onClick={async () => {
+                          try {
+                            setLoading(true);
+                            const newStatus = await client.post('/payments/bnpl/refresh_status/', {});
+                            if (newStatus.status === 'success') {
+                              setStatus(newStatus.data);
+                              setPaymentPending(false);
+                              if (newStatus.data.current_balance === 0) {
+                                setError('');
+                              }
+                            }
+                          } catch (err: any) {
+                            setError('Failed to refresh balance');
+                          } finally {
+                            setLoading(false);
+                          }
+                        }}
+                        disabled={loading}
+                        className="text-sm px-2 py-1 text-yellow-700 dark:text-yellow-300 hover:bg-yellow-100 dark:hover:bg-yellow-900/40 rounded transition-colors"
+                      >
+                        {loading ? 'Refreshing...' : 'Refresh'}
+                      </button>
+                    )}
+                    <a
+                      href="/orders"
+                      className="text-sm text-yellow-700 dark:text-yellow-300 hover:underline flex-shrink-0"
+                    >
+                      View Orders
+                    </a>
+                  </div>
                 </div>
               </div>
             )}

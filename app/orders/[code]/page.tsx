@@ -36,6 +36,7 @@ type Order = {
   rider?: { name: string; phone?: string };
   statusLog?: StatusPoint[];
   is_paid?: boolean;
+  payment_method?: string | null; // 'mpesa', 'bnpl', 'tradein', 'gift', etc.
 };
 
 function getCookie(name: string) {
@@ -199,11 +200,11 @@ export default function OrderDetailsPage() {
         const { cleanAddress: cleanPickup, phone: pickupPhone } = extractPhoneFromAddress(found.pickup_address);
         const { cleanAddress: cleanDropoff } = extractPhoneFromAddress(found.dropoff_address);
         
-        // Show actual_price from staff_input_details if set, otherwise show estimate
+        // Get actual price from staff input details
         const actualPriceNum = getLatestActualPrice(found.staff_input_details);
-        const displayPrice = actualPriceNum 
-          ? formatActualPrice(actualPriceNum)
-          : found.price_display ?? (found.total_price ? `KSh ${Number(found.total_price).toLocaleString()}` : (found.price ? `KSh ${Number(found.price).toLocaleString()}` : ""));
+        
+        // Get estimated price (always from package/calculation, not overridden by actual)
+        const estimatedPrice = found.price_display ?? (found.total_price ? `KSh ${Number(found.total_price).toLocaleString()}` : (found.price ? `KSh ${Number(found.price).toLocaleString()}` : ""));
         
         const mapped: Order = {
           id: found.id,
@@ -226,7 +227,7 @@ export default function OrderDetailsPage() {
             if (found.service && typeof found.service === "object") return found.service.name ?? "Standard";
             return found.package ?? "Standard";
           })(),
-          price: displayPrice,
+          price: estimatedPrice,
           priceDisplay: found.price_display ?? null,
           actual_price: actualPriceNum ? String(actualPriceNum) : null,
           status: mapStatus(found.status ?? found.status_code ?? ""),
@@ -235,6 +236,7 @@ export default function OrderDetailsPage() {
           rider: found.rider ? { name: found.rider.username || found.rider.first_name || found.rider.name, phone: found.rider.phone } : undefined,
           statusLog: found.timeline ?? found.status_log ?? [],
           is_paid: found.is_paid ?? false,
+          payment_method: found.payment_method ?? null,
         };
 
         setOrder(mapped);
@@ -285,7 +287,7 @@ export default function OrderDetailsPage() {
                 <div className="font-semibold text-red-600">{order.status}</div>
                 {order.is_paid && (
                   <div className="mt-2 inline-block px-2 py-1 bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 rounded-full text-xs font-semibold">
-                    ✓ Paid
+                    ✓ {order.payment_method === 'bnpl' ? 'Financed' : 'Paid'}
                   </div>
                 )}
                 {order.eta && (
@@ -345,14 +347,34 @@ export default function OrderDetailsPage() {
                   </div>
                   <div>
                     <div className="text-xs text-slate-500 dark:text-slate-400">Price</div>
-                    <div className="mt-1 font-medium">{order.price || "—"}</div>
+                    <div className="mt-1 font-medium">
+                      {order.actual_price ? (
+                        <>
+                          <div className="text-lg font-bold text-slate-900 dark:text-slate-100">
+                            {typeof order.actual_price === 'string' && order.actual_price.includes('KSh') 
+                              ? order.actual_price 
+                              : `KSh ${Number(order.actual_price).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
+                          </div>
+                          <div className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+                            Est: {order.price || "—"}
+                          </div>
+                        </>
+                      ) : (
+                        <>
+                          <div className="text-red-500 font-bold">Not Set</div>
+                          <div className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+                            Est: {order.price || "—"}
+                          </div>
+                        </>
+                      )}
+                    </div>
                   </div>
                   <div>
                     <div className="text-xs text-slate-500 dark:text-slate-400">Payment Status</div>
                     <div className="mt-1 font-medium">
                       {order.is_paid ? (
                         <span className="px-2 py-1 bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 rounded text-sm font-semibold">
-                          ✓ Paid
+                          ✓ {order.payment_method === 'bnpl' ? 'Financed' : 'Paid'}
                         </span>
                       ) : (
                         <span className="px-2 py-1 bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-400 rounded text-sm font-semibold">

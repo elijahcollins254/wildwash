@@ -31,6 +31,7 @@ type BackendOrder = {
   estimated_delivery?: string | null;
   delivered_at?: string | null;
   is_paid?: boolean;
+  payment_method?: string | null; // 'mpesa', 'bnpl', 'tradein', 'gift', etc.
   staff_input_details?: StaffInputDetail[];
 };
 
@@ -52,6 +53,7 @@ export type Order = {
   deliveredAt?: string | null;
   delivered_at?: string | null;
   is_paid?: boolean;
+  payment_method?: string | null; // 'mpesa', 'bnpl', 'tradein', 'gift', etc.
 };
 
 type OrdersState = {
@@ -134,6 +136,7 @@ function backendToFrontend(o: BackendOrder): Order {
     deliveredAt,
     delivered_at: o.delivered_at,
     is_paid: o.is_paid ?? false,
+    payment_method: o.payment_method ?? null,
   };
 }
 
