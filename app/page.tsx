@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useRef, useMemo } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { useSelector } from "react-redux";
 import Link from "next/link";
@@ -18,8 +18,7 @@ import {
 } from "@heroicons/react/24/outline";
 import { useAppDispatch } from "@/redux/hooks";
 import { addToCart } from "@/redux/features/cartSlice";
-import { useGetServicesPaginatedQuery } from "@/redux/services/apiSlice";
-import { useInfiniteScroll } from "@/lib/hooks/useInfiniteScroll";
+import { useGetServicesQuery } from "@/redux/services/apiSlice";
 import type { Service } from "@/redux/services/apiSlice";
 import type { RootState } from "@/redux/store";
 
@@ -82,70 +81,19 @@ export default function HomePage() {
   const [addedItem, setAddedItem] = useState<number | null>(null);
   const [showScrollTop, setShowScrollTop] = useState(false);
   const [visibleCards, setVisibleCards] = useState<Set<number>>(new Set());
-  const [currentPage, setCurrentPage] = useState(1);
-  const [allServices, setAllServices] = useState<Service[]>([]);
-  const [totalCount, setTotalCount] = useState(0);
   const cardRefs = useRef<Map<number, HTMLDivElement>>(new Map());
   const categoriesScrollRef = useRef<HTMLDivElement>(null);
   const observerRef = useRef<IntersectionObserver | null>(null);
-  const loadMoreRef = useRef<HTMLDivElement>(null);
 
-  // Fetch services page by page using Redux
-  const { data: paginatedData, isLoading: loading, error: servicesError } = useGetServicesPaginatedQuery(currentPage);
+  // Fetch services using Redux
+  const { data: servicesData, isLoading: loading, error: servicesError } = useGetServicesQuery();
 
-  // Update total count and accumulate services
-  useEffect(() => {
-    if (paginatedData?.results) {
-      setTotalCount(paginatedData.count || 0);
-      setAllServices((prev) => {
-        // Avoid duplicates when refetching
-        const existingIds = new Set(prev.map(s => s.id));
-        const newServices = paginatedData.results.filter(s => !existingIds.has(s.id));
-        return [...prev, ...newServices];
-      });
-    }
-  }, [paginatedData]);
-
-  // Transform services with images and icons
-  const services = useMemo(() => allServices.map((s): ServiceWithUI => ({
+  // Transform services with images and icons (safely handle undefined/null data)
+  const services: ServiceWithUI[] = (Array.isArray(servicesData) ? servicesData : []).map((s): ServiceWithUI => ({
     ...s,
     icon: getIconForCategory(s.category || "other"),
     image_url: s.image_url || (getImageForService(s.name) ? `/images/${getImageForService(s.name)}` : null),
-  })), [allServices]);
-
-  // Auto-load all pages on home page (no pagination cutoff)
-  // For home page, we want to load all services at once
-  const hasMore = allServices.length < totalCount;
-  const isFiltered = Boolean(searchTerm || selectedCategory);
-
-  // Auto-fetch all pages on mount and when more pages become available
-  useEffect(() => {
-    // If all pages are loaded, stop
-    if (!hasMore || totalCount === 0) return;
-    
-    // If currently loading, wait
-    if (loading) return;
-    
-    // If filtering, don't auto-fetch (filtering is done in-memory on loaded services)
-    if (isFiltered) return;
-    
-    // Increment page to fetch more
-    const timer = setTimeout(() => {
-      setCurrentPage((prev) => prev + 1);
-    }, 100);
-    
-    return () => clearTimeout(timer);
-  }, [hasMore, totalCount, loading, isFiltered]);
-
-  // Infinite scroll trigger (disabled - we load all pages automatically)
-  const observerTarget = useInfiniteScroll({
-    onLoadMore: () => {
-      // No-op since we're loading all pages automatically
-    },
-    hasMore: false,
-    isLoading: false,
-    threshold: 500,
-  });
+  }));
 
   // Initial load bounce
   useEffect(() => {
@@ -155,15 +103,6 @@ export default function HomePage() {
       setTimeout(() => categories?.classList.remove("animate-bounce-custom"), 600);
     }, 100);
     return () => clearTimeout(timer);
-  }, []);
-
-  // Scroll to top button visibility
-  useEffect(() => {
-    const handleScroll = () => {
-      setShowScrollTop(window.scrollY > 300);
-    };
-    window.addEventListener('scroll', handleScroll);
-    return () => window.removeEventListener('scroll', handleScroll);
   }, []);
 
   // Horizontal scroll with mouse wheel on categories
@@ -338,11 +277,9 @@ export default function HomePage() {
         <div className="flex items-center justify-between mb-8">
           <h2 className="text-xl font-semibold text-slate-900 dark:text-slate-50">
             {selectedCategory ? categoryLabels[selectedCategory] : "All Services"}
-            {isFiltered && (
-              <span className="text-slate-500 dark:text-slate-400 font-normal ml-2 text-base">
-                ({filteredServices.length} result{filteredServices.length !== 1 ? 's' : ''}{searchTerm && ` for "${searchTerm}"`})
-              </span>
-            )}
+            <span className="text-slate-500 dark:text-slate-400 font-normal ml-2 text-base">
+              {filteredServices.length}
+            </span>
           </h2>
           {selectedCategory && (
             <button
@@ -461,38 +398,6 @@ export default function HomePage() {
                 </Link>
               </div>
             ))}
-          </div>
-        )}
-
-        {/* Infinite scroll loader trigger - always visible so observer keeps tracking it */}
-        {hasMore && (
-          <div ref={observerTarget} className="h-10 mt-8" />
-        )}
-
-        {/* Loading indicator when fetching more */}
-        {loading && currentPage > 1 && (
-          <div className="flex justify-center py-8">
-            <div className="animate-spin">
-              <div className="w-8 h-8 border-4 border-slate-200 dark:border-slate-800 border-t-red-600 rounded-full" />
-            </div>
-          </div>
-        )}
-
-        {/* All loaded indicator */}
-        {!hasMore && allServices.length > 0 && (
-          <div className="text-center py-8">
-            <p className="text-slate-500 dark:text-slate-400 text-sm">
-              ✓ All {totalCount} services loaded
-            </p>
-          </div>
-        )}
-        
-        {/* Filtered results notice - only show when actually filtering */}
-        {isFiltered && filteredServices.length > 0 && (
-          <div className="text-center py-4">
-            <p className="text-slate-500 dark:text-slate-400 text-sm">
-              Showing {filteredServices.length} result{filteredServices.length !== 1 ? 's' : ''}
-            </p>
           </div>
         )}
       </div>
