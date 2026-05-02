@@ -26,6 +26,7 @@ type BackendOrder = {
   package?: string; // fallback: service name or provided string
   price?: string | number | null;
   price_display?: string | null;
+  total_price?: number | null; // total estimated price from backend
   order_items?: Array<{ service: number; service_name: string; service_price: number; quantity: number }>;
   status: 'requested' | 'picked' | 'in_progress' | 'ready' | 'delivered' | 'cancelled' | string;
   estimated_delivery?: string | null;
@@ -45,6 +46,7 @@ export type Order = {
   package: string;
   price: string; // formatted for display
   price_display?: string | null;
+  total_price?: number | null; // total estimated price from backend
   actual_price?: string | null; // price entered by staff
   staff_input_details?: StaffInputDetail[];
   status: "Received" | "Washing" | "Drying" | "Ready" | "Delivered" | "Cancelled";
@@ -129,6 +131,7 @@ function backendToFrontend(o: BackendOrder): Order {
     package: pkg,
     price,
     price_display: o.price_display,
+    total_price: o.total_price ?? null,
     staff_input_details: o.staff_input_details,
     status: statusMap[o.status] ?? "Received",
     eta,

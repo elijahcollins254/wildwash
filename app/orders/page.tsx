@@ -46,6 +46,7 @@ type Order = {
   package: string;
   price: string; // formatted for display
   price_display?: string | null;
+  total_price?: number | null; // total estimated price from backend
   actual_price?: string | null; // price entered by staff
   staff_input_details?: any; // staff input with actual price
   status: "Received" | "Washing" | "Drying" | "Ready" | "Delivered" | "Cancelled";
@@ -333,13 +334,15 @@ const OrderCard = React.memo(({ order: o, onCheckout }: { order: Order; onChecko
               <span className="text-red-500">Not Set</span>
             )}
           </div>
-          {o.price && (
-            <div className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-              Est: {formatActualPrice(o.price)}
-            </div>
-          )}
+          <div className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+            Est: {o.total_price ? `KSh ${o.total_price.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : 'Not Set'}
+          </div>
           {isPaid && (
-            <div className="text-xs font-semibold text-green-600 dark:text-green-400 mt-1 flex items-center justify-end gap-1">
+            <div className={`text-xs font-semibold mt-1 flex items-center justify-end gap-1 ${
+              o.payment_method === 'bnpl' 
+                ? 'text-red-600 dark:text-red-400' 
+                : 'text-green-600 dark:text-green-400'
+            }`}>
               <CheckCircle className="w-3 h-3" /> {o.payment_method === 'bnpl' ? 'Financed' : 'Paid'}
             </div>
           )}
