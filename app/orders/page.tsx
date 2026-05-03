@@ -233,7 +233,6 @@ export default function OrdersPage(): React.JSX.Element {
             </div>
           ) : orders.length === 0 ? (
             <div className="rounded-2xl bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-800/20 dark:to-slate-900/20 p-12 shadow text-center border border-slate-200 dark:border-slate-700">
-              <div className="text-6xl mb-3">📦</div>
               <h3 className="text-lg font-semibold text-slate-900 dark:text-slate-100 mb-2">No orders yet</h3>
               <p className="text-slate-600 dark:text-slate-400 mb-6">You haven't placed any orders. Start by browsing our services.</p>
               <div className="flex gap-3 justify-center">
