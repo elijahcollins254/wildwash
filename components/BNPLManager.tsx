@@ -35,6 +35,8 @@ export default function BNPLManager() {
   const [modalTitle, setModalTitle] = useState('');
   const [modalMessage, setModalMessage] = useState('');
   const [modalType, setModalType] = useState<'success' | 'error' | 'info' | 'warning'>('info');
+  const [paymentAmount, setPaymentAmount] = useState<string>('');
+  const [showPaymentInput, setShowPaymentInput] = useState(false);
   const isAuthenticated = useSelector((state: RootState) => state.auth.isAuthenticated);
 
   const showModal = (title: string, message: string, type: 'success' | 'error' | 'info' | 'warning' = 'info') => {
@@ -133,15 +135,37 @@ export default function BNPLManager() {
 
   const handlePayBalance = async () => {
     try {
+      // Validate custom amount if provided
+      const amount = paymentAmount ? parseFloat(paymentAmount) : null;
+      
+      if (paymentAmount && (isNaN(amount!) || amount! <= 0)) {
+        setError('Please enter a valid amount greater than 0');
+        return;
+      }
+      
+      if (amount && amount > (status?.current_balance || 0)) {
+        setError(`Amount cannot exceed balance of KES ${status?.current_balance || 0}`);
+        return;
+      }
+      
       setLoading(true);
       setPaymentPending(true);
-      const data = await client.post('/payments/bnpl/pay_balance/', { 
+      
+      const payloadData: any = { 
         phone_number: profile?.phone || status?.phone_number
-      });
+      };
+      
+      if (amount) {
+        payloadData.amount = amount;
+      }
+      
+      const data = await client.post('/payments/bnpl/pay_balance/', payloadData);
       
       setError('');
+      setShowPaymentInput(false);
+      setPaymentAmount('');
       
-      // Show message and auto-refresh after 5 seconds (give M-Pesa callback time to process)
+      // Show message and auto-refresh after 2 seconds (give M-Pesa callback time to process)
       showModal('Payment Initiated', `STK push sent to your phone. Please enter your M-Pesa PIN. We'll refresh your balance in a moment...`, 'info');
       
       // Polling function to check payment status using dedicated endpoint
@@ -161,16 +185,24 @@ export default function BNPLManager() {
           if (!response.has_pending_payment) {
             // Payment is no longer pending - check if successful
             if (response.payment_status === 'success') {
+              const newBalance = response.current_balance;
+              const paymentAmount = response.payment_amount || (status?.current_balance || 0) - newBalance;
+              
               setStatus({
                 is_enrolled: status?.is_enrolled ?? true,
-                current_balance: 0,
+                current_balance: newBalance,
                 is_active: status?.is_active ?? true,
                 credit_limit: status?.credit_limit ?? response.credit_limit,
                 phone_number: status?.phone_number
               });
               setPaymentPending(false);
               setLoading(false);
-              showModal('Payment Successful', 'Your BNPL balance has been cleared!', 'success');
+              
+              if (newBalance === 0) {
+                showModal('Payment Successful', 'Your BNPL balance has been fully cleared!', 'success');
+              } else {
+                showModal('Payment Successful', `Payment of KES ${paymentAmount.toLocaleString()} confirmed! New balance: KES ${newBalance.toLocaleString()}`, 'success');
+              }
               setError('');
               return;
             } else if (response.payment_status === 'failed') {
@@ -330,9 +362,42 @@ export default function BNPLManager() {
                       {paymentPending && ' (Payment processing...)'}
                     </span>
                   </div>
-                  <div className="flex items-center gap-2 sm:gap-3">
+                  <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 sm:gap-3">
+                    {showPaymentInput && (
+                      <div className="flex items-center gap-2">
+                        <div className="flex-1 relative">
+                          <span className="absolute left-2 top-1/2 -translate-y-1/2 text-sm text-slate-600 dark:text-slate-400">KES</span>
+                          <input
+                            type="number"
+                            min="0"
+                            max={status.current_balance}
+                            step="100"
+                            value={paymentAmount}
+                            onChange={(e) => setPaymentAmount(e.target.value)}
+                            placeholder={`Max: ${status.current_balance.toLocaleString()}`}
+                            className="w-full pl-12 pr-3 py-2 text-sm border border-yellow-300 dark:border-yellow-600 rounded-md bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-yellow-500"
+                            disabled={loading}
+                          />
+                        </div>
+                        <button
+                          onClick={() => {
+                            setShowPaymentInput(false);
+                            setPaymentAmount('');
+                          }}
+                          className="text-sm px-2 py-2 text-yellow-700 dark:text-yellow-300 hover:bg-yellow-100 dark:hover:bg-yellow-900/40 rounded transition-colors"
+                        >
+                          Cancel
+                        </button>
+                      </div>
+                    )}
                     <button
-                      onClick={handlePayBalance}
+                      onClick={() => {
+                        if (showPaymentInput && paymentAmount) {
+                          handlePayBalance();
+                        } else if (!showPaymentInput) {
+                          setShowPaymentInput(true);
+                        }
+                      }}
                       disabled={loading}
                       className="inline-flex items-center justify-center px-3 h-8 text-sm font-medium text-white bg-yellow-600 hover:bg-yellow-700 disabled:opacity-50 disabled:hover:bg-yellow-600 rounded-md whitespace-nowrap transition-colors"
                     >
@@ -341,6 +406,8 @@ export default function BNPLManager() {
                           <Spinner className="h-4 w-4 text-white -ml-1 mr-2" />
                           Processing...
                         </>
+                      ) : showPaymentInput ? (
+                        'Confirm'
                       ) : (
                         'Pay Now'
                       )}
@@ -354,13 +421,23 @@ export default function BNPLManager() {
                             
                             if (!response.has_pending_payment && response.payment_status === 'success') {
                               // Payment successful
+                              const newBalance = response.current_balance;
+                              const paymentAmount = response.payment_amount || (status?.current_balance || 0) - newBalance;
+                              
                               setStatus({
-                                ...status,
-                                current_balance: 0,
-                                is_active: status.is_active
+                                is_enrolled: status?.is_enrolled ?? true,
+                                current_balance: newBalance,
+                                is_active: status?.is_active ?? true,
+                                credit_limit: status?.credit_limit ?? response.credit_limit,
+                                phone_number: status?.phone_number
                               });
                               setPaymentPending(false);
-                              showModal('Payment Successful', 'Your BNPL balance has been cleared!', 'success');
+                              
+                              if (newBalance === 0) {
+                                showModal('Payment Successful', 'Your BNPL balance has been fully cleared!', 'success');
+                              } else {
+                                showModal('Payment Successful', `Payment of KES ${paymentAmount.toLocaleString()} confirmed! New balance: KES ${newBalance.toLocaleString()}`, 'success');
+                              }
                               setError('');
                             } else if (!response.has_pending_payment && response.payment_status === 'failed') {
                               setPaymentPending(false);
