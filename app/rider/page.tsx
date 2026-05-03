@@ -5,7 +5,6 @@ import { MapPin, Package, Eye } from "lucide-react";
 import Link from "next/link";
 import RouteGuard from "@/components/RouteGuard";
 import Modal from "@/components/ui/Modal";
-import { useRiderOrderNotifications } from "@/lib/hooks/useRiderOrderNotifications";
 import { useBackgroundOrderPolling } from "@/lib/hooks/useBackgroundOrderPolling";
 import { useInfiniteScroll } from "@/lib/hooks/useInfiniteScroll";
 import { useGetRiderProfilesQuery, useGetRiderLocationsQuery, useGetRiderOrdersPaginatedQuery } from "@/redux/services/apiSlice";
@@ -19,10 +18,10 @@ type OrderStatus = 'requested' | 'picked' | 'in_progress' | 'ready' | 'delivered
 type Order = {
   id: number;
   code: string;
-  service: {
-    name: string;
-    package: string;
-  };
+  service?: {
+    name?: string;
+    package?: string;
+  } | null;
   pickup_address: string;
   dropoff_address: string;
   status: OrderStatus;
@@ -97,8 +96,7 @@ export default function RiderMapPage(): React.ReactElement {
   const [totalRiderOrdersCount, setTotalRiderOrdersCount] = useState(0);
   const [ordersPageLoading, setOrdersPageLoading] = useState(false);
 
-  // Get the order notification hook
-  const { decrementCount: decrementOrderCount, setAvailableOrdersCount: setOrdersCount, fetchAndUpdateOrdersCount } = useRiderOrderNotifications();
+
 
   // Get authentication token
   const authState = JSON.parse(
@@ -130,10 +128,7 @@ export default function RiderMapPage(): React.ReactElement {
   // Orders are fetched automatically via background polling service
   // No manual refresh needed - polling handles it intelligently
 
-  useEffect(() => {
-    // Initialize order notification count on page load
-    fetchAndUpdateOrdersCount();
-  }, []);
+
 
   // Sound notifications disabled - SMS Africa handles audio notifications instead
   // useRiderNotifications hook removed as it was creating duplicate notifications
@@ -544,7 +539,7 @@ export default function RiderMapPage(): React.ReactElement {
                         )}
                         <div className="text-xs text-slate-500 dark:text-slate-400 mt-1">
                           <div className="font-medium text-slate-700 dark:text-slate-200">
-                            {order.service.name} {order.service.package && `- ${order.service.package}`}
+                            {order.service?.name} {order.service?.package && `- ${order.service.package}`}
                           </div>
                           <div className="mt-1">Items: {order.items}{order.weight_kg && ` • ${order.weight_kg}kg`}</div>
                           <div className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">Created: {formatDateTime(order.created_at)}</div>
