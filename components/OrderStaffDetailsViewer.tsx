@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from "react";
 import { client } from "@/lib/api/client";
 import { X, Copy } from "lucide-react";
+import Modal from "@/components/ui/Modal";
 
 interface StaffDetail {
   staff_member: string;
@@ -31,6 +32,8 @@ function OrderStaffDetailsViewer({
   const [staffDetails, setStaffDetails] = useState<StaffDetail[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [modalOpen, setModalOpen] = useState(false);
+  const [modalMessage, setModalMessage] = useState('');
 
   useEffect(() => {
     if (isOpen && (orderId || orderCode)) {
@@ -251,7 +254,8 @@ function OrderStaffDetailsViewer({
       )
       .join("\n\n");
     navigator.clipboard.writeText(summary);
-    alert("Details copied to clipboard!");
+    setModalMessage("Details copied to clipboard!");
+    setModalOpen(true);
   };
 
   if (!isOpen) {
@@ -485,6 +489,14 @@ function OrderStaffDetailsViewer({
           )}
         </div>
       </div>
+      
+      <Modal
+        isOpen={modalOpen}
+        title="Success"
+        message={modalMessage}
+        type="success"
+        onClose={() => setModalOpen(false)}
+      />
     </div>
   );
 }

@@ -6,6 +6,7 @@ import { RootState } from '@/redux/store';
 import { client } from '@/lib/api/client';
 import { Spinner } from '@/components';
 import { Calendar } from 'lucide-react';
+import Modal from '@/components/ui/Modal';
 
 interface BNPLResponse {
   data: BNPLStatus;
@@ -30,7 +31,18 @@ export default function BNPLManager() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [paymentPending, setPaymentPending] = useState(false);
+  const [modalOpen, setModalOpen] = useState(false);
+  const [modalTitle, setModalTitle] = useState('');
+  const [modalMessage, setModalMessage] = useState('');
+  const [modalType, setModalType] = useState<'success' | 'error' | 'info' | 'warning'>('info');
   const isAuthenticated = useSelector((state: RootState) => state.auth.isAuthenticated);
+
+  const showModal = (title: string, message: string, type: 'success' | 'error' | 'info' | 'warning' = 'info') => {
+    setModalTitle(title);
+    setModalMessage(message);
+    setModalType(type);
+    setModalOpen(true);
+  };
 
   const fetchBNPLStatus = async () => {
     try {
@@ -130,29 +142,62 @@ export default function BNPLManager() {
       setError('');
       
       // Show message and auto-refresh after 5 seconds (give M-Pesa callback time to process)
-      alert(`STK push sent to your phone. Please enter your M-Pesa PIN. We'll refresh your balance in a moment...`);
+      showModal('Payment Initiated', `STK push sent to your phone. Please enter your M-Pesa PIN. We'll refresh your balance in a moment...`, 'info');
       
-      // Auto-refresh after 5 seconds
-      setTimeout(async () => {
+      // Polling function to check payment status
+      const pollPaymentStatus = async (attempts = 0, maxAttempts = 30) => {
+        if (attempts >= maxAttempts) {
+          // Max attempts reached
+          setLoading(false);
+          setError('Payment verification timed out. Please manually refresh or contact support.');
+          return;
+        }
+
         try {
-          const newStatus = await client.post('/payments/bnpl/refresh_status/', {});
-          if (newStatus.status === 'success') {
-            setStatus(newStatus.data);
-            setPaymentPending(false);
-            if (newStatus.data.current_balance === 0) {
-              // Success - balance cleared
-              setError('');
-            } else {
-              // Balance not yet cleared, maybe callback is still processing
-              setError('Payment is being processed. Balance will update shortly.');
+          const newStatus = await client.get('/payments/bnpl/status/');
+          console.log(`[Poll ${attempts}] BNPL status:`, newStatus);
+
+          // Check if balance has been reduced (payment was successful)
+          if (newStatus && newStatus.current_balance !== undefined) {
+            const currentBalance = typeof newStatus.current_balance === 'string' 
+              ? parseFloat(newStatus.current_balance) 
+              : newStatus.current_balance;
+            
+            const previousBalance = typeof status?.current_balance === 'string'
+              ? parseFloat(status.current_balance)
+              : status?.current_balance || 0;
+
+            // If balance decreased or is now 0, payment succeeded
+            if (currentBalance < previousBalance || currentBalance === 0) {
+              setStatus(newStatus);
+              setPaymentPending(false);
+              setLoading(false);
+              
+              if (currentBalance === 0) {
+                showModal('Payment Successful', 'Your BNPL balance has been cleared!', 'success');
+                setError('');
+              } else {
+                showModal('Payment Successful', `Payment confirmed! New balance: KES ${currentBalance.toLocaleString()}`, 'success');
+                setError('');
+              }
+              return;
             }
           }
-        } catch (refreshErr: any) {
-          console.error('Error refreshing status:', refreshErr);
-          setPaymentPending(false);
+
+          // If not yet confirmed, wait and retry
+          // Wait longer on first attempts, then faster polling after
+          const waitTime = attempts < 3 ? 3000 : 2000;
+          setTimeout(() => pollPaymentStatus(attempts + 1, maxAttempts), waitTime);
+        } catch (pollErr: any) {
+          console.error(`[Poll ${attempts}] Error checking payment status:`, pollErr);
+          // On error, retry with longer wait
+          const waitTime = attempts < 3 ? 3000 : 2000;
+          setTimeout(() => pollPaymentStatus(attempts + 1, maxAttempts), waitTime);
         }
-        setLoading(false);
-      }, 5000);
+      };
+
+      // Start polling after initial 3-second wait for M-Pesa callback
+      setTimeout(() => pollPaymentStatus(), 3000);
       
     } catch (err: any) {
       setPaymentPending(false);
@@ -308,12 +353,23 @@ export default function BNPLManager() {
                         onClick={async () => {
                           try {
                             setLoading(true);
-                            const newStatus = await client.post('/payments/bnpl/refresh_status/', {});
-                            if (newStatus.status === 'success') {
-                              setStatus(newStatus.data);
+                            const newStatus = await client.get('/payments/bnpl/status/');
+                            if (newStatus && newStatus.current_balance !== undefined) {
+                              setStatus(newStatus);
                               setPaymentPending(false);
-                              if (newStatus.data.current_balance === 0) {
+                              
+                              const currentBalance = typeof newStatus.current_balance === 'string'
+                                ? parseFloat(newStatus.current_balance)
+                                : newStatus.current_balance;
+                              
+                              if (currentBalance === 0) {
+                                showModal('Payment Successful', 'Your BNPL balance has been cleared!', 'success');
                                 setError('');
+                              } else if (currentBalance < (status?.current_balance || 0)) {
+                                showModal('Payment Confirmed', `New balance: KES ${currentBalance.toLocaleString()}`, 'success');
+                                setError('');
+                              } else {
+                                setError('Payment still processing. Please try again in a moment.');
                               }
                             }
                           } catch (err: any) {
@@ -439,6 +495,14 @@ export default function BNPLManager() {
           </div>
         </div>
       )}
+      
+      <Modal
+        isOpen={modalOpen}
+        title={modalTitle}
+        message={modalMessage}
+        type={modalType}
+        onClose={() => setModalOpen(false)}
+      />
     </div>
   );
 }

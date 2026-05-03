@@ -7,6 +7,7 @@ import { client } from "@/lib/api/client";
 import { getLatestActualPrice, getActualPriceStaffInfo, formatActualPrice } from "@/lib/utils/orderPricing";
 import RouteGuard from "@/components/RouteGuard";
 import OrderStaffDetailsViewer from "@/components/OrderStaffDetailsViewer";
+import Modal from "@/components/ui/Modal";
 import { Eye, ArrowLeft, Loader2, AlertCircle, Send, RefreshCw, CheckCircle } from "lucide-react";
 
 interface OrderDetail {
@@ -41,8 +42,20 @@ export default function RiderOrderDetailPage() {
   const [staffDetailsModalOpen, setStaffDetailsModalOpen] = useState(false);
   const [initiatingPayment, setInitiatingPayment] = useState(false);
   const [completingOrder, setCompletingOrder] = useState(false);
+  const [stkPhoneNumber, setStkPhoneNumber] = useState<string>('');
+  const [modalOpen, setModalOpen] = useState(false);
+  const [modalTitle, setModalTitle] = useState('');
+  const [modalMessage, setModalMessage] = useState('');
+  const [modalType, setModalType] = useState<'success' | 'error' | 'info' | 'warning'>('info');
 
   const API_BASE = process.env.NEXT_PUBLIC_API_BASE || '';
+
+  const showModal = (title: string, message: string, type: 'success' | 'error' | 'info' | 'warning' = 'info') => {
+    setModalTitle(title);
+    setModalMessage(message);
+    setModalType(type);
+    setModalOpen(true);
+  };
 
   useEffect(() => {
     const fetchOrder = async () => {
@@ -119,31 +132,37 @@ export default function RiderOrderDetailPage() {
   }
 
   const handleInitiatePayment = async () => {
-    if (!order?.code || !(order?.raw?.user?.phone || order?.user?.phone)) {
-      alert('Order code or customer phone number not found');
+    if (!order?.code) {
+      showModal('Error', 'Order code not found', 'error');
+      return;
+    }
+
+    const customerPhone = order.raw?.user?.phone || order.user?.phone;
+    const phoneForSTK = stkPhoneNumber.trim() || customerPhone;
+
+    if (!phoneForSTK) {
+      showModal('Error', 'Customer phone number not found and no STK phone number provided', 'error');
       return;
     }
 
     // Get the latest actual_price from staff input details
     const actualPrice = getLatestActualPrice(order.staff_input_details);
     if (!actualPrice) {
-      alert('Cannot initiate payment: Staff has not set the actual price for this order. Please set the actual_price before attempting checkout.');
+      showModal('Cannot Initiate Payment', 'Staff has not set the actual price for this order. Please set the actual_price before attempting checkout.', 'warning');
       return;
     }
 
     setInitiatingPayment(true);
     try {
-      const customerPhone = order.raw?.user?.phone || order.user?.phone;
-      
-      // Initiate STK push for customer on behalf of rider
+      // Initiate STK push for the specified phone number (or customer phone if not specified)
       const response = await client.post('/payments/mpesa/stk-push/', {
         order_id: order.code,
-        phone: customerPhone,
+        phone: phoneForSTK,
         amount: actualPrice,
       });
 
       if (response.status === 'success' || response.success) {
-        alert(`STK Push sent to ${customerPhone}. Customer will enter their M-Pesa PIN to complete payment.`);
+        showModal('Success', `STK Push sent to ${phoneForSTK}. Customer will enter their M-Pesa PIN to complete payment.`, 'success');
         
         // Refresh order data after a few seconds to check if payment completed
         setTimeout(() => {
@@ -161,11 +180,11 @@ export default function RiderOrderDetailPage() {
           fetchOrder();
         }, 3000);
       } else {
-        alert(`Failed to initiate payment: ${response.message || 'Unknown error'}`);
+        showModal('Payment Failed', `${response.message || 'Unknown error'}`, 'error');
       }
     } catch (err: any) {
       console.error('Error initiating payment:', err);
-      alert(`Error: ${err?.message || 'Failed to initiate payment'}`);
+      showModal('Error', `${err?.message || 'Failed to initiate payment'}`, 'error');
     } finally {
       setInitiatingPayment(false);
     }
@@ -173,7 +192,7 @@ export default function RiderOrderDetailPage() {
 
   const handleCompleteOrder = async () => {
     if (!order?.id) {
-      alert('Order ID not found');
+      showModal('Error', 'Order ID not found', 'error');
       return;
     }
 
@@ -183,7 +202,7 @@ export default function RiderOrderDetailPage() {
         status: 'delivered'
       });
 
-      alert('Order marked as delivered successfully!');
+      showModal('Success', 'Order marked as delivered successfully!', 'success');
       
       // Refresh order data
       const fetchOrder = async () => {
@@ -200,7 +219,7 @@ export default function RiderOrderDetailPage() {
       fetchOrder();
     } catch (err: any) {
       console.error('Error completing order:', err);
-      alert(`Error: ${err?.message || 'Failed to complete order'}`);
+      showModal('Error', `${err?.message || 'Failed to complete order'}`, 'error');
     } finally {
       setCompletingOrder(false);
     }
@@ -208,6 +227,13 @@ export default function RiderOrderDetailPage() {
 
   return (
     <RouteGuard requireRider>
+      <Modal
+        isOpen={modalOpen}
+        title={modalTitle}
+        message={modalMessage}
+        type={modalType}
+        onClose={() => setModalOpen(false)}
+      />
       <div className="min-h-screen bg-gradient-to-b from-white via-[#f8fafc] to-[#eef2ff] dark:from-[#071025] dark:via-[#041022] dark:to-[#011018] py-12">
         <div className="max-w-4xl mx-auto px-4">
           {/* Back Button */}
@@ -331,35 +357,54 @@ export default function RiderOrderDetailPage() {
             </div>
 
             {/* Payment Info */}
-            <div className="p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800">
+            <div className="p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800 mb-4">
               <p className="text-xs text-blue-600 dark:text-blue-400 font-semibold uppercase mb-1">Payment Method</p>
               <p className="text-sm text-blue-700 dark:text-blue-300">
-                M-Pesa STK Push to <span className="font-mono font-bold">{order.raw?.user?.phone || order.user?.phone || 'N/A'}</span>
+                M-Pesa STK Push to <span className="font-mono font-bold">{stkPhoneNumber || order.raw?.user?.phone || order.user?.phone || 'N/A'}</span>
               </p>
               <p className="text-xs text-blue-600 dark:text-blue-400 mt-2">
-                Click "Initiate M-Pesa Payment" to send STK push. Customer will enter their PIN to complete payment.
+                You can specify a different phone number below for the STK push, or leave it empty to use the customer's phone.
               </p>
             </div>
 
             {/* Payment Button */}
             {!order.is_paid && (
-              <button
-                onClick={handleInitiatePayment}
-                disabled={initiatingPayment || !getLatestActualPrice(order.staff_input_details)}
-                className="mt-4 w-full flex items-center justify-center gap-2 px-4 py-3 bg-blue-600 hover:bg-blue-700 disabled:bg-slate-400 text-white rounded-lg font-semibold transition-colors"
-              >
-                {initiatingPayment ? (
-                  <>
-                    <Loader2 className="w-4 h-4 animate-spin" />
-                    Initiating...
-                  </>
-                ) : (
-                  <>
-                    <Send className="w-4 h-4" />
-                    Initiate M-Pesa Payment
-                  </>
-                )}
-              </button>
+              <>
+                {/* Custom STK Phone Number Input */}
+                <div className="space-y-2 mb-4">
+                  <label className="block text-xs text-slate-500 dark:text-slate-400 font-medium uppercase">
+                    STK Phone Number (Optional)
+                  </label>
+                  <input
+                    type="tel"
+                    placeholder={order.raw?.user?.phone || order.user?.phone || 'Enter phone number'}
+                    value={stkPhoneNumber}
+                    onChange={(e) => setStkPhoneNumber(e.target.value)}
+                    className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-500"
+                  />
+                  <p className="text-xs text-slate-500 dark:text-slate-400">
+                    Leave empty to use customer's phone: <span className="font-mono font-semibold">{order.raw?.user?.phone || order.user?.phone || 'N/A'}</span>
+                  </p>
+                </div>
+
+                <button
+                  onClick={handleInitiatePayment}
+                  disabled={initiatingPayment || !getLatestActualPrice(order.staff_input_details)}
+                  className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-blue-600 hover:bg-blue-700 disabled:bg-slate-400 text-white rounded-lg font-semibold transition-colors"
+                >
+                  {initiatingPayment ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      Initiating...
+                    </>
+                  ) : (
+                    <>
+                      <Send className="w-4 h-4" />
+                      Initiate M-Pesa Payment
+                    </>
+                  )}
+                </button>
+              </>
             )}
           </div>
 

@@ -3,6 +3,7 @@
 import React, { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
+import Modal from "@/components/ui/Modal";
 import { getLatestActualPrice, getActualPriceStaffInfo, formatActualPrice } from "@/lib/utils/orderPricing";
 
 type StatusPoint = {
@@ -76,6 +77,17 @@ export default function OrderDetailsPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [checkoutLoading, setCheckoutLoading] = useState(false);
+  const [modalOpen, setModalOpen] = useState(false);
+  const [modalTitle, setModalTitle] = useState('');
+  const [modalMessage, setModalMessage] = useState('');
+  const [modalType, setModalType] = useState<'success' | 'error' | 'info' | 'warning'>('error');
+
+  const showModal = (title: string, message: string, type: 'success' | 'error' | 'info' | 'warning' = 'error') => {
+    setModalTitle(title);
+    setModalMessage(message);
+    setModalType(type);
+    setModalOpen(true);
+  };
 
   const API_BASE = process.env.NEXT_PUBLIC_API_BASE || '';
 
@@ -138,7 +150,7 @@ export default function OrderDetailsPage() {
       router.push(`/checkout?order_id=${encodeURIComponent(latestOrder.code)}&amount=${encodeURIComponent(String(actualPrice))}`);
     } catch (err: any) {
       console.error('Error preparing checkout:', err);
-      alert(`Error preparing checkout: ${err?.message || 'Unknown error'}`);
+      showModal('Error', `Error preparing checkout: ${err?.message || 'Unknown error'}`, 'error');
     } finally {
       setCheckoutLoading(false);
     }
@@ -483,6 +495,14 @@ export default function OrderDetailsPage() {
           </div>
         ) : null}
       </div>
+      
+      <Modal
+        isOpen={modalOpen}
+        title={modalTitle}
+        message={modalMessage}
+        type={modalType}
+        onClose={() => setModalOpen(false)}
+      />
     </div>
   );
 }

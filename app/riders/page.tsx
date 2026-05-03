@@ -2,6 +2,7 @@
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { RefreshCw, MapPin, User, Phone, Truck, Star } from "lucide-react";
+import Modal from "@/components/ui/Modal";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_BASE || '';
 
@@ -59,6 +60,8 @@ export default function RidersPage(): React.ReactElement {
   const markersRef = useRef<any[]>([]);
   const leafletLoadedRef = useRef(false);
   const mapInitializedRef = useRef(false);
+  const [mapModalOpen, setMapModalOpen] = React.useState(false);
+  const [mapModalMessage, setMapModalMessage] = React.useState('');
 
   /* --- Data fetchers --- */
   const fetchProfiles = useCallback(async () => {
@@ -189,8 +192,15 @@ export default function RidersPage(): React.ReactElement {
     }
   }
 
+  const [mapModalOpen, setMapModalOpen] = React.useState(false);
+  const [mapModalMessage, setMapModalMessage] = React.useState('');
+
   function openMaps(lat?: number | null, lon?: number | null) {
-    if (lat == null || lon == null) return alert("No coordinates available for this rider.");
+    if (lat == null || lon == null) {
+      setMapModalMessage("No coordinates available for this rider.");
+      setMapModalOpen(true);
+      return;
+    }
     const url = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(`${lat},${lon}`)}`;
     window.open(url, "_blank", "noopener,noreferrer");
   }
@@ -502,7 +512,7 @@ export default function RidersPage(): React.ReactElement {
                           <div className="text-xs text-slate-600">{l.latitude ?? "—"}, {l.longitude ?? "—"}</div>
                           <div className="mt-1 flex gap-2 justify-end">
                             <button onClick={() => openMaps(Number(l.latitude), Number(l.longitude))} className="text-xs px-2 py-1 rounded bg-red-600 text-white">Map</button>
-                            <button onClick={() => { if (l.rider && typeof l.rider === "number") openProfileDetail(Number(l.rider)); else alert("Open profile not available for this point."); }} className="text-xs px-2 py-1 rounded bg-slate-100">Profile</button>
+                            <button onClick={() => { if (l.rider && typeof l.rider === "number") openProfileDetail(Number(l.rider)); else { setMapModalMessage("Open profile not available for this point."); setMapModalOpen(true); } }} className="text-xs px-2 py-1 rounded bg-slate-100">Profile</button>
                           </div>
                         </div>
                       </div>
@@ -548,6 +558,14 @@ export default function RidersPage(): React.ReactElement {
           </aside>
         </div>
       </div>
+      
+      <Modal
+        isOpen={mapModalOpen}
+        title="Error"
+        message={mapModalMessage}
+        type="error"
+        onClose={() => setMapModalOpen(false)}
+      />
     </div>
   );
 }

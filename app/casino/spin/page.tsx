@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { Zap, RotateCw, Minus, Trophy, TrendingUp, Heart, AlertCircle, Clock, ArrowLeft } from 'lucide-react';
 import axios from 'axios';
 import GamesNavBar from '@/components/GamesNavBar';
+import Modal from '@/components/ui/Modal';
 
 interface WheelSegment {
   id: number;
@@ -101,6 +102,17 @@ export default function GamesPage() {
   const [lastPlayDate, setLastPlayDate] = useState<Date | null>(null);
   const [userSatisfaction, setUserSatisfaction] = useState<number>(100); // 0-100 score
   const [showResponsibleGaming, setShowResponsibleGaming] = useState<boolean>(false);
+  const [modalOpen, setModalOpen] = useState(false);
+  const [modalTitle, setModalTitle] = useState('');
+  const [modalMessage, setModalMessage] = useState('');
+  const [modalType, setModalType] = useState<'success' | 'error' | 'info' | 'warning'>('info');
+
+  const showModal = (title: string, message: string, type: 'success' | 'error' | 'info' | 'warning' = 'info') => {
+    setModalTitle(title);
+    setModalMessage(message);
+    setModalType(type);
+    setModalOpen(true);
+  };
 
   const apiBase = process.env.NEXT_PUBLIC_API_BASE || 'https://api.wildwash.app/api';
 
@@ -244,12 +256,12 @@ export default function GamesPage() {
     // Check spending limits first
     const limitCheck = checkSpendingLimits();
     if (!limitCheck.canPlay) {
-      alert(limitCheck.reason);
+      showModal('Limit Reached', limitCheck.reason || '', 'warning');
       return;
     }
 
     if (wallet < spinCost) {
-      alert(`Insufficient funds. You need KES ${spinCost} to spin.`);
+      showModal('Insufficient Funds', `You need KES ${spinCost} to spin.`, 'error');
       return;
     }
 
@@ -377,12 +389,12 @@ export default function GamesPage() {
     const limitCheck = checkSpendingLimits();
     
     if (!limitCheck.canPlay) {
-      alert(limitCheck.reason);
+      showModal('Limit Reached', limitCheck.reason || '', 'warning');
       return;
     }
 
     if (wallet < totalCost) {
-      alert(`Insufficient funds. You need KES ${totalCost} for ${multiSpinCount} spins.`);
+      showModal('Insufficient Funds', `You need KES ${totalCost} for ${multiSpinCount} spins.`, 'error');
       return;
     }
 
@@ -498,6 +510,9 @@ export default function GamesPage() {
           timestamp: new Date(Date.now() - (multiSpinCount - idx - 1) * 3500),
         }));
         
+        // Show multi-spin complete modal
+        showModal('Multi-Spin Complete', `You completed ${multiSpinCount} spins and won KES ${summary.total_winnings}!`, 'success');
+        
         setGameHistory(prev => [...newHistory, ...prev]);
         
         // Sync with localStorage
@@ -506,10 +521,7 @@ export default function GamesPage() {
       }
     } catch (err: any) {
       console.error('Error performing multi-spin:', err);
-      alert(
-        err.response?.data?.detail || 
-        'Error performing multi-spin. Please try again.'
-      );
+      showModal('Error', err.response?.data?.detail || 'Error performing multi-spin. Please try again.', 'error');
       
       // Reset state on error
       setIsMultiSpinMode(false);
@@ -560,12 +572,12 @@ export default function GamesPage() {
         // Try to trigger an actual spin (same checks as clicking the button)
         const limitCheck = checkSpendingLimits();
         if (!limitCheck.canPlay) {
-          alert(limitCheck.reason);
+          showModal('Limit Reached', limitCheck.reason || '', 'warning');
           return;
         }
 
         if (wallet < spinCost) {
-          alert(`Insufficient funds. You need KES ${spinCost} to spin.`);
+          showModal('Insufficient Funds', `You need KES ${spinCost} to spin.`, 'error');
           return;
         }
 
@@ -1035,6 +1047,14 @@ export default function GamesPage() {
           <p>⚠️ Remember: This is for entertainment only. Gamble responsibly.</p>
         </div>
       </div>
+      
+      <Modal
+        isOpen={modalOpen}
+        title={modalTitle}
+        message={modalMessage}
+        type={modalType}
+        onClose={() => setModalOpen(false)}
+      />
     </div>
   );
 }

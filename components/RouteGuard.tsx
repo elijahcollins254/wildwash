@@ -40,15 +40,11 @@ export default function RouteGuard({ children, requireAdmin = false, requireRide
 
     if (!isAuthenticated) {
       console.log('Not authenticated, redirecting...');
-      // For admin routes, redirect to admin login
-      if (requireAdmin) {
-        router.push(`/admin-login?redirect=${pathname}`);
-      } else if (requireRider) {
+      // Redirect to login page
+      if (requireRider) {
         router.push(`/rider-login?redirect=${pathname}`);
-      } else if (requireStaff) {
-        router.push(`/login?redirect=${pathname}`);
       } else {
-        router.push(`/login?redirect=${pathname}`);
+        router.push('/login');
       }
       return;
     }
@@ -69,10 +65,6 @@ export default function RouteGuard({ children, requireAdmin = false, requireRide
         const timer = setTimeout(() => {
           if (requireRider) {
             router.push('/rider-login');
-          } else if (requireAdmin) {
-            router.push('/admin-login');
-          } else if (requireStaff) {
-            router.push('/staff');
           } else {
             router.push('/login');
           }

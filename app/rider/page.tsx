@@ -4,6 +4,7 @@ import React, { useEffect, useMemo, useRef, useState } from "react";
 import { MapPin, Package, Eye } from "lucide-react";
 import Link from "next/link";
 import RouteGuard from "@/components/RouteGuard";
+import Modal from "@/components/ui/Modal";
 import { useRiderOrderNotifications } from "@/lib/hooks/useRiderOrderNotifications";
 import { useBackgroundOrderPolling } from "@/lib/hooks/useBackgroundOrderPolling";
 import { useInfiniteScroll } from "@/lib/hooks/useInfiniteScroll";
@@ -68,6 +69,19 @@ export default function RiderMapPage(): React.ReactElement {
   const [confirmingOrderId, setConfirmingOrderId] = useState<number | null>(null);
   const [processingOrderId, setProcessingOrderId] = useState<number | null>(null);
   const confirmTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  
+  // Modal state for error messages
+  const [modalOpen, setModalOpen] = useState(false);
+  const [modalTitle, setModalTitle] = useState('');
+  const [modalMessage, setModalMessage] = useState('');
+  const [modalType, setModalType] = useState<'success' | 'error' | 'info' | 'warning'>('error');
+
+  const showModal = (title: string, message: string, type: 'success' | 'error' | 'info' | 'warning' = 'error') => {
+    setModalTitle(title);
+    setModalMessage(message);
+    setModalType(type);
+    setModalOpen(true);
+  };
 
   // Order details form state
   const [detailsOrderId, setDetailsOrderId] = useState<number | null>(null);
@@ -238,7 +252,7 @@ export default function RiderMapPage(): React.ReactElement {
       setCurrentStatus('picked');
     } catch (err: any) {
       console.error('Failed to save order details:', err);
-      alert(err.message || 'Failed to save order details. Please try again.');
+      showModal('Error', err.message || 'Failed to save order details. Please try again.', 'error');
     } finally {
       setProcessingOrderId(null);
     }
@@ -292,7 +306,7 @@ export default function RiderMapPage(): React.ReactElement {
       setCurrentStatus('picked'); // Switch to picked page after completion
     } catch (err: any) {
       console.error('Failed to complete pickup:', err);
-      alert(err.message || 'Failed to complete pickup. Please try again.');
+      showModal('Error', err.message || 'Failed to complete pickup. Please try again.', 'error');
     } finally {
       // Clear loading state
       setProcessingOrderId(null);
@@ -340,7 +354,7 @@ export default function RiderMapPage(): React.ReactElement {
       setCurrentStatus('delivered');
     } catch (err: any) {
       console.error('Failed to mark delivered:', err);
-      alert(err?.message || 'Failed to mark delivered.');
+      showModal('Error', err?.message || 'Failed to mark delivered.', 'error');
     } finally {
       setProcessingOrderId(null);
     }
@@ -715,6 +729,14 @@ export default function RiderMapPage(): React.ReactElement {
           )}
         </div>
       </div>
+      
+      <Modal
+        isOpen={modalOpen}
+        title={modalTitle}
+        message={modalMessage}
+        type={modalType}
+        onClose={() => setModalOpen(false)}
+      />
       </div>
     </RouteGuard>
   );

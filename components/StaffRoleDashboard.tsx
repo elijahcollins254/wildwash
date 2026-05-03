@@ -6,6 +6,7 @@ import Link from 'next/link';
 import { client } from '@/lib/api/client';
 import { getStoredAuthState, isValidAuthState } from '@/lib/auth';
 import { Spinner, OrderStatusUpdate } from '@/components';
+import Modal from '@/components/ui/Modal';
 import { sortByUrgency, calculateOrderUrgency, getUrgencyLabel } from '@/lib/orderUrgency';
 import { useInfiniteScroll } from '@/lib/hooks/useInfiniteScroll';
 
@@ -71,6 +72,17 @@ export default function StaffRoleDashboard({ staffRole }: StaffRoleDashboardProp
     estimated_price: '',
     order_type: 'walk_in'
   });
+  const [modalOpen, setModalOpen] = useState(false);
+  const [modalTitle, setModalTitle] = useState('');
+  const [modalMessage, setModalMessage] = useState('');
+  const [modalType, setModalType] = useState<'success' | 'error' | 'info' | 'warning'>('info');
+
+  const showModal = (title: string, message: string, type: 'success' | 'error' | 'info' | 'warning' = 'info') => {
+    setModalTitle(title);
+    setModalMessage(message);
+    setModalType(type);
+    setModalOpen(true);
+  };
 
   const fetchProfile = useCallback(async () => {
     try {
@@ -136,12 +148,12 @@ export default function StaffRoleDashboard({ staffRole }: StaffRoleDashboardProp
       setCreatingOrder(true);
       
       if (!createOrderForm.customer_name.trim()) {
-        alert('Customer name is required');
+        showModal('Validation Error', 'Customer name is required', 'warning');
         setCreatingOrder(false);
         return;
       }
       if (!createOrderForm.customer_phone.trim()) {
-        alert('Customer phone is required');
+        showModal('Validation Error', 'Customer phone is required', 'warning');
         setCreatingOrder(false);
         return;
       }
@@ -178,10 +190,10 @@ export default function StaffRoleDashboard({ staffRole }: StaffRoleDashboardProp
       await fetchOrders(1); // Reset to page 1
       setCurrentPage(1);
       setAllOrders([]);
-      alert('Order created successfully!');
+      showModal('Success', 'Order created successfully!', 'success');
     } catch (err: any) {
       console.error(`[${staffRole.toUpperCase()}] Failed to create order:`, err);
-      alert(err?.message || 'Failed to create order');
+      showModal('Error', err?.message || 'Failed to create order', 'error');
     } finally {
       setCreatingOrder(false);
     }
@@ -483,7 +495,7 @@ export default function StaffRoleDashboard({ staffRole }: StaffRoleDashboardProp
                                     console.error('Failed to update status:', err);
                                     // Revert on error by fetching fresh data
                                     await fetchOrders(1);
-                                    alert(err?.message || 'Failed to update status');
+                                    showModal('Error', err?.message || 'Failed to update status', 'error');
                                   }
                                 }}
                                 className={`px-3 py-1 rounded ${colorClasses.bg} ${colorClasses.text} ${colorClasses.hover} text-xs font-medium transition-colors`}
@@ -898,7 +910,7 @@ export default function StaffRoleDashboard({ staffRole }: StaffRoleDashboardProp
                       console.error('Failed to save details:', err);
                       // Revert to original data on error
                       await fetchOrders(1);
-                      alert(err?.message || 'Failed to save details');
+                      showModal('Error', err?.message || 'Failed to save details', 'error');
                     }
                   }}
                   className="px-4 py-2 rounded-lg bg-red-600 text-white font-medium hover:bg-red-700 dark:bg-red-700 dark:hover:bg-red-600 transition-colors shadow-md hover:shadow-lg"
