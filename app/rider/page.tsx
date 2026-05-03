@@ -308,13 +308,12 @@ export default function RiderMapPage(): React.ReactElement {
           <div className="grid grid-cols-1 gap-6">
             {/* Left: Order list & filters */}
             <section className="rounded-2xl bg-white/80 dark:bg-white/5 p-4 shadow">
-              <div className="flex items-center justify-between mb-4">
-                <div className="flex items-center gap-3">
-                  <Package className="w-5 h-5 text-red-600" />
-                  <h2 className="text-lg font-semibold">Orders</h2>
-                </div>
-                <div className="flex flex-wrap justify-center gap-2">
-                  {(['in_progress', 'picked'] as const).map((status) => {
+              <div className="flex items-center gap-3 mb-4">
+                <Package className="w-5 h-5 text-red-600" />
+                <h2 className="text-lg font-semibold">Orders</h2>
+              </div>
+              <div className="flex flex-wrap justify-center gap-2 mb-6">
+                  {(['in_progress', 'picked', 'delivered'] as const).map((status) => {
                     let count = 0;
                     if (status === 'in_progress') {
                       // Count all active orders (picked, ready, in_progress)
@@ -349,7 +348,6 @@ export default function RiderMapPage(): React.ReactElement {
                     );
                   })}
                 </div>
-              </div>
 
               {loadingOrders ? (
                 <div className="py-8 text-center text-slate-500">
@@ -404,7 +402,7 @@ export default function RiderMapPage(): React.ReactElement {
                           <div>To: {order.dropoff_address}</div>
                         </div>
                       </div>
-                      {(order.status === 'in_progress' || order.status === 'ready') && (
+                      {(order.status === 'in_progress' || order.status === 'ready' || order.status === 'picked') && (
                         <div className="flex flex-col gap-2" onClick={(e) => e.stopPropagation()}>
                           <button
                             onClick={(e) => {
