@@ -39,11 +39,19 @@ const serviceImageMap: Record<string, string> = {
   "Carpet Cleaning": "Carpet Cleaning.png",
   "Ironing Service": "Ironing Service.png",
   "Bedsitter Fumigation": "Bedsitter Fumigation.png",
+  "Storage Services": "Storage.png",
+  "Repairs": "Repairs.png",
+  "Moving Services": "Moving.png",
+  "Sofa Cleaning": "Sofa Cleaning.png",
 };
 
 function getImageForService(serviceName: string): string {
   if (serviceImageMap[serviceName]) return serviceImageMap[serviceName];
   const nameLower = serviceName.toLowerCase();
+  if (nameLower.includes("storage")) return "Storage.png";
+  if (nameLower.includes("repair")) return "Repairs.png";
+  if (nameLower.includes("moving")) return "Moving.png";
+  if (nameLower.includes("sofa")) return "Sofa Cleaning.png";
   if (nameLower.includes("tv") || nameLower.includes("mounting")) return "Tv Installation.png";
   if (nameLower.includes("hotshower") || nameLower.includes("hot shower")) return "Shower Installation.png";
   if (nameLower.includes("fumigation") || nameLower.includes("bedsitter"))
