@@ -77,8 +77,9 @@ function getImageForService(serviceName: string): string {
   if (nameLower.includes("iron")) return "Ironing Service.png";
   if (nameLower.includes("dry") || nameLower.includes("dryclean"))
     return "Dry Cleaning.png";
+  if (nameLower.includes("laundry")) return "Laundry.png";
   if (nameLower.includes("express")) return "Express Wash.png";
-  if (nameLower.includes("wash") || nameLower.includes("laundry") || nameLower.includes("clean"))
+  if (nameLower.includes("wash") || nameLower.includes("clean"))
     return "Standard Wash.png";
   return "Standard Wash.png";
 }
