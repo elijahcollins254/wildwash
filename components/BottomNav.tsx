@@ -83,13 +83,6 @@ export default function BottomNav() {
             <span className="text-xs font-medium">Cart</span>
           </Link>
         )}
-                  {totalCartItems > 99 ? '99+' : totalCartItems}
-                </span>
-              )}
-            </div>
-            <span className="text-xs font-medium">Cart</span>
-          </Link>
-        )}
 
         {/* Admin Dashboard */}
         {navItems.includes('admin') && (
