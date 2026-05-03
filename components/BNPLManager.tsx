@@ -162,9 +162,11 @@ export default function BNPLManager() {
             // Payment is no longer pending - check if successful
             if (response.payment_status === 'success') {
               setStatus({
-                ...status,
+                is_enrolled: status?.is_enrolled ?? true,
                 current_balance: 0,
-                is_active: status.is_active
+                is_active: status?.is_active ?? true,
+                credit_limit: status?.credit_limit ?? response.credit_limit,
+                phone_number: status?.phone_number
               });
               setPaymentPending(false);
               setLoading(false);
