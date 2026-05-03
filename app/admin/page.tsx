@@ -892,6 +892,7 @@ export default function AdminPage(): React.ReactElement {
                   <tr>
                     <th className="text-left py-3 px-4 font-medium">Code</th>
                     <th className="text-left py-3 px-4 font-medium">Status</th>
+                    <th className="text-left py-3 px-4 font-medium">Payment</th>
                     <th className="text-left py-3 px-4 font-medium">User Name</th>
                     <th className="text-left py-3 px-4 font-medium">Phone</th>
                     <th className="text-left py-3 px-4 font-medium">Location</th>
@@ -912,6 +913,15 @@ export default function AdminPage(): React.ReactElement {
                       <td className="py-3 px-4">
                         <span className={`inline-flex px-2 py-1 rounded-full text-xs font-medium ${getStatusColorClass(o.status)}`}>
                           {o.status}
+                        </span>
+                      </td>
+                      <td className="py-3 px-4">
+                        <span className={`inline-flex px-2 py-1 rounded-full text-xs font-medium ${
+                          o.raw?.is_paid 
+                            ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400' 
+                            : 'bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400'
+                        }`}>
+                          {o.raw?.is_paid ? '✓ Paid' : 'Pending'}
                         </span>
                       </td>
                       <td className="py-3 px-4">{o.raw?.user?.first_name && o.raw?.user?.last_name ? `${o.raw.user.first_name} ${o.raw.user.last_name}` : o.raw?.user?.username || "—"}</td>
@@ -951,7 +961,7 @@ export default function AdminPage(): React.ReactElement {
                   ))}
                   {filteredOrders.length === 0 && (
                     <tr>
-                      <td colSpan={9} className="py-8 text-center text-slate-500">
+                      <td colSpan={10} className="py-8 text-center text-slate-500">
                         <div className="flex flex-col items-center gap-2">
                           <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                             <circle cx="12" cy="12" r="10"/>

@@ -434,6 +434,7 @@ export default function StaffRoleDashboard({ staffRole }: StaffRoleDashboardProp
                 <tr>
                   <th className="text-left py-2 px-3 w-32">Code</th>
                   <th className="text-left py-2 px-3 w-72">Status</th>
+                  <th className="text-left py-2 px-3 w-24">Payment</th>
                   <th className="text-center py-2 px-3 w-32">Urgency</th>
                   <th className="text-left py-2 px-3">Assigned To</th>
                   <th className="text-right py-2 px-3">Estimated Price</th>
@@ -498,6 +499,15 @@ export default function StaffRoleDashboard({ staffRole }: StaffRoleDashboardProp
                             />
                           )}
                         </div>
+                      </td>
+                      <td className="py-2 px-3 text-left">
+                        <span className={`inline-flex px-2 py-1 rounded text-xs font-medium ${
+                          o.is_paid 
+                            ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400' 
+                            : 'bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400'
+                        }`}>
+                          {o.is_paid ? '✓ Paid' : 'Pending'}
+                        </span>
                       </td>
                       <td className="py-2 px-3 text-center">
                         <div className={`px-2 py-1 rounded-full text-xs font-semibold ${label.bgColor} text-white inline-block`}>

@@ -380,6 +380,34 @@ export default function AdminOrderDetailPage() {
             </div>
           </div>
 
+          {/* Order Items */}
+          {order.order_items && order.order_items.length > 0 && (
+            <div className="rounded-2xl bg-white/80 dark:bg-slate-900/50 backdrop-blur-sm p-6 shadow-lg shadow-slate-200/20 dark:shadow-slate-900/30 border border-slate-200/50 dark:border-slate-700/50 mb-6">
+              <h2 className="text-lg font-semibold mb-4 text-slate-900 dark:text-white">Order Items</h2>
+              
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead className="border-b border-slate-200 dark:border-slate-700">
+                    <tr>
+                      <th className="text-left py-3 px-4 font-semibold text-slate-600 dark:text-slate-400">Service</th>
+                      <th className="text-center py-3 px-4 font-semibold text-slate-600 dark:text-slate-400">Quantity</th>
+                      <th className="text-right py-3 px-4 font-semibold text-slate-600 dark:text-slate-400">Price</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {order.order_items.map((item: any, idx: number) => (
+                      <tr key={idx} className="border-b border-slate-100 dark:border-slate-800 hover:bg-slate-50/50 dark:hover:bg-slate-800/50">
+                        <td className="py-3 px-4">{item.service_name || item.service || '—'}</td>
+                        <td className="py-3 px-4 text-center">{item.quantity || 1}</td>
+                        <td className="py-3 px-4 text-right font-semibold">KSh {Number(item.service_price || 0).toLocaleString()}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+
           {/* Rider Assignment */}
           <div className="rounded-2xl bg-white/80 dark:bg-slate-900/50 backdrop-blur-sm p-6 shadow-lg shadow-slate-200/20 dark:shadow-slate-900/30 border border-slate-200/50 dark:border-slate-700/50 mb-6">
             <h2 className="text-lg font-semibold mb-4 text-slate-900 dark:text-white">Assigned Rider</h2>
@@ -523,36 +551,7 @@ export default function AdminOrderDetailPage() {
             </div>
           </div>
 
-          {/* Order Items */}
-          {order.order_items && order.order_items.length > 0 && (
-            <div className="rounded-2xl bg-white/80 dark:bg-slate-900/50 backdrop-blur-sm p-6 shadow-lg shadow-slate-200/20 dark:shadow-slate-900/30 border border-slate-200/50 dark:border-slate-700/50 mb-6">
-              <h2 className="text-lg font-semibold mb-4 text-slate-900 dark:text-white">Order Items</h2>
-              
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead className="border-b border-slate-200 dark:border-slate-700">
-                    <tr>
-                      <th className="text-left py-3 px-4 font-semibold text-slate-600 dark:text-slate-400">Service</th>
-                      <th className="text-center py-3 px-4 font-semibold text-slate-600 dark:text-slate-400">Quantity</th>
-                      <th className="text-right py-3 px-4 font-semibold text-slate-600 dark:text-slate-400">Price</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {order.order_items.map((item: any, idx: number) => (
-                      <tr key={idx} className="border-b border-slate-100 dark:border-slate-800 hover:bg-slate-50/50 dark:hover:bg-slate-800/50">
-                        <td className="py-3 px-4">{item.service_name || item.service || '—'}</td>
-                        <td className="py-3 px-4 text-center">{item.quantity || 1}</td>
-                        <td className="py-3 px-4 text-right font-semibold">KSh {Number(item.service_price || 0).toLocaleString()}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          )}
-        </div>
-
-        {/* Staff Details Modal */}
+          {/* Staff Details Modal */}
         {order && (
           <OrderStaffDetailsViewer
             orderId={order.id!}
