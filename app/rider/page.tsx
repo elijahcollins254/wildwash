@@ -240,7 +240,7 @@ export default function RiderMapPage(): React.ReactElement {
 
       // Refresh the orders list and switch to picked page
       // Background polling will pick up the change
-      setCurrentStatus('picked'); // Switch to picked page after completion
+      setCurrentTab('in_progress'); // Switch to in_progress page after completion
     } catch (err: any) {
       console.error('Failed to complete pickup:', err);
       showModal('Error', err.message || 'Failed to complete pickup. Please try again.', 'error');
