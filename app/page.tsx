@@ -45,6 +45,7 @@ const serviceImageMap: Record<string, string> = {
   "Sofa Cleaning": "Sofa Cleaning.png",
   "House Cleaning": "House Cleaning.png",
   "Mattress Cleaning": "Mattress Cleaning.png",
+  "Shoes Cleaning": "Shoes Cleaning.png",
 };
 
 function getImageForService(serviceName: string): string {
@@ -56,6 +57,7 @@ function getImageForService(serviceName: string): string {
   if (nameLower.includes("sofa")) return "Sofa Cleaning.png";
   if (nameLower.includes("house")) return "House Cleaning.png";
   if (nameLower.includes("mattress")) return "Mattress Cleaning.png";
+  if (nameLower.includes("shoes")) return "Shoes Cleaning.png";
   if (nameLower.includes("tv") || nameLower.includes("mounting")) return "Tv Installation.png";
   if (nameLower.includes("hotshower") || nameLower.includes("hot shower")) return "Shower Installation.png";
   if (nameLower.includes("fumigation") || nameLower.includes("bedsitter"))
