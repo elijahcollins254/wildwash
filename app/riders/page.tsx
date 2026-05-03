@@ -60,8 +60,6 @@ export default function RidersPage(): React.ReactElement {
   const markersRef = useRef<any[]>([]);
   const leafletLoadedRef = useRef(false);
   const mapInitializedRef = useRef(false);
-  const [mapModalOpen, setMapModalOpen] = React.useState(false);
-  const [mapModalMessage, setMapModalMessage] = React.useState('');
 
   /* --- Data fetchers --- */
   const fetchProfiles = useCallback(async () => {
@@ -192,8 +190,8 @@ export default function RidersPage(): React.ReactElement {
     }
   }
 
-  const [mapModalOpen, setMapModalOpen] = React.useState(false);
-  const [mapModalMessage, setMapModalMessage] = React.useState('');
+  const [mapModalOpen, setMapModalOpen] = useState(false);
+  const [mapModalMessage, setMapModalMessage] = useState('');
 
   function openMaps(lat?: number | null, lon?: number | null) {
     if (lat == null || lon == null) {
