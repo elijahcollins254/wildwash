@@ -1,5 +1,6 @@
 'use client';
 
+import { FiUser, FiCreditCard, FiCalendar, FiCheck } from 'react-icons/fi';
 import { BNPLManager } from '@/components';
 
 export default function BNPLHelpPage() {
@@ -26,9 +27,7 @@ export default function BNPLHelpPage() {
             <div className="grid gap-6 md:grid-cols-3">
               <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow">
                 <div className="mb-4 p-2 bg-red-100 dark:bg-red-900/20 rounded-full w-fit">
-                  <svg className="h-6 w-6 text-red-600 dark:text-red-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.501 20.118a7.5 7.5 0 0114.998 0A17.933 17.933 0 0112 21.75c-2.676 0-5.216-.584-7.499-1.632z" />
-                  </svg>
+                  <FiUser className="h-6 w-6 text-red-600 dark:text-red-400" />
                 </div>
                 <h3 className="text-lg font-medium text-gray-900 dark:text-white">1. Enroll</h3>
                 <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">
@@ -38,9 +37,7 @@ export default function BNPLHelpPage() {
 
               <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow">
                 <div className="mb-4 p-2 bg-red-100 dark:bg-red-900/20 rounded-full w-fit">
-                  <svg className="h-6 w-6 text-red-600 dark:text-red-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 8.25h19.5M2.25 9h19.5m-16.5 5.25h6m-6 2.25h3m-3.75 3h15a2.25 2.25 0 002.25-2.25V6.75A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25v10.5A2.25 2.25 0 004.5 19.5z" />
-                  </svg>
+                  <FiCreditCard className="h-6 w-6 text-red-600 dark:text-red-400" />
                 </div>
                 <h3 className="text-lg font-medium text-gray-900 dark:text-white">2. Split Payment</h3>
                 <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">
@@ -50,9 +47,7 @@ export default function BNPLHelpPage() {
 
               <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow">
                 <div className="mb-4 p-2 bg-red-100 dark:bg-red-900/20 rounded-full w-fit">
-                  <svg className="h-6 w-6 text-red-600 dark:text-red-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25m-18 0A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75m-18 0v-7.5A2.25 2.25 0 015.25 9h13.5A2.25 2.25 0 0121 11.25v7.5" />
-                  </svg>
+                  <FiCalendar className="h-6 w-6 text-red-600 dark:text-red-400" />
                 </div>
                 <h3 className="text-lg font-medium text-gray-900 dark:text-white">3. Flexible Schedule</h3>
                 <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">
@@ -102,27 +97,19 @@ export default function BNPLHelpPage() {
             <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow">
               <ul className="space-y-3 text-sm text-gray-600 dark:text-gray-400">
                 <li className="flex items-start">
-                  <svg className="h-5 w-5 mr-2 text-red-500 flex-shrink-0" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
-                    <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-                  </svg>
+                  <FiCheck className="h-5 w-5 mr-2 text-red-500 flex-shrink-0" />
                   Must be 18 years or older with a valid phone number to enroll
                 </li>
                 <li className="flex items-start">
-                  <svg className="h-5 w-5 mr-2 text-red-500 flex-shrink-0" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
-                    <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-                  </svg>
+                  <FiCheck className="h-5 w-5 mr-2 text-red-500 flex-shrink-0" />
                   50% of the total amount is due at the time of service
                 </li>
                 <li className="flex items-start">
-                  <svg className="h-5 w-5 mr-2 text-red-500 flex-shrink-0" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
-                    <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-                  </svg>
+                  <FiCheck className="h-5 w-5 mr-2 text-red-500 flex-shrink-0" />
                   Remaining balance must be paid within 14 days
                 </li>
                 <li className="flex items-start">
-                  <svg className="h-5 w-5 mr-2 text-red-500 flex-shrink-0" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
-                    <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-                  </svg>
+                  <FiCheck className="h-5 w-5 mr-2 text-red-500 flex-shrink-0" />
                   Service may be suspended for missed payments
                 </li>
               </ul>

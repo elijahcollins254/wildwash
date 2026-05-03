@@ -6,11 +6,13 @@ import Link from "next/link";
 import RouteGuard from "@/components/RouteGuard";
 import Modal from "@/components/ui/Modal";
 import { useBackgroundOrderPolling } from "@/lib/hooks/useBackgroundOrderPolling";
+import { FiArrowRight, FiCheck, FiX, FiBox, FiClock, FiTruck } from "react-icons/fi";
+import { AiOutlineLoading3Quarters } from "react-icons/ai";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_BASE || '';
 
 /* --- Types --- */
-type OrderStatus = 'requested' | 'picked' | 'in_progress' | 'ready' | 'delivered' | 'cancelled';
+type OrderStatus = 'requested' | 'pending_assignment' | 'assigned_pickup' | 'picked' | 'in_progress' | 'washed' | 'folded' | 'ready' | 'pending_delivery' | 'assigned_delivery' | 'delivered' | 'cancelled';
 
 type Order = {
   id: number;
@@ -30,12 +32,16 @@ type Order = {
   created_at: string;
   estimated_delivery?: string | null;
   delivered_at?: string | null;
+  picked_at?: string | null;
+  ready_at?: string | null;
   user?: string;
   pickup_location?: { lat: number; lng: number };
   dropoff_location?: { lat: number; lng: number };
   service_location?: { id: number; name: string } | null;
   quantity?: number | null;
   description?: string | null;
+  pickup_rider?: { id: number; username: string; first_name: string; last_name: string };
+  delivery_rider?: { id: number; username: string; first_name: string; last_name: string };
 };
 
 type OrderDetails = {
@@ -55,7 +61,7 @@ type OrderUpdatePayload = {
 export default function RiderMapPage(): React.ReactElement {
   const [loadingOrders, setLoadingOrders] = useState(true);
   const [orderLoadError, setOrderLoadError] = useState<string | null>(null);
-  const [currentStatus, setCurrentStatus] = useState<OrderStatus>('in_progress');
+  const [currentTab, setCurrentTab] = useState<'my_pickups' | 'in_progress' | 'ready_delivery' | 'completed'>('my_pickups');
 
   // Confirmation state for action buttons (orderId -> timestamp)
   const [confirmingOrderId, setConfirmingOrderId] = useState<number | null>(null);
@@ -143,8 +149,14 @@ export default function RiderMapPage(): React.ReactElement {
 
       setProcessingOrderId(detailsOrderId);
 
+      // Find the order to determine current status
+      const order = displayOrders.find(o => o.id === detailsOrderId);
+      if (!order) {
+        throw new Error('Order not found');
+      }
+
       const payload: OrderUpdatePayload = {
-        status: 'picked'
+        status: order.status === 'assigned_pickup' ? 'picked' : 'picked'
       };
 
       // Only include fields that have been filled
@@ -174,8 +186,7 @@ export default function RiderMapPage(): React.ReactElement {
 
       // Close form and let background polling refresh
       handleCloseDetailsForm();
-      // Background polling will pick up the change
-      setCurrentStatus('picked');
+      setCurrentTab('in_progress');
     } catch (err: any) {
       console.error('Failed to save order details:', err);
       showModal('Error', err.message || 'Failed to save order details. Please try again.', 'error');
@@ -275,9 +286,8 @@ export default function RiderMapPage(): React.ReactElement {
         throw new Error(errorData.error || `Failed to mark delivered: ${res.status}`);
       }
 
-      // Refresh orders and switch to delivered view
-      // Background polling will pick up the change
-      setCurrentStatus('delivered');
+      // Switch to completed tab
+      setCurrentTab('completed');
     } catch (err: any) {
       console.error('Failed to mark delivered:', err);
       showModal('Error', err?.message || 'Failed to mark delivered.', 'error');
@@ -289,14 +299,38 @@ export default function RiderMapPage(): React.ReactElement {
   // Display orders from background polling
   const displayOrders = orders;
 
-  // Filter orders by selected status
+  // Filter orders by selected tab
   const filteredOrders = useMemo(() => {
-    if (currentStatus === 'in_progress') {
-      // Show picked, ready and in_progress orders for the in_progress tab (active orders)
-      return displayOrders.filter((o) => o.status === 'picked' || o.status === 'ready' || o.status === 'in_progress');
+    if (!orders) return [];
+    
+    switch (currentTab) {
+      case 'my_pickups':
+        // Pickup rider: orders assigned to them for pickup
+        return orders.filter((o) => 
+          ['assigned_pickup', 'picked'].includes(o.status)
+        );
+      
+      case 'in_progress':
+        // Orders being processed at facility (washer/folder work)
+        // or picked but not yet ready
+        return orders.filter((o) => 
+          ['picked', 'in_progress', 'washed', 'folded'].includes(o.status)
+        );
+      
+      case 'ready_delivery':
+        // Delivery rider: orders ready and assigned to them for delivery
+        return orders.filter((o) => 
+          ['ready', 'assigned_delivery'].includes(o.status)
+        );
+      
+      case 'completed':
+        // Delivered orders
+        return orders.filter((o) => o.status === 'delivered');
+      
+      default:
+        return [];
     }
-    return displayOrders.filter((o) => o.status === currentStatus);
-  }, [displayOrders, currentStatus]);
+  }, [orders, currentTab]);
 
 
 
@@ -313,32 +347,37 @@ export default function RiderMapPage(): React.ReactElement {
                 <h2 className="text-lg font-semibold">Orders</h2>
               </div>
               <div className="flex flex-wrap justify-center gap-2 mb-6">
-                  {(['in_progress', 'picked', 'delivered'] as const).map((status) => {
+                {([
+                  { id: 'my_pickups', label: 'My Pickups', icon: FiBox },
+                  { id: 'in_progress', label: 'In Progress', icon: FiClock },
+                  { id: 'ready_delivery', label: 'Ready for Delivery', icon: FiTruck },
+                  { id: 'completed', label: 'Completed', icon: FiCheck },
+                ] as const).map(({ id, label, icon: Icon }) => {
                     let count = 0;
-                    if (status === 'in_progress') {
-                      // Count all active orders (picked, ready, in_progress)
-                      count = displayOrders.filter(order => 
-                        order.status === 'picked' || 
-                        order.status === 'ready' || 
-                        order.status === 'in_progress'
-                      ).length;
-                    } else {
-                      // Count exact status match
-                      count = displayOrders.filter(order => order.status === status).length;
+                    if (id === 'my_pickups') {
+                      count = displayOrders.filter(o => ['assigned_pickup', 'picked'].includes(o.status)).length;
+                    } else if (id === 'in_progress') {
+                      count = displayOrders.filter(o => ['picked', 'in_progress', 'washed', 'folded'].includes(o.status)).length;
+                    } else if (id === 'ready_delivery') {
+                      count = displayOrders.filter(o => ['ready', 'assigned_delivery'].includes(o.status)).length;
+                    } else if (id === 'completed') {
+                      count = displayOrders.filter(o => o.status === 'delivered').length;
                     }
+                    
                     return (
                       <button
-                        key={status}
-                        onClick={() => setCurrentStatus(status)}
+                        key={id}
+                        onClick={() => setCurrentTab(id)}
                         className={`px-4 py-2 text-sm font-medium rounded-lg transition-all flex items-center gap-2 ${
-                          currentStatus === status 
+                          currentTab === id 
                             ? "bg-red-600 text-white shadow-md" 
                             : "bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 border border-slate-200 dark:border-slate-700"
                         }`}
                       >
-                        <span>{capitalize(status)}</span>
+                        <Icon className="w-4 h-4" />
+                        <span>{label}</span>
                         <span className={`px-2 py-0.5 rounded-full text-xs ${
-                          currentStatus === status 
+                          currentTab === id 
                             ? "bg-red-700 text-white" 
                             : "bg-slate-100 dark:bg-slate-700"
                         }`}>
@@ -402,35 +441,43 @@ export default function RiderMapPage(): React.ReactElement {
                           <div>To: {order.dropoff_address}</div>
                         </div>
                       </div>
-                      {(order.status === 'in_progress' || order.status === 'ready' || order.status === 'picked') && (
+                      {(order.status === 'assigned_pickup' || order.status === 'picked' || order.status === 'ready' || order.status === 'assigned_delivery') && (
                         <div className="flex flex-col gap-2" onClick={(e) => e.stopPropagation()}>
                           <button
                             onClick={(e) => {
                               e.preventDefault();
                               e.stopPropagation();
-                              handleOpenDetailsForm(order as any);
+                              if (order.status === 'assigned_pickup' || order.status === 'picked') {
+                                handleOpenDetailsForm(order as any);
+                              }
                             }}
-                            className="px-3 py-1 text-sm rounded-full transition-all flex items-center gap-1 bg-green-600 hover:bg-green-700 text-white"
+                            className={`px-3 py-1 text-sm rounded-full transition-all flex items-center gap-1 ${
+                              order.status === 'assigned_pickup' || order.status === 'picked'
+                                ? 'bg-green-600 hover:bg-green-700 text-white'
+                                : 'hidden'
+                            }`}
                           >
-                            <span>Add Details</span>
-                            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
-                              <path fillRule="evenodd" d="M10.293 3.293a1 1 0 011.414 0l6 6a1 1 0 010 1.414l-6 6a1 1 0 01-1.414-1.414L14.586 11H3a1 1 0 110-2h11.586l-4.293-4.293a1 1 0 010-1.414z" clipRule="evenodd" />
-                            </svg>
+                            <span>{order.status === 'assigned_pickup' ? 'Confirm Pickup' : 'Complete Pickup'}</span>
+                            <FiArrowRight className="h-4 w-4" />
                           </button>
 
                           <button
                             onClick={(e) => {
                               e.preventDefault();
                               e.stopPropagation();
-                              handleMarkDelivered(order.id);
+                              if (order.status === 'ready' || order.status === 'assigned_delivery') {
+                                handleMarkDelivered(order.id);
+                              }
                             }}
                             disabled={processingOrderId === order.id}
-                            className={`px-3 py-1 text-sm rounded-full transition-all flex items-center gap-1 ${confirmingOrderId === order.id ? 'bg-red-600 hover:bg-red-700 text-white' : 'bg-blue-600 hover:bg-blue-700 text-white'}`}
+                            className={`px-3 py-1 text-sm rounded-full transition-all flex items-center gap-1 ${
+                              order.status === 'ready' || order.status === 'assigned_delivery'
+                                ? confirmingOrderId === order.id ? 'bg-red-600 hover:bg-red-700 text-white' : 'bg-blue-600 hover:bg-blue-700 text-white'
+                                : 'hidden'
+                            }`}
                           >
-                            <span>{confirmingOrderId === order.id ? 'Confirm Deliver' : 'Mark Delivered'}</span>
-                            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
-                              <path d="M2 11a1 1 0 011-1h2.586l1-1H3a1 1 0 110-2h4.586l1-1H6a1 1 0 110-2h6a1 1 0 110 2h-3.586l1 1H17a1 1 0 110 2h-2.586l-1 1H17a1 1 0 110 2H8.414l-1 1H17a1 1 0 110 2H3a1 1 0 01-1-1v-4z" />
-                            </svg>
+                            <span>{confirmingOrderId === order.id ? 'Confirm Delivery' : 'Mark as Delivered'}</span>
+                            <FiCheck className="h-4 w-4" />
                           </button>
                         </div>
                       )}
@@ -457,9 +504,7 @@ export default function RiderMapPage(): React.ReactElement {
                     onClick={handleCloseDetailsForm}
                     className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
                   >
-                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                    </svg>
+                    <FiX className="w-5 h-5" />
                   </button>
                 </div>
 
@@ -535,18 +580,13 @@ export default function RiderMapPage(): React.ReactElement {
                   >
                     {processingOrderId === detailsOrderId ? (
                       <>
-                        <svg className="animate-spin h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                        </svg>
+                        <AiOutlineLoading3Quarters className="h-4 w-4 animate-spin" />
                         <span>Saving...</span>
                       </>
                     ) : (
                       <>
                         <span>Complete Pickup</span>
-                        <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
-                          <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-                        </svg>
+                        <FiCheck className="h-4 w-4" />
                       </>
                     )}
                   </button>

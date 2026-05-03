@@ -3,6 +3,7 @@
 import React, { useState } from 'react';
 import Link from 'next/link';
 import { useSelector } from 'react-redux';
+import { FiDollarSign, FiTrendingUp, FiX } from 'react-icons/fi';
 import { useGetMyInvestmentsQuery, useGetInvestmentSummaryQuery } from '@/redux/services/apiSlice';
 import type { RootState } from '@/redux/store';
 import type { Investment, InvestmentSummary } from '@/redux/services/apiSlice';
@@ -178,9 +179,7 @@ export default function InvestmentDashboard(): React.ReactElement {
         {investments.length === 0 && !error && (
           <div className="text-center py-16 bg-slate-50 dark:bg-slate-900/50 rounded-3xl border border-slate-200 dark:border-slate-800">
             <div className="inline-flex items-center justify-center w-16 h-16 bg-slate-200 dark:bg-slate-800 rounded-full mb-4">
-              <svg className="w-8 h-8 text-slate-600 dark:text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-              </svg>
+              <FiDollarSign className="w-8 h-8 text-slate-600 dark:text-slate-400" />
             </div>
             <h3 className="text-2xl font-bold text-slate-900 dark:text-slate-50 mb-2">
               No Investments Yet
@@ -325,9 +324,7 @@ export default function InvestmentDashboard(): React.ReactElement {
               <button
                 onClick={() => setSelectedInvestment(null)}
                 className="text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-300">
-                <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 20 20">
-                  <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
-                </svg>
+                <FiX className="w-6 h-6" />
               </button>
             </div>
 

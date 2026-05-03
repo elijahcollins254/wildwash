@@ -5,6 +5,8 @@ import Link from 'next/link';
 import { useSelector } from 'react-redux';
 import { useCreateInvestmentMutation } from '@/redux/services/apiSlice';
 import type { RootState } from '@/redux/store';
+import { FiCheck } from 'react-icons/fi';
+import { AiOutlineLoading3Quarters } from 'react-icons/ai';
 
 interface InvestmentConfirmation {
   amount: number;
@@ -210,9 +212,7 @@ export default function InvestPage(): React.ReactElement {
           <div className="bg-white dark:bg-slate-900 rounded-3xl max-w-md w-full p-8 shadow-2xl">
             <div className="text-center mb-8">
               <div className="inline-flex items-center justify-center w-16 h-16 bg-green-100 dark:bg-green-900/20 rounded-full mb-4 animate-pulse">
-                <svg className="w-8 h-8 text-green-600 dark:text-green-400" fill="currentColor" viewBox="0 0 20 20">
-                  <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
-                </svg>
+                <FiCheck className="w-8 h-8 text-green-600 dark:text-green-400" />
               </div>
               <h2 className="text-3xl font-bold text-slate-900 dark:text-slate-50 mb-2">Investment Confirmed</h2>
               <p className="text-base text-slate-600 dark:text-slate-400">STK push sent to your phone</p>
@@ -304,7 +304,7 @@ export default function InvestPage(): React.ReactElement {
                 }}
                 disabled={isLoading || !investmentAmount}
                 className="w-full bg-red-600 hover:bg-red-700 disabled:bg-red-400 text-white font-semibold py-3 px-6 rounded-full transition-colors flex items-center justify-center gap-2">
-                {isLoading && <svg className="animate-spin h-5 w-5" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" /><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" /></svg>}
+                {isLoading && <AiOutlineLoading3Quarters className="animate-spin h-5 w-5" />}
                 {isLoading ? 'Processing' : 'Continue'}
               </button>
               <button
@@ -359,9 +359,7 @@ export default function InvestPage(): React.ReactElement {
                   <div className="mb-8 space-y-3">
                     {plan.features.slice(0, 3).map((feature, idx) => (
                       <div key={idx} className="flex items-center gap-3">
-                        <svg className="w-5 h-5 text-red-600 dark:text-red-400 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
-                          <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
-                        </svg>
+                        <FiCheck className="w-5 h-5 text-red-600 dark:text-red-400 flex-shrink-0" />
                         <span className="text-sm text-slate-700 dark:text-slate-300">{feature}</span>
                       </div>
                     ))}

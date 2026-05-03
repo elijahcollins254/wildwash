@@ -40,6 +40,7 @@ import {
   MapPin,
   Eye,
 } from "lucide-react";
+import { FiRefreshCw, FiSearch, FiDownload, FiInbox, FiCheck } from "react-icons/fi";
 
 /* --- Types --- */
 type RawOrder = Record<string, any>;
@@ -867,9 +868,7 @@ export default function AdminPage(): React.ReactElement {
                 }} 
                 className="text-sm px-3 py-2 text-slate-500 hover:text-slate-900 dark:hover:text-slate-300 transition-colors duration-200 flex items-center gap-2 rounded-full"
               >
-                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="animate-spin-once">
-                  <path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.93 1 6.74 2.74L21 8" />
-                </svg>
+                <FiRefreshCw className="animate-spin-once" size={16} />
                 Reset all filters
               </button>
             </div>
@@ -963,12 +962,7 @@ export default function AdminPage(): React.ReactElement {
                     <tr>
                       <td colSpan={10} className="py-8 text-center text-slate-500">
                         <div className="flex flex-col items-center gap-2">
-                          <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                            <circle cx="12" cy="12" r="10"/>
-                            <line x1="8" y1="15" x2="16" y2="15"/>
-                            <line x1="9" y1="9" x2="9.01" y2="9"/>
-                            <line x1="15" y1="9" x2="15.01" y2="9"/>
-                          </svg>
+                          <FiInbox size={24} />
                           <span>No orders found</span>
                         </div>
                       </td>
@@ -1614,9 +1608,7 @@ export default function AdminPage(): React.ReactElement {
                 }} 
                 className="text-sm px-3 py-2 text-slate-500 hover:text-slate-900 dark:hover:text-slate-300 transition-colors duration-200 flex items-center gap-2 rounded-full"
               >
-                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="animate-spin-once">
-                  <path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.93 1 6.74 2.74L21 8" />
-                </svg>
+                <FiRefreshCw className="animate-spin-once" size={16} />
                 Reset
               </button>
             </div>
@@ -1714,12 +1706,7 @@ export default function AdminPage(): React.ReactElement {
                     <tr>
                       <td colSpan={7} className="py-8 text-center text-slate-500">
                         <div className="flex flex-col items-center gap-2">
-                          <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                            <circle cx="12" cy="12" r="10"/>
-                            <line x1="8" y1="15" x2="16" y2="15"/>
-                            <line x1="9" y1="9" x2="9.01" y2="9"/>
-                            <line x1="15" y1="9" x2="15.01" y2="9"/>
-                          </svg>
+                          <FiInbox size={24} />
                           <span>No users found</span>
                         </div>
                       </td>
@@ -1859,9 +1846,7 @@ export default function AdminPage(): React.ReactElement {
         {/* Success Message Toast */}
         {userActionSuccess && (
         <div className="fixed bottom-4 right-4 z-50 p-4 bg-green-100 dark:bg-green-900/30 border border-green-200 dark:border-green-800 rounded-lg text-green-700 dark:text-green-400 flex items-center gap-2 animate-pulse">
-          <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
-            <path d="M9 16.2L4.8 12l-1.4 1.4L9 19 21 7l-1.4-1.4L9 16.2z" />
-          </svg>
+          <FiCheck className="w-5 h-5" />
           {userActionSuccess}
         </div>
         )}
