@@ -875,7 +875,7 @@ export default function AdminPage(): React.ReactElement {
             </div>
 
             {/* Show skeleton loader while orders are loading and no orders are displayed yet */}
-            {ordersLoading && allOrders.length === 0 && (
+            {(ordersLoading || ordersPageLoading) && allOrders.length === 0 && (
               <div className="space-y-3">
                 <div className="h-12 bg-slate-200 dark:bg-slate-700 rounded-lg animate-pulse"></div>
                 {[...Array(5)].map((_, i) => (
@@ -885,7 +885,7 @@ export default function AdminPage(): React.ReactElement {
             )}
 
             {/* Show table when orders are loaded or loading is done */}
-            {!ordersLoading || allOrders.length > 0 ? (
+            {!(ordersLoading || ordersPageLoading) || allOrders.length > 0 ? (
             <div className="overflow-x-auto overflow-y-auto max-h-[600px] scrollbar-thin scrollbar-thumb-gray-400 scrollbar-track-gray-100 dark:scrollbar-thumb-gray-600 dark:scrollbar-track-gray-800">
               <table className="min-w-full text-sm divide-y divide-slate-200/50 dark:divide-slate-800/50">
                 <thead className="sticky top-0 text-slate-600 dark:text-slate-400 bg-white/50 dark:bg-slate-900/50 z-10">
