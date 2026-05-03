@@ -1,14 +1,11 @@
 "use client";
 
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import { MapPin, Package, Eye } from "lucide-react";
+import { Package } from "lucide-react";
 import Link from "next/link";
 import RouteGuard from "@/components/RouteGuard";
 import Modal from "@/components/ui/Modal";
 import { useBackgroundOrderPolling } from "@/lib/hooks/useBackgroundOrderPolling";
-import { useInfiniteScroll } from "@/lib/hooks/useInfiniteScroll";
-import { useGetRiderProfilesQuery, useGetRiderLocationsQuery, useGetRiderOrdersPaginatedQuery } from "@/redux/services/apiSlice";
-import type { RiderProfile, RiderLocation } from "@/redux/services/apiSlice";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_BASE || '';
 
@@ -57,12 +54,8 @@ type OrderUpdatePayload = {
 /* --- Component --- */
 export default function RiderMapPage(): React.ReactElement {
   const [loadingOrders, setLoadingOrders] = useState(true);
-  const [errorOrders, setErrorOrders] = useState<string | null>(null);
+  const [orderLoadError, setOrderLoadError] = useState<string | null>(null);
   const [currentStatus, setCurrentStatus] = useState<OrderStatus>('in_progress');
-
-  // Fetch profiles and locations using Redux
-  const { data: profiles = [], isLoading: loadingProfiles, error: errorProfiles, refetch: refetchProfiles } = useGetRiderProfilesQuery();
-  const { data: locations = [], isLoading: loadingLocations, error: errorLocations, refetch: refetchLocations } = useGetRiderLocationsQuery();
 
   // Confirmation state for action buttons (orderId -> timestamp)
   const [confirmingOrderId, setConfirmingOrderId] = useState<number | null>(null);
@@ -90,12 +83,6 @@ export default function RiderMapPage(): React.ReactElement {
     description: '',
   });
 
-  // Pagination state for infinite scroll
-  const [ordersPage, setOrdersPage] = useState(1);
-  const [allRiderOrders, setAllRiderOrders] = useState<Order[]>([]);
-  const [totalRiderOrdersCount, setTotalRiderOrdersCount] = useState(0);
-  const [ordersPageLoading, setOrdersPageLoading] = useState(false);
-
 
 
   // Get authentication token
@@ -105,15 +92,14 @@ export default function RiderMapPage(): React.ReactElement {
   const token = authState.token || null;
 
   // Use background polling for orders - smart updates without page reload
-  const backgroundOrders = useBackgroundOrderPolling(token, true, 60000); // 60 second default interval
-  const orders = backgroundOrders;
+  const orders = useBackgroundOrderPolling(token, true, 60000); // 60 second default interval
 
-  // Update loading state when orders arrive
+  // Update loading state when orders arrive and capture errors
   useEffect(() => {
-    if (backgroundOrders.length > 0 && loadingOrders) {
+    if (orders && orders.length > 0 && loadingOrders) {
       setLoadingOrders(false);
     }
-  }, [backgroundOrders, loadingOrders]);
+  }, [orders, loadingOrders]);
 
   // Cleanup confirmation timeout on unmount
   useEffect(() => {
@@ -127,61 +113,6 @@ export default function RiderMapPage(): React.ReactElement {
   /* --- Data fetchers --- */
   // Orders are fetched automatically via background polling service
   // No manual refresh needed - polling handles it intelligently
-
-
-
-  // Sound notifications disabled - SMS Africa handles audio notifications instead
-  // useRiderNotifications hook removed as it was creating duplicate notifications
-
-  // Fetch paginated rider orders
-  const fetchOrdersPage = async (page: number) => {
-    try {
-      setOrdersPageLoading(true);
-      const authState = JSON.parse(localStorage.getItem('wildwash_auth_state') || '{}');
-      const token = authState.token;
-      if (!token) {
-        throw new Error('Authentication required');
-      }
-
-      const response = await fetch(`${API_BASE}/orders/rider/?page=${page}`, {
-        method: 'GET',
-        headers: {
-          'Authorization': `Token ${token}`,
-          'Content-Type': 'application/json',
-        },
-      });
-
-      if (!response.ok) {
-        throw new Error(`Failed to fetch rider orders: ${response.status}`);
-      }
-
-      const data = await response.json();
-      const { count = 0, results = [] } = data;
-
-      // Accumulate orders avoiding duplicates
-      if (page === 1) {
-        setAllRiderOrders(results);
-      } else {
-        setAllRiderOrders(prev => {
-          const existingIds = new Set(prev.map(o => o.id));
-          const newOrders = results.filter((o: Order) => !existingIds.has(o.id));
-          return [...prev, ...newOrders];
-        });
-      }
-
-      setTotalRiderOrdersCount(count);
-      setOrdersPage(page);
-    } catch (err: any) {
-      console.error('Error fetching paginated orders:', err);
-    } finally {
-      setOrdersPageLoading(false);
-    }
-  };
-
-  // Initialize paginated orders on mount
-  useEffect(() => {
-    fetchOrdersPage(1);
-  }, []);
 
   const handleOpenDetailsForm = (order: Order) => {
     setDetailsOrderId(order.id);
@@ -355,34 +286,8 @@ export default function RiderMapPage(): React.ReactElement {
     }
   };
 
-  // Find latest location for each rider
-  const latestLocationByRider = useMemo(() => {
-    const m = new Map<string, RiderLocation>();
-    for (const loc of locations) {
-      const key = String(loc.rider ?? loc.rider_display ?? loc.id ?? Math.random());
-      const cur = m.get(key);
-      const tsCur = cur ? new Date(cur.recorded_at ?? 0).getTime() : 0;
-      const tsNew = new Date(loc.recorded_at ?? 0).getTime();
-      if (!cur || tsNew >= tsCur) m.set(key, loc);
-    }
-    return m;
-  }, [locations]);
-
-  // Display orders: use paginated orders if available, otherwise use background polling
-  const displayOrders = allRiderOrders.length > 0 ? allRiderOrders : orders;
-  const hasMoreOrders = allRiderOrders.length < totalRiderOrdersCount;
-
-  // Infinite scroll hook for loading more orders
-  const scrollObserverRef = useInfiniteScroll({
-    onLoadMore: () => {
-      if (hasMoreOrders && !ordersPageLoading) {
-        fetchOrdersPage(ordersPage + 1);
-      }
-    },
-    hasMore: hasMoreOrders,
-    isLoading: ordersPageLoading,
-    threshold: 500,
-  });
+  // Display orders from background polling
+  const displayOrders = orders;
 
   // Filter orders by selected status
   const filteredOrders = useMemo(() => {
@@ -393,67 +298,7 @@ export default function RiderMapPage(): React.ReactElement {
     return displayOrders.filter((o) => o.status === currentStatus);
   }, [displayOrders, currentStatus]);
 
-  /* --- Map helpers --- */
-  async function injectLeafletCss() {
-    if (document.getElementById("leaflet-css")) return;
-    const link = document.createElement("link");
-    link.rel = "stylesheet";
-    link.id = "leaflet-css";
-    link.href = "https://unpkg.com/leaflet@1.9.4/dist/leaflet.css";
-    link.crossOrigin = "anonymous";
-    document.head.appendChild(link);
-  }
 
-  // Geocode address to coordinates (MOVED TO BACKEND - disabled client-side to avoid CORS and rate limiting)
-  // If you need this on the frontend, use a backend endpoint instead of calling Nominatim directly
-  async function geocodeAddress(address: string): Promise<{ lat: number; lng: number } | null> {
-    // DISABLED: Client-side geocoding causes CORS issues and rate limiting
-    // Instead, coordinates should be provided by the backend
-    return null;
-  }
-
-  function svgDataUrl(svgString: string) {
-    return `data:image/svg+xml;utf8,${encodeURIComponent(svgString)}`;
-  }
-
-  function getOrderMarkerSvg(status: OrderStatus, isPickup: boolean) {
-    const colors: Record<OrderStatus, string> = {
-      requested: "#ef4444",
-      picked: "#3b82f6",
-      in_progress: "#eab308",
-      ready: "#22c55e",
-      delivered: "#6b7280",
-      cancelled: "#9ca3af",
-    };
-
-    const color = colors[status] || "#6b7280";
-
-    if (isPickup) {
-      return `<?xml version='1.0' encoding='UTF-8'?>
-        <svg xmlns='http://www.w3.org/2000/svg' width='32' height='32' viewBox='0 0 24 24'>
-          <path d='M12 2C8 2 5 5 5 9c0 5 7 13 7 13s7-8 7-13c0-4-3-7-7-7z' fill='${color}'/>
-          <path d='M9 7h6M9 10h6M12 7v6' stroke='white' stroke-width='1.5'/>
-        </svg>`;
-    } else {
-      return `<?xml version='1.0' encoding='UTF-8'?>
-        <svg xmlns='http://www.w3.org/2000/svg' width='32' height='32' viewBox='0 0 24 24'>
-          <path d='M12 2C8 2 5 5 5 9c0 5 7 13 7 13s7-8 7-13c0-4-3-7-7-7z' fill='${color}'/>
-          <circle cx='12' cy='9' r='3' fill='white'/>
-        </svg>`;
-    }
-  }
-
-  function getRiderMarkerSvg(vehicleType?: string) {
-    const v = (vehicleType ?? "").toLowerCase();
-    if (v.includes("van") || v.includes("truck") || v.includes("car")) {
-      return `<?xml version='1.0' encoding='UTF-8'?><svg xmlns='http://www.w3.org/2000/svg' width='36' height='36' viewBox='0 0 24 24'><rect x='1' y='6' width='18' height='8' rx='1.2' fill='#105969'/><rect x='19' y='8' width='3' height='6' rx='0.5' fill='#005966'/><circle cx='6.5' cy='16' r='1.6' fill='#000000'/><circle cx='15.5' cy='16' r='1.6' fill='#000000'/></svg>`;
-    } else if (v.includes("motor") || (v.includes("bike") && v.includes("motor"))) {
-      return `<?xml version='1.0' encoding='UTF-8'?><svg xmlns='http://www.w3.org/2000/svg' width='36' height='36' viewBox='0 0 24 24'><path d='M2 16a3 3 0 006 0' fill='#105969'/><path d='M16 13l2-2 3 1' stroke='#000000' stroke-width='1.2' fill='none'/><circle cx='6' cy='17' r='2' fill='#000000'/><circle cx='18' cy='17' r='2' fill='#000000'/></svg>`;
-    } else if (v.includes("bicycle") || v.includes("bike")) {
-      return `<?xml version='1.0' encoding='UTF-8'?><svg xmlns='http://www.w3.org/2000/svg' width='36' height='36' viewBox='0 0 24 24'><circle cx='6' cy='17' r='2' fill='#000000'/><circle cx='18' cy='17' r='2' fill='#000000'/><path d='M6 17L10 7h3l2 6' stroke='#105969' stroke-width='1.2' fill='none'/></svg>`;
-    }
-    return `<?xml version='1.0' encoding='UTF-8'?><svg xmlns='http://www.w3.org/2000/svg' width='36' height='36' viewBox='0 0 24 24'><path d='M12 2C8 2 5 5 5 9c0 5 7 13 7 13s7-8 7-13c0-4-3-7-7-7z' fill='#105969'/><circle cx='12' cy='9' r='2.5' fill='#fff'/></svg>`;
-  }
 
   /* --- Render --- */
   return (
@@ -473,14 +318,14 @@ export default function RiderMapPage(): React.ReactElement {
                     let count = 0;
                     if (status === 'in_progress') {
                       // Count all active orders (picked, ready, in_progress)
-                      count = orders.filter(order => 
+                      count = displayOrders.filter(order => 
                         order.status === 'picked' || 
                         order.status === 'ready' || 
                         order.status === 'in_progress'
                       ).length;
                     } else {
                       // Count exact status match
-                      count = orders.filter(order => order.status === status).length;
+                      count = displayOrders.filter(order => order.status === status).length;
                     }
                     return (
                       <button
@@ -507,9 +352,19 @@ export default function RiderMapPage(): React.ReactElement {
               </div>
 
               {loadingOrders ? (
-                <div className="py-8 text-center">Loading orders...</div>
-              ) : errorOrders ? (
-                <div className="py-4 text-red-600">Error: {errorOrders}</div>
+                <div className="py-8 text-center text-slate-500">
+                  <div className="animate-pulse mb-4">⏳ Loading orders...</div>
+                  <div className="space-y-3">
+                    {[1, 2, 3].map(i => (
+                      <div key={i} className="h-24 bg-slate-100 dark:bg-slate-700 rounded-lg" />
+                    ))}
+                  </div>
+                </div>
+              ) : orderLoadError ? (
+                <div className="py-8 text-center">
+                  <div className="text-red-600 font-semibold mb-2">Error loading orders</div>
+                  <p className="text-sm text-slate-600 dark:text-slate-400">{orderLoadError}</p>
+                </div>
               ) : filteredOrders.length === 0 ? (
                 <div className="py-6 text-center text-slate-500">No orders found.</div>
               ) : (
@@ -585,28 +440,7 @@ export default function RiderMapPage(): React.ReactElement {
                     ))}
                   </div>
 
-                  {/* Infinite scroll loader trigger */}
-                  {hasMoreOrders && !ordersPageLoading && (
-                    <div ref={scrollObserverRef} className="h-10 mt-8" />
-                  )}
 
-                  {/* Loading indicator when fetching more */}
-                  {ordersPageLoading && ordersPage > 1 && (
-                    <div className="flex justify-center py-8">
-                      <div className="animate-spin">
-                        <div className="w-8 h-8 border-4 border-slate-200 dark:border-slate-800 border-t-red-600 rounded-full" />
-                      </div>
-                    </div>
-                  )}
-
-                  {/* All loaded indicator */}
-                  {!hasMoreOrders && displayOrders.length > 0 && (
-                    <div className="text-center py-8">
-                      <p className="text-slate-500 dark:text-slate-400 text-sm">
-                        ✓ Loaded {displayOrders.length} of {totalRiderOrdersCount} orders
-                      </p>
-                    </div>
-                  )}
                 </div>
               )}
             </section>
@@ -751,10 +585,4 @@ function formatDateTime(s?: string | null) {
 
 function capitalize(s: string) {
   return s.charAt(0).toUpperCase() + s.slice(1);
-}
-
-function escapeHtml(s: string) {
-  return String(s).replace(/[&<>"']/g, (m) =>
-    ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" } as Record<string, string>)[m]
-  );
 }

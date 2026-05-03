@@ -190,49 +190,72 @@ class OrderPollingService {
 
   /**
    * Fetch orders from backend and notify subscribers
+   * Handles pagination to fetch ALL orders for the rider
    */
   private async fetchOrders(token: string): Promise<void> {
     try {
-      const res = await fetch(`${this.apiBase}/orders/rider/`, {
-        method: 'GET',
-        headers: {
-          'Accept': 'application/json',
-          'Authorization': `Token ${token}`
-        },
-      });
+      let allOrders: Order[] = [];
+      let page = 1;
+      let hasMore = true;
 
-      if (!res.ok) {
-        throw new Error(`Orders fetch failed: ${res.status} ${res.statusText}`);
+      // Fetch all pages of orders
+      while (hasMore) {
+        const res = await fetch(`${this.apiBase}/orders/rider/?page=${page}`, {
+          method: 'GET',
+          headers: {
+            'Accept': 'application/json',
+            'Authorization': `Token ${token}`
+          },
+        });
+
+        if (!res.ok) {
+          throw new Error(`Orders fetch failed: ${res.status} ${res.statusText}`);
+        }
+
+        const data = await res.json().catch(() => null);
+        const list: any[] = Array.isArray(data) 
+          ? data 
+          : Array.isArray(data?.results) 
+          ? data.results 
+          : [];
+
+        if (list.length === 0) {
+          hasMore = false;
+          break;
+        }
+
+        // Process orders from this page
+        const pageOrders: Order[] = list.map((o: any) => ({
+          id: o.id,
+          code: o.code,
+          service: {
+            name: o.service_name,
+            package: o.package
+          },
+          pickup_address: o.pickup_address,
+          dropoff_address: o.dropoff_address,
+          status: o.status?.toLowerCase?.() ?? o.status,
+          urgency: o.urgency,
+          items: o.items,
+          weight_kg: o.weight_kg,
+          price: o.price,
+          created_at: o.created_at,
+          estimated_delivery: o.estimated_delivery,
+          user: o.user,
+          pickup_location: o.pickup_location,
+          dropoff_location: o.dropoff_location,
+        }));
+
+        allOrders = [...allOrders, ...pageOrders];
+        page++;
+
+        // Check if there's a next page
+        if (!data?.next) {
+          hasMore = false;
+        }
       }
 
-      const data = await res.json().catch(() => null);
-      const list: any[] = Array.isArray(data) 
-        ? data 
-        : Array.isArray(data?.results) 
-        ? data.results 
-        : [];
-
-      // Process orders
-      const orders: Order[] = list.map((o: any) => ({
-        id: o.id,
-        code: o.code,
-        service: {
-          name: o.service_name,
-          package: o.package
-        },
-        pickup_address: o.pickup_address,
-        dropoff_address: o.dropoff_address,
-        status: o.status?.toLowerCase?.() ?? o.status,
-        urgency: o.urgency,
-        items: o.items,
-        weight_kg: o.weight_kg,
-        price: o.price,
-        created_at: o.created_at,
-        estimated_delivery: o.estimated_delivery,
-        user: o.user,
-        pickup_location: o.pickup_location,
-        dropoff_location: o.dropoff_location,
-      }));
+      const orders = allOrders;
 
       // Check for new orders (notify on status changes to 'ready' or 'requested')
       const newOrders = orders.filter(o => {
@@ -268,17 +291,12 @@ class OrderPollingService {
   }
 
   /**
-   * Show browser notification and play sound for new orders
+   * Show browser notification for new orders
+   * Sound notifications disabled - SMS Africa handles audio notifications instead
    */
   private notifyNewOrders(newOrders: Order[]): void {
     newOrders.forEach(order => {
-      // Play notification sound
-      this.playNotificationSound();
-
-      // Trigger vibration on mobile
-      this.triggerVibration();
-
-      // Show browser notification
+      // Show browser notification only - SMS backend handles audio alerts
       if ('Notification' in window && Notification.permission === 'granted') {
         const service = order.service?.name || 'New Service';
         const statusLabel = order.status === 'ready' ? 'Ready for Delivery' : 'New Order';
@@ -297,73 +315,27 @@ class OrderPollingService {
 
   /**
    * Trigger vibration on mobile devices
+   * DISABLED - Sound notifications now handled by backend SMS service
    */
   private triggerVibration(): void {
-    if ('vibrate' in navigator) {
-      try {
-        // Vibration pattern: [vibrate, pause, vibrate, pause, vibrate]
-        navigator.vibrate([200, 100, 200, 100, 200]);
-      } catch (err) {
-        console.warn('Vibration not supported:', err);
-      }
-    }
+    // Vibration disabled - relying on SMS service for audio alerts
+    // Original code for reference if needed:
+    // if ('vibrate' in navigator) {
+    //   try {
+    //     navigator.vibrate([200, 100, 200, 100, 200]);
+    //   } catch (err) {
+    //     console.warn('Vibration not supported:', err);
+    //   }
+    // }
   }
 
   /**
-   * Play notification sound - LOUD version for noisy environments
+   * Play notification sound - DISABLED
+   * Sound notifications handled by backend SMS service instead
    */
   private playNotificationSound(): void {
-    try {
-      // Create audio context
-      const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
-      
-      // Create a master gain node with higher volume
-      const masterGain = audioContext.createGain();
-      masterGain.connect(audioContext.destination);
-      masterGain.gain.setValueAtTime(0.8, audioContext.currentTime); // 80% volume (loud but safe)
-
-      // Create compressor for even louder perceived volume
-      const compressor = audioContext.createDynamicsCompressor();
-      compressor.connect(masterGain);
-      compressor.threshold.setValueAtTime(-30, audioContext.currentTime);
-      compressor.knee.setValueAtTime(40, audioContext.currentTime);
-      compressor.ratio.setValueAtTime(12, audioContext.currentTime);
-      compressor.attack.setValueAtTime(0.003, audioContext.currentTime);
-      compressor.release.setValueAtTime(0.25, audioContext.currentTime);
-
-      const now = audioContext.currentTime;
-      const beepDuration = 0.15;
-      const pauseDuration = 0.1;
-
-      // Helper function to create a beep
-      const createBeep = (frequency: number, startTime: number) => {
-        const osc = audioContext.createOscillator();
-        const gainEnv = audioContext.createGain();
-
-        osc.connect(gainEnv);
-        gainEnv.connect(compressor);
-
-        osc.frequency.value = frequency;
-        osc.type = 'sine';
-
-        // LOUD attack and hold
-        gainEnv.gain.setValueAtTime(0.7, startTime);
-        gainEnv.gain.linearRampToValueAtTime(0.7, startTime + beepDuration - 0.05);
-        gainEnv.gain.linearRampToValueAtTime(0, startTime + beepDuration);
-
-        osc.start(startTime);
-        osc.stop(startTime + beepDuration);
-      };
-
-      // Create 5 loud beeps in ascending frequency for attention-grabbing sound
-      createBeep(600, now);
-      createBeep(800, now + beepDuration + pauseDuration);
-      createBeep(1000, now + (beepDuration + pauseDuration) * 2);
-      createBeep(1200, now + (beepDuration + pauseDuration) * 3);
-      createBeep(1400, now + (beepDuration + pauseDuration) * 4);
-    } catch (err) {
-      console.warn('Could not play notification sound:', err);
-    }
+    // Sound notifications disabled - backend SMS Africa service handles audio alerts
+    // Original audio synthesis code removed to prevent unwanted sounds
   }
 
   /**
