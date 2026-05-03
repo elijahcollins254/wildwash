@@ -552,15 +552,18 @@ export default function AdminOrderDetailPage() {
           </div>
 
           {/* Staff Details Modal */}
-        {order && (
-          <OrderStaffDetailsViewer
-            orderId={order.id!}
-            orderCode={order.code}
-            isOpen={staffDetailsModalOpen}
-            onClose={() => setStaffDetailsModalOpen(false)}
-          />
-        )}
+          {order && (
+            <OrderStaffDetailsViewer
+              orderId={order.id!}
+              orderCode={order.code}
+              isOpen={staffDetailsModalOpen}
+              onClose={() => setStaffDetailsModalOpen(false)}
+            />
+          )}
+        </div>
       </div>
+      
     </RouteGuard>
+    
   );
 }
