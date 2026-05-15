@@ -227,6 +227,34 @@ export default function NavBar() {
                             <FaShieldAlt className="w-4 h-4" />
                             Admin Dashboard
                           </Link>
+                          <Link
+                            href="/staff/washer"
+                            className="block px-4 py-2 text-sm font-semibold text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 flex items-center gap-2"
+                            onClick={() => setProfileOpen(false)}>
+                            <FaCloud className="w-4 h-4" />
+                            Washer Dashboard
+                          </Link>
+                          <Link
+                            href="/staff/folder"
+                            className="block px-4 py-2 text-sm font-semibold text-purple-600 dark:text-purple-400 hover:bg-purple-50 dark:hover:bg-purple-900/20 flex items-center gap-2"
+                            onClick={() => setProfileOpen(false)}>
+                            <FaPlus className="w-4 h-4" />
+                            Folder Dashboard
+                          </Link>
+                          <Link
+                            href="/staff/fumigator"
+                            className="block px-4 py-2 text-sm font-semibold text-amber-600 dark:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-900/20 flex items-center gap-2"
+                            onClick={() => setProfileOpen(false)}>
+                            <FaSmile className="w-4 h-4" />
+                            Fumigator Dashboard
+                          </Link>
+                          <Link
+                            href="/rider"
+                            className="block px-4 py-2 text-sm font-semibold text-green-600 dark:text-green-400 hover:bg-green-50 dark:hover:bg-green-900/20 flex items-center gap-2"
+                            onClick={() => setProfileOpen(false)}>
+                            <FaTruck className="w-4 h-4" />
+                            Rider Dashboard
+                          </Link>
                         </>
                       )}
                       {isWasher && (
