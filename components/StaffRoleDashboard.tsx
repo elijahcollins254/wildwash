@@ -8,7 +8,7 @@ import { getStoredAuthState, isValidAuthState } from '@/lib/auth';
 import { Spinner, OrderStatusUpdate } from '@/components';
 import Modal from '@/components/ui/Modal';
 import { sortByUrgency, calculateOrderUrgency, getUrgencyLabel } from '@/lib/orderUrgency';
-import { useInfiniteScroll } from '@/lib/hooks/useInfiniteScroll';
+import { useOrders } from '@/lib/context/OrderContext';
 
 // Debounce helper for search
 function debounce(fn: Function, ms: number) {
@@ -55,20 +55,30 @@ const ROLE_CONFIG = {
 export default function StaffRoleDashboard({ staffRole }: StaffRoleDashboardProps): React.ReactElement {
   const router = useRouter();
   const config = ROLE_CONFIG[staffRole];
+  
+  // Use shared OrderContext instead of local state - reduces load time significantly
+  const {
+    orders,
+    totalOrdersCount,
+    isLoading: ordersLoading,
+    error: orderError,
+    statusFilter,
+    riderFilter,
+    searchQuery,
+    setStatusFilter,
+    setRiderFilter,
+    setSearchQuery,
+    resetFilters,
+    refetchOrders,
+  } = useOrders();
+  
+  // Local state
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [profile, setProfile] = useState<any | null>(null);
-  const [orders, setOrders] = useState<Order[]>([]);
-  const [allOrders, setAllOrders] = useState<Order[]>([]);
-  const [totalOrdersCount, setTotalOrdersCount] = useState<number>(0);
-  const [currentPage, setCurrentPage] = useState(1);
-  const [ordersLoading, setOrdersLoading] = useState(false);
   const [detailsFormOrderId, setDetailsFormOrderId] = useState<number | null>(null);
   const [detailsForm, setDetailsForm] = useState<{ items?: number; weight_kg?: string; pickup_notes?: string; actual_price?: string }>({});
-  const [statusFilter, setStatusFilter] = useState<string>('');
-  const [riderFilter, setRiderFilter] = useState<string>('');
-  const [searchQuery, setSearchQuery] = useState<string>('');
-  const [displayLimit, setDisplayLimit] = useState<number>(20); // Keep for manual load more option
+  const [displayLimit, setDisplayLimit] = useState<number>(20);
   const [showCreateOrderModal, setShowCreateOrderModal] = useState(false);
   const [creatingOrder, setCreatingOrder] = useState(false);
   const [createOrderForm, setCreateOrderForm] = useState({
@@ -92,81 +102,6 @@ export default function StaffRoleDashboard({ staffRole }: StaffRoleDashboardProp
     setModalType(type);
     setModalOpen(true);
   };
-
-  const fetchProfile = useCallback(async () => {
-    try {
-      const data = await client.get('/users/me/');
-      console.log(`[${staffRole.toUpperCase()}] Profile fetched:`, data);
-      setProfile(data);
-      return data;
-    } catch (err: any) {
-      throw err;
-    }
-  }, [staffRole]);
-
-  const fetchOrders = useCallback(async (page: number = 1, filterParams?: { status?: string; rider?: string; search?: string }) => {
-    try {
-      setOrdersLoading(true);
-      
-      // Build query string with filters to let backend do the heavy lifting
-      const params = new URLSearchParams();
-      params.append('page', String(page));
-      
-      if (filterParams?.status) {
-        params.append('status', filterParams.status);
-      }
-      if (filterParams?.rider) {
-        params.append('rider', filterParams.rider);
-      }
-      if (filterParams?.search) {
-        params.append('search', filterParams.search);
-      }
-      
-      const queryString = params.toString();
-      const endpoint = `/orders/?${queryString}`;
-      
-      console.log(`[${staffRole.toUpperCase()}] Fetching from:`, endpoint);
-      const data = await client.get(endpoint);
-      console.log(`[${staffRole.toUpperCase()}] Raw orders response for page ${page}:`, data);
-      
-      // Handle paginated response
-      const paginatedData = data;
-      const list: any[] = Array.isArray(paginatedData?.results) ? paginatedData.results : [];
-      const count = paginatedData?.count || 0;
-      
-      console.log(`[${staffRole.toUpperCase()}] Orders list for page ${page}:`, list);
-      console.log(`[${staffRole.toUpperCase()}] Total count:`, count);
-      
-      if (list.length === 0 && page === 1) {
-        console.log(`[${staffRole.toUpperCase()}] ⚠️ No orders returned from API`);
-      }
-      
-      // Update total count
-      setTotalOrdersCount(count);
-      
-      // Pre-parse timestamps for faster sorting (avoid repeated Date parsing)
-      const sortedList = list.map(order => ({
-        ...order,
-        _createdAtTime: order.created_at ? new Date(order.created_at).getTime() : 0
-      })).sort((a, b) => b._createdAtTime - a._createdAtTime);
-      
-      // Accumulate orders (avoid duplicates)
-      setAllOrders((prev) => {
-        if (page === 1) {
-          return sortedList; // Reset on first page
-        }
-        const existingIds = new Set(prev.map(o => o.id));
-        const newOrders = sortedList.filter(o => !existingIds.has(o.id));
-        return [...prev, ...newOrders];
-      });
-      
-      setOrdersLoading(false);
-    } catch (err: any) {
-      console.error(`[${staffRole.toUpperCase()}] Error fetching orders:`, err);
-      setOrdersLoading(false);
-      throw err;
-    }
-  }, [staffRole]);
 
   const handleCreateOrder = useCallback(async () => {
     try {
@@ -212,9 +147,8 @@ export default function StaffRoleDashboard({ staffRole }: StaffRoleDashboardProp
         order_type: 'walk_in'
       });
       
-      await fetchOrders(1); // Reset to page 1
-      setCurrentPage(1);
-      setAllOrders([]);
+      // Use refetchOrders from context instead of local function
+      await refetchOrders();
       showModal('Success', 'Order created successfully!', 'success');
     } catch (err: any) {
       console.error(`[${staffRole.toUpperCase()}] Failed to create order:`, err);
@@ -222,59 +156,26 @@ export default function StaffRoleDashboard({ staffRole }: StaffRoleDashboardProp
     } finally {
       setCreatingOrder(false);
     }
-  }, [createOrderForm, fetchOrders, staffRole]);
+  }, [createOrderForm, refetchOrders, staffRole]);
 
   // Track loaded data sections to avoid re-fetching
   const loadedSectionsRef = useRef<Set<string>>(new Set());
   const observerTarget = useRef<HTMLDivElement>(null);
   
-  // Debounced filter handler to avoid rapid API calls
-  const debouncedFilterRef = useRef<ReturnType<typeof debounce> | null>(null);
+  // Pagination state (removed infinite scroll, using simple pagination)
+  const [currentPage, setCurrentPage] = useState(1);
+  
+  // Compute if there are more pages to load
+  const hasMore = orders.length < totalOrdersCount && totalOrdersCount > 0;
 
-  // Check if there are more pages to load
-  const hasMore = allOrders.length < totalOrdersCount && totalOrdersCount > 0;
-
-  // Infinite scroll trigger
-  const scrollObserverTarget = useInfiniteScroll({
-    onLoadMore: () => {
-      if (hasMore && !ordersLoading) {
-        setCurrentPage((prev) => prev + 1);
-      }
-    },
-    hasMore,
-    isLoading: ordersLoading,
-    threshold: 500,
-  });
-
-  // Update orders from allOrders when page changes
-  useEffect(() => {
-    setOrders(allOrders);
-  }, [allOrders]);
-
-  // Fetch next page when currentPage changes
-  useEffect(() => {
-    if (currentPage > 1) {
-      fetchOrders(currentPage);
+  // Simple pagination handler (no infinite scroll complexity)
+  const loadMore = useCallback(() => {
+    if (hasMore && !ordersLoading) {
+      setCurrentPage(prev => prev + 1);
     }
-  }, [currentPage, fetchOrders]);
+  }, [hasMore, ordersLoading]);
 
-  // Debounced filter effect - triggers backend search when filters change
-  useEffect(() => {
-    if (!debouncedFilterRef.current) {
-      debouncedFilterRef.current = debounce(() => {
-        setCurrentPage(1);
-        setAllOrders([]);
-        fetchOrders(1, {
-          status: statusFilter || undefined,
-          rider: riderFilter || undefined,
-          search: searchQuery || undefined
-        });
-      }, 500);
-    }
-    
-    debouncedFilterRef.current?.();
-  }, [statusFilter, riderFilter, searchQuery, fetchOrders]);
-
+  // Initialize: fetch profile once on mount
   useEffect(() => {
     const stored = typeof window !== 'undefined' ? getStoredAuthState() : null;
 
@@ -289,29 +190,21 @@ export default function StaffRoleDashboard({ staffRole }: StaffRoleDashboardProp
       return;
     }
 
+    // Fetch profile only once
     (async () => {
-      setLoading(true);
-      setError(null);
       try {
-        // Load profile and orders in parallel for faster initial load
-        const [me] = await Promise.all([
-          fetchProfile(),
-          fetchOrders(1)
-        ]);
-        
-        console.log(`[${staffRole.toUpperCase()}] Profile object:`, me);
-        console.log(`[${staffRole.toUpperCase()}] Staff location:`, me?.service_location);
-        console.log(`[${staffRole.toUpperCase()}] Staff location display:`, me?.service_location_display);
-        
-        setCurrentPage(1);
-        loadedSectionsRef.current.add('orders');
+        const meData = await client.get('/users/me/');
+        console.log(`[${staffRole.toUpperCase()}] Profile fetched:`, meData);
+        setProfile(meData);
+        setLoading(false);
       } catch (err: any) {
         setError(err?.message ?? `Failed to load ${staffRole} dashboard`);
-      } finally {
         setLoading(false);
       }
     })();
-  }, [fetchProfile, fetchOrders, router, staffRole]);
+
+    loadedSectionsRef.current.add('profile');
+  }, [staffRole, router]);
 
   const total = totalOrdersCount || orders.length;
 
@@ -331,8 +224,7 @@ export default function StaffRoleDashboard({ staffRole }: StaffRoleDashboardProp
     [orders]
   );
 
-  // Since backend handles filtering, orders are already filtered/sorted
-  // Just apply display limit and urgency sorting for current page
+  // Orders already filtered by backend via context, just apply display sorting
   const filteredOrders = useMemo(() => {
     return sortByUrgency(orders);
   }, [orders]);
@@ -461,7 +353,7 @@ export default function StaffRoleDashboard({ staffRole }: StaffRoleDashboardProp
             </select>
 
             <button 
-              onClick={() => { setStatusFilter(''); setRiderFilter(''); setSearchQuery(''); setDisplayLimit(20); }} 
+              onClick={() => { resetFilters(); setDisplayLimit(20); setCurrentPage(1); }} 
               className="text-sm text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300"
             >
               Reset
@@ -515,21 +407,14 @@ export default function StaffRoleDashboard({ staffRole }: StaffRoleDashboardProp
                               <button
                                 onClick={async () => {
                                   try {
-                                    // Optimistically update the order status immediately
-                                    setOrders(prevOrders => 
-                                      prevOrders.map(order => 
-                                        order.id === o.id 
-                                          ? { ...order, status: config.targetStatus }
-                                          : order
-                                      )
-                                    );
-                                    
-                                    // Then make the API call
+                                    // Make the API call to update status
                                     await client.patch(`/orders/update/?id=${o.id}`, { status: config.targetStatus });
+                                    
+                                    // Refetch orders from context to update UI
+                                    await refetchOrders();
+                                    showModal('Success', 'Status updated successfully!', 'success');
                                   } catch (err: any) {
                                     console.error('Failed to update status:', err);
-                                    // Revert on error by fetching fresh data
-                                    await fetchOrders(1);
                                     showModal('Error', err?.message || 'Failed to update status', 'error');
                                   }
                                 }}
@@ -542,7 +427,7 @@ export default function StaffRoleDashboard({ staffRole }: StaffRoleDashboardProp
                             <OrderStatusUpdate
                               orderId={o.id}
                               currentStatus={o.status ?? o.state ?? 'requested'}
-                              onUpdate={fetchOrders}
+                              onUpdate={refetchOrders}
                             />
                           )}
                         </div>
@@ -657,17 +542,16 @@ export default function StaffRoleDashboard({ staffRole }: StaffRoleDashboardProp
             </table>
           </div>
 
-          {/* Infinite scroll loader trigger */}
-          {hasMore && !ordersLoading && (
-            <div ref={scrollObserverTarget} className="h-10 mt-8" />
-          )}
-
-          {/* Loading indicator when fetching more */}
-          {ordersLoading && currentPage > 1 && (
-            <div className="flex justify-center py-8">
-              <div className="animate-spin">
-                <div className="w-8 h-8 border-4 border-slate-200 dark:border-slate-800 border-t-red-600 rounded-full" />
-              </div>
+          {/* Pagination */}
+          {hasMore && (
+            <div className="flex justify-center mt-6">
+              <button
+                onClick={loadMore}
+                disabled={ordersLoading}
+                className="px-6 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 disabled:bg-gray-400"
+              >
+                {ordersLoading ? 'Loading...' : 'Load More Orders'}
+              </button>
             </div>
           )}
 
@@ -915,36 +799,17 @@ export default function StaffRoleDashboard({ staffRole }: StaffRoleDashboardProp
                       // Store the order ID before clearing it
                       const orderId = detailsFormOrderId;
                       
-                      // Store original order for rollback
-                      const originalOrder = orders.find(o => o.id === orderId);
-                      
-                      // Optimistically update the order immediately
-                      setOrders(prevOrders =>
-                        prevOrders.map(order =>
-                          order.id === orderId
-                            ? {
-                                ...order,
-                                status: payload.status,
-                                [fieldMap.items]: payload[fieldMap.items] ?? order[fieldMap.items],
-                                [fieldMap.weight]: payload[fieldMap.weight] ?? order[fieldMap.weight],
-                                [fieldMap.notes]: payload[fieldMap.notes] ?? order[fieldMap.notes],
-                                [fieldMap.price]: payload[fieldMap.price] ?? order[fieldMap.price],
-                              }
-                            : order
-                        )
-                      );
-                      
-                      setDetailsFormOrderId(null);
-                      
                       // Make the API call
                       await client.patch(`/orders/update/?id=${orderId}`, payload);
                       
-                      // Refresh first page of orders from server to ensure data is up-to-date
-                      await fetchOrders(1);
+                      // Refresh orders from context to ensure data is up-to-date
+                      await refetchOrders();
+                      
+                      setDetailsFormOrderId(null);
+                      setDetailsForm({});
+                      showModal('Success', 'Order details saved successfully!', 'success');
                     } catch (err: any) {
                       console.error('Failed to save details:', err);
-                      // Revert to original data on error
-                      await fetchOrders(1);
                       showModal('Error', err?.message || 'Failed to save details', 'error');
                     }
                   }}
