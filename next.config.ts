@@ -1,6 +1,11 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
+  // Optimize for development
+  experimental: {
+    optimizePackageImports: ["@heroicons/react", "lucide-react"],
+  },
+
   async headers() {
     return [
       {

@@ -10,6 +10,15 @@ import Modal from '@/components/ui/Modal';
 import { sortByUrgency, calculateOrderUrgency, getUrgencyLabel } from '@/lib/orderUrgency';
 import { useInfiniteScroll } from '@/lib/hooks/useInfiniteScroll';
 
+// Debounce helper for search
+function debounce(fn: Function, ms: number) {
+  let timeoutId: NodeJS.Timeout;
+  return (...args: any[]) => {
+    clearTimeout(timeoutId);
+    timeoutId = setTimeout(() => fn(...args), ms);
+  };
+}
+
 type Order = Record<string, any>;
 
 interface StaffRoleDashboardProps {
@@ -95,11 +104,29 @@ export default function StaffRoleDashboard({ staffRole }: StaffRoleDashboardProp
     }
   }, [staffRole]);
 
-  const fetchOrders = useCallback(async (page: number = 1) => {
+  const fetchOrders = useCallback(async (page: number = 1, filterParams?: { status?: string; rider?: string; search?: string }) => {
     try {
       setOrdersLoading(true);
-      // Fetch with pagination using page parameter (25 items per page from backend)
-      const data = await client.get(`/orders/?page=${page}`);
+      
+      // Build query string with filters to let backend do the heavy lifting
+      const params = new URLSearchParams();
+      params.append('page', String(page));
+      
+      if (filterParams?.status) {
+        params.append('status', filterParams.status);
+      }
+      if (filterParams?.rider) {
+        params.append('rider', filterParams.rider);
+      }
+      if (filterParams?.search) {
+        params.append('search', filterParams.search);
+      }
+      
+      const queryString = params.toString();
+      const endpoint = `/orders/?${queryString}`;
+      
+      console.log(`[${staffRole.toUpperCase()}] Fetching from:`, endpoint);
+      const data = await client.get(endpoint);
       console.log(`[${staffRole.toUpperCase()}] Raw orders response for page ${page}:`, data);
       
       // Handle paginated response
@@ -109,7 +136,6 @@ export default function StaffRoleDashboard({ staffRole }: StaffRoleDashboardProp
       
       console.log(`[${staffRole.toUpperCase()}] Orders list for page ${page}:`, list);
       console.log(`[${staffRole.toUpperCase()}] Total count:`, count);
-      console.log(`[${staffRole.toUpperCase()}] List length:`, list.length);
       
       if (list.length === 0 && page === 1) {
         console.log(`[${staffRole.toUpperCase()}] ⚠️ No orders returned from API`);
@@ -118,12 +144,11 @@ export default function StaffRoleDashboard({ staffRole }: StaffRoleDashboardProp
       // Update total count
       setTotalOrdersCount(count);
       
-      // Sort orders by date (latest first)
-      const sortedList = list.sort((a, b) => {
-        const dateA = a.created_at ? new Date(a.created_at).getTime() : 0;
-        const dateB = b.created_at ? new Date(b.created_at).getTime() : 0;
-        return dateB - dateA; // descending order (newest first)
-      });
+      // Pre-parse timestamps for faster sorting (avoid repeated Date parsing)
+      const sortedList = list.map(order => ({
+        ...order,
+        _createdAtTime: order.created_at ? new Date(order.created_at).getTime() : 0
+      })).sort((a, b) => b._createdAtTime - a._createdAtTime);
       
       // Accumulate orders (avoid duplicates)
       setAllOrders((prev) => {
@@ -202,6 +227,9 @@ export default function StaffRoleDashboard({ staffRole }: StaffRoleDashboardProp
   // Track loaded data sections to avoid re-fetching
   const loadedSectionsRef = useRef<Set<string>>(new Set());
   const observerTarget = useRef<HTMLDivElement>(null);
+  
+  // Debounced filter handler to avoid rapid API calls
+  const debouncedFilterRef = useRef<ReturnType<typeof debounce> | null>(null);
 
   // Check if there are more pages to load
   const hasMore = allOrders.length < totalOrdersCount && totalOrdersCount > 0;
@@ -230,6 +258,23 @@ export default function StaffRoleDashboard({ staffRole }: StaffRoleDashboardProp
     }
   }, [currentPage, fetchOrders]);
 
+  // Debounced filter effect - triggers backend search when filters change
+  useEffect(() => {
+    if (!debouncedFilterRef.current) {
+      debouncedFilterRef.current = debounce(() => {
+        setCurrentPage(1);
+        setAllOrders([]);
+        fetchOrders(1, {
+          status: statusFilter || undefined,
+          rider: riderFilter || undefined,
+          search: searchQuery || undefined
+        });
+      }, 500);
+    }
+    
+    debouncedFilterRef.current?.();
+  }, [statusFilter, riderFilter, searchQuery, fetchOrders]);
+
   useEffect(() => {
     const stored = typeof window !== 'undefined' ? getStoredAuthState() : null;
 
@@ -248,14 +293,16 @@ export default function StaffRoleDashboard({ staffRole }: StaffRoleDashboardProp
       setLoading(true);
       setError(null);
       try {
-        // Load profile first (fast)
-        const me = await fetchProfile();
+        // Load profile and orders in parallel for faster initial load
+        const [me] = await Promise.all([
+          fetchProfile(),
+          fetchOrders(1)
+        ]);
+        
         console.log(`[${staffRole.toUpperCase()}] Profile object:`, me);
         console.log(`[${staffRole.toUpperCase()}] Staff location:`, me?.service_location);
         console.log(`[${staffRole.toUpperCase()}] Staff location display:`, me?.service_location_display);
         
-        // Then load first page of orders
-        await fetchOrders(1);
         setCurrentPage(1);
         loadedSectionsRef.current.add('orders');
       } catch (err: any) {
@@ -268,35 +315,27 @@ export default function StaffRoleDashboard({ staffRole }: StaffRoleDashboardProp
 
   const total = totalOrdersCount || orders.length;
 
-  const availableStatuses = Array.from(new Set(orders.map(o => (o.status ?? '').toString()))).filter(Boolean);
-  const availableRiders = Array.from(new Set(orders.map(o => {
-    if (o.order_type === 'manual') {
-      return (o.created_by ?? '').toString();
-    }
-    return (o.rider ?? '').toString();
-  }))).filter(Boolean);
+  // Build available options from current orders (for dropdowns)
+  const availableStatuses = useMemo(() => 
+    Array.from(new Set(orders.map(o => (o.status ?? '').toString()))).filter(Boolean),
+    [orders]
+  );
+  
+  const availableRiders = useMemo(() => 
+    Array.from(new Set(orders.map(o => {
+      if (o.order_type === 'manual') {
+        return (o.created_by ?? '').toString();
+      }
+      return (o.rider ?? '').toString();
+    }))).filter(Boolean),
+    [orders]
+  );
 
+  // Since backend handles filtering, orders are already filtered/sorted
+  // Just apply display limit and urgency sorting for current page
   const filteredOrders = useMemo(() => {
-    return orders.filter(o => {
-      if (statusFilter && String(o.status ?? '').toLowerCase() !== statusFilter.toLowerCase()) return false;
-      if (riderFilter) {
-        const assignedTo = o.order_type === 'manual' 
-          ? String(o.created_by ?? '').toLowerCase() 
-          : String(o.rider ?? '').toLowerCase();
-        if (assignedTo !== riderFilter.toLowerCase()) return false;
-      }
-      if (searchQuery) {
-        const q = searchQuery.toLowerCase();
-        const matchesCode = String(o.code ?? '').toLowerCase().includes(q);
-        const assignedTo = o.order_type === 'manual'
-          ? String(o.created_by ?? o.customer_name ?? '')
-          : String(o.user ?? o.rider ?? '');
-        const matchesUser = assignedTo.toLowerCase().includes(q);
-        if (!matchesCode && !matchesUser) return false;
-      }
-      return true;
-    });
-  }, [orders, statusFilter, riderFilter, searchQuery]);
+    return sortByUrgency(orders);
+  }, [orders]);
 
   if (loading) {
     return (
@@ -456,11 +495,7 @@ export default function StaffRoleDashboard({ staffRole }: StaffRoleDashboardProp
                 </tr>
               </thead>
               <tbody>
-                {sortByUrgency(filteredOrders).sort((a, b) => {
-                  const dateA = a.created_at ? new Date(a.created_at).getTime() : 0;
-                  const dateB = b.created_at ? new Date(b.created_at).getTime() : 0;
-                  return dateB - dateA; // Latest first
-                }).slice(0, displayLimit).map((o) => {
+                {filteredOrders.slice(0, displayLimit).map((o) => {
                   const urgency = calculateOrderUrgency(o);
                   const label = getUrgencyLabel(urgency.score);
                   return (
