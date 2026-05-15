@@ -3,7 +3,7 @@ import { useEffect, useState } from "react";
 import { FaWhatsapp } from "react-icons/fa";
 
 export default function WhatsAppButton() {
-  const whatsappNumber = "+254705415948";
+  const whatsappNumber = "+254769760460";
   const whatsappText = "Hi%20Wild%20Wash!%20I%20need%20help%20with%20my%20order.";
   const href = `https://api.whatsapp.com/send?phone=${encodeURIComponent(whatsappNumber)}&text=${whatsappText}`;
 
