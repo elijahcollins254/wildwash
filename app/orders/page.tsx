@@ -170,6 +170,20 @@ export default function OrdersPage(): React.JSX.Element {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [dispatch, page, pageSize, statusFilter, query, fullState.refreshCounter]);
 
+  // Auto-refresh orders every 5 seconds to keep progress bar updated
+  useEffect(() => {
+    // Only set up polling if there are active orders (not all delivered/cancelled)
+    const hasActiveOrders = orders.some(o => o.status !== "Delivered" && o.status !== "Cancelled");
+    
+    if (!hasActiveOrders) return;
+
+    const interval = setInterval(() => {
+      dispatch(fetchOrders());
+    }, 5000); // Refresh every 5 seconds
+
+    return () => clearInterval(interval);
+  }, [orders, dispatch]);
+
   // sync error message from state
   useEffect(() => {
     if (errorFromState) setErrorMessage(errorFromState);
@@ -300,6 +314,41 @@ export default function OrdersPage(): React.JSX.Element {
   );
 }
 
+// Progress calculation for status
+function calcProgress(status?: string) {
+  if (!status) return 0;
+  
+  const progressMap: Record<string, number> = {
+    requested: 10,
+    received: 10,
+    picked: 30,
+    washing: 50,
+    in_progress: 60,
+    drying: 70,
+    ready: 90,
+    delivered: 100,
+    cancelled: 0
+  };
+  
+  return progressMap[status.toLowerCase()] ?? 0;
+}
+
+// Get progress bar color based on status
+function getProgressBarColor(status?: string) {
+  if (!status) return 'bg-slate-400';
+  
+  const colorMap: Record<string, string> = {
+    'Cancelled': 'bg-gray-400',
+    'Delivered': 'bg-gradient-to-r from-green-400 to-green-600',
+    'Received': 'bg-gradient-to-r from-blue-400 to-blue-600',
+    'Washing': 'bg-gradient-to-r from-purple-400 to-purple-600',
+    'Drying': 'bg-gradient-to-r from-orange-400 to-orange-600',
+    'Ready': 'bg-gradient-to-r from-green-400 to-green-600',
+  };
+  
+  return colorMap[status] || 'bg-gradient-to-r from-red-400 to-red-600 animate-pulse';
+}
+
 // Memoized OrderCard component to prevent unnecessary re-renders
 const OrderCard = React.memo(({ order: o, onCheckout }: { order: Order; onCheckout: (code: string) => void }) => {
   const colors = STATUS_COLORS[o.status as keyof typeof STATUS_COLORS] || STATUS_COLORS['requested'];
@@ -307,6 +356,8 @@ const OrderCard = React.memo(({ order: o, onCheckout }: { order: Order; onChecko
   const isPaid = o.is_paid ?? false;
   const orderDate = new Date(o.created_at || o.date || '');
   const actualPrice = getLatestActualPrice(o.staff_input_details);
+  const progress = calcProgress(o.status);
+  const progressBarColor = getProgressBarColor(o.status);
 
   return (
     <article className={`rounded-xl ${colors.bg} ${colors.border} bg-white/80 dark:bg-white/5 p-4 shadow-sm hover:shadow-md transition-all`}>
@@ -345,6 +396,33 @@ const OrderCard = React.memo(({ order: o, onCheckout }: { order: Order; onChecko
               <CheckCircle className="w-3 h-3" /> {o.payment_method === 'bnpl' ? 'Financed' : 'Paid'}
             </div>
           )}
+        </div>
+      </div>
+
+      {/* Progress bar */}
+      <div className="mb-4 pb-4 border-b border-slate-200 dark:border-slate-700">
+        <div className="h-2 sm:h-2.5 bg-slate-200 dark:bg-slate-700 rounded-full overflow-hidden mb-2">
+          <div
+            className={`h-full rounded-full transition-all duration-500 ${progressBarColor}`}
+            style={{ 
+              width: `${progress}%`,
+              transitionProperty: 'width, background',
+            }}
+          />
+        </div>
+        <div className="flex items-center justify-between">
+          <div className="text-xs text-slate-500 dark:text-slate-400">
+            {progress}% complete
+          </div>
+          <div className={`text-xs font-medium ${
+            o.status.toLowerCase() === 'cancelled'
+              ? 'text-gray-500'
+              : o.status.toLowerCase() === 'delivered'
+              ? 'text-green-600 dark:text-green-400'
+              : 'text-red-600 dark:text-red-400'
+          }`}>
+            {o.status}
+          </div>
         </div>
       </div>
 
