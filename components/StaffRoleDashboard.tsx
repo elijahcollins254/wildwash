@@ -369,6 +369,32 @@ export default function StaffRoleDashboard({ staffRole }: StaffRoleDashboardProp
           </div>
         </div>
 
+        {/* Loading Skeleton */}
+        {ordersLoading && orders.length === 0 && (
+          <div className="rounded-2xl bg-white dark:bg-slate-800 p-6 shadow-xl border border-slate-200 dark:border-slate-700">
+            <div className="mb-4 space-y-4">
+              {[...Array(5)].map((_, idx) => (
+                <div key={idx} className="animate-pulse">
+                  <div className="grid grid-cols-6 gap-4">
+                    <div className="h-8 bg-slate-200 dark:bg-slate-700 rounded"></div>
+                    <div className="h-8 bg-slate-200 dark:bg-slate-700 rounded col-span-2"></div>
+                    <div className="h-8 bg-slate-200 dark:bg-slate-700 rounded"></div>
+                    <div className="h-8 bg-slate-200 dark:bg-slate-700 rounded col-span-2"></div>
+                  </div>
+                </div>
+              ))}
+            </div>
+            <div className="text-center py-8 text-slate-400">
+              <div className="inline-flex items-center gap-2">
+                <div className="w-4 h-4 border-2 border-slate-400 border-t-red-600 rounded-full animate-spin"></div>
+                <span>Fetching orders...</span>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Orders Table */}
+        {!ordersLoading || orders.length > 0 && (
         <div className="rounded-2xl bg-white dark:bg-slate-800 p-6 shadow-xl border border-slate-200 dark:border-slate-700">
           <h2 className="text-lg font-semibold mb-3 text-slate-900 dark:text-slate-100">Recent Orders</h2>
           <div className="overflow-x-auto">
@@ -579,6 +605,7 @@ export default function StaffRoleDashboard({ staffRole }: StaffRoleDashboardProp
             </div>
           )}
         </div>
+        )}
         {showCreateOrderModal && (
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm" onClick={() => setShowCreateOrderModal(false)}>
             <div className="w-full max-w-md bg-white dark:bg-slate-800 rounded-3xl shadow-2xl p-6 max-h-[90vh] overflow-y-auto border border-slate-200 dark:border-slate-700" onClick={(e) => e.stopPropagation()}>
