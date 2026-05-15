@@ -89,14 +89,15 @@ export const OrderProvider: React.FC<OrderProviderProps> = ({ children }) => {
    */
   const fetchOrders = useCallback(async (page = 1, useCache = false) => {
     try {
-      // Check cache validity (5 minute TTL)
+      // Check cache validity (5 minute TTL) - only use cache on initial load
       const cacheAge = Date.now() - cacheRef.current.timestamp;
       const filterChanged = JSON.stringify({ statusFilter, riderFilter, searchQuery }) !== 
                            JSON.stringify(cacheRef.current.filters);
       
-      if (useCache && cacheAge < 300000 && !filterChanged) {
+      if (useCache && cacheAge < 300000 && !filterChanged && cacheRef.current.orders.length > 0) {
         console.log('[OrderContext] Using cached orders');
         setOrders(cacheRef.current.orders);
+        setTotalOrdersCount(cacheRef.current.orders.length);
         return;
       }
 
@@ -114,6 +115,9 @@ export const OrderProvider: React.FC<OrderProviderProps> = ({ children }) => {
       const endpoint = `/orders/?${params.toString()}`;
       console.log('[OrderContext] Fetching from:', endpoint);
 
+      // Small delay to allow backend to process recent changes
+      await new Promise(resolve => setTimeout(resolve, 150));
+
       const data = await client.get(endpoint);
       const list = Array.isArray(data?.results) ? data.results : [];
       const count = data?.count || 0;
@@ -125,13 +129,18 @@ export const OrderProvider: React.FC<OrderProviderProps> = ({ children }) => {
         filters: { statusFilter, riderFilter, searchQuery }
       };
 
-      setOrders(list);
+      // Force state update with new orders
+      setOrders([...list]); // Spread ensures a new array reference for React
       setTotalOrdersCount(count);
       lastFetchTimeRef.current = Date.now();
+      
+      console.log('[OrderContext] Orders updated:', list.length, 'items');
 
     } catch (err: any) {
       console.error('[OrderContext] Fetch error:', err);
       setError(err?.message || 'Failed to load orders');
+      // Clear cache on error to force fresh fetch next time
+      cacheRef.current = { orders: [], timestamp: 0, filters: {} };
     } finally {
       setIsLoading(false);
     }
@@ -168,9 +177,12 @@ export const OrderProvider: React.FC<OrderProviderProps> = ({ children }) => {
   }, []);
 
   /**
-   * Manual refresh
+   * Manual refresh - always clears cache and fetches fresh data
    */
   const refetchOrders = useCallback(async () => {
+    // Clear cache to force fresh fetch
+    cacheRef.current = { orders: [], timestamp: 0, filters: {} };
+    console.log('[OrderContext] Cache cleared for manual refresh');
     await fetchOrders(1, false);
   }, [fetchOrders]);
 

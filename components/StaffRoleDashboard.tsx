@@ -313,7 +313,13 @@ export default function StaffRoleDashboard({ staffRole }: StaffRoleDashboardProp
           <div className="mt-4 flex flex-wrap items-center gap-3">
             <select
               value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value)}
+              onChange={(e) => {
+                try {
+                  setStatusFilter(e.target.value);
+                } catch (err: any) {
+                  showModal('Filter Error', err?.message || 'Failed to apply status filter', 'error');
+                }
+              }}
               className="rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 px-3 py-2 text-sm text-slate-900 dark:text-slate-100 shadow-sm hover:shadow-md transition-shadow"
             >
               <option value="">All statuses</option>
@@ -324,7 +330,13 @@ export default function StaffRoleDashboard({ staffRole }: StaffRoleDashboardProp
 
             <select
               value={riderFilter}
-              onChange={(e) => setRiderFilter(e.target.value)}
+              onChange={(e) => {
+                try {
+                  setRiderFilter(e.target.value);
+                } catch (err: any) {
+                  showModal('Filter Error', err?.message || 'Failed to apply rider filter', 'error');
+                }
+              }}
               className="rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 px-3 py-2 text-sm text-slate-900 dark:text-slate-100 shadow-sm hover:shadow-md transition-shadow"
             >
               <option value="">All staff/riders</option>
@@ -335,7 +347,13 @@ export default function StaffRoleDashboard({ staffRole }: StaffRoleDashboardProp
 
             <input
               value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
+              onChange={(e) => {
+                try {
+                  setSearchQuery(e.target.value);
+                } catch (err: any) {
+                  showModal('Search Error', err?.message || 'Failed to search orders', 'error');
+                }
+              }}
               placeholder="Search code, customer, or staff"
               className="rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 px-3 py-2 text-sm text-slate-900 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500 shadow-sm focus:outline-none focus:ring-2 focus:ring-red-500 transition-all"
             />
@@ -453,7 +471,15 @@ export default function StaffRoleDashboard({ staffRole }: StaffRoleDashboardProp
                             <OrderStatusUpdate
                               orderId={o.id}
                               currentStatus={o.status ?? o.state ?? 'requested'}
-                              onUpdate={refetchOrders}
+                              onUpdate={async () => {
+                                try {
+                                  await refetchOrders();
+                                  showModal('Success', 'Order status updated successfully!', 'success');
+                                } catch (err: any) {
+                                  showModal('Update Error', err?.message || 'Failed to update order status', 'error');
+                                }
+                              }}
+                              onError={(error: string) => showModal('Status Update Error', error, 'error')}
                             />
                           )}
                         </div>
@@ -572,7 +598,13 @@ export default function StaffRoleDashboard({ staffRole }: StaffRoleDashboardProp
           {hasMore && (
             <div className="flex justify-center mt-6">
               <button
-                onClick={loadMore}
+                onClick={async () => {
+                  try {
+                    loadMore();
+                  } catch (err: any) {
+                    showModal('Loading Error', err?.message || 'Failed to load more orders', 'error');
+                  }
+                }}
                 disabled={ordersLoading}
                 className="px-6 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 disabled:bg-gray-400"
               >

@@ -8,6 +8,7 @@ interface OrderStatusUpdateProps {
   orderId: number;
   currentStatus: string;
   onUpdate: () => void;
+  onError?: (error: string) => void;
 }
 
 const ORDER_STATUSES = [
@@ -22,7 +23,7 @@ const ORDER_STATUSES = [
 
 type OrderStatus = typeof ORDER_STATUSES[number]['value'];
 
-export default function OrderStatusUpdate({ orderId, currentStatus, onUpdate }: OrderStatusUpdateProps) {
+export default function OrderStatusUpdate({ orderId, currentStatus, onUpdate, onError }: OrderStatusUpdateProps) {
   const [status, setStatus] = useState<OrderStatus>(currentStatus as OrderStatus);
   const [updating, setUpdating] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -38,7 +39,9 @@ export default function OrderStatusUpdate({ orderId, currentStatus, onUpdate }: 
       onUpdate();
     } catch (err: any) {
       console.error('Error updating order:', err);
-      setError(err.message || 'Failed to update order status');
+      const errorMessage = err.message || 'Failed to update order status';
+      setError(errorMessage);
+      onError?.(errorMessage);
     } finally {
       setUpdating(false);
     }
