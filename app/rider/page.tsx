@@ -303,33 +303,46 @@ export default function RiderMapPage(): React.ReactElement {
   const filteredOrders = useMemo(() => {
     if (!orders) return [];
     
+    let filtered: Order[] = [];
+    
     switch (currentTab) {
       case 'my_pickups':
         // Pickup rider: orders assigned to them for pickup
-        return orders.filter((o) => 
+        filtered = orders.filter((o) => 
           ['assigned_pickup', 'picked'].includes(o.status)
         );
+        break;
       
       case 'in_progress':
         // Orders being processed at facility (washer/folder work)
         // or picked but not yet ready
-        return orders.filter((o) => 
+        filtered = orders.filter((o) => 
           ['picked', 'in_progress', 'washed', 'folded'].includes(o.status)
         );
+        break;
       
       case 'ready_delivery':
         // Delivery rider: orders ready and assigned to them for delivery
-        return orders.filter((o) => 
+        filtered = orders.filter((o) => 
           ['ready', 'assigned_delivery'].includes(o.status)
         );
+        break;
       
       case 'completed':
         // Delivered orders
-        return orders.filter((o) => o.status === 'delivered');
+        filtered = orders.filter((o) => o.status === 'delivered');
+        break;
       
       default:
         return [];
     }
+    
+    // Sort by creation date (latest first)
+    return [...filtered].sort((a, b) => {
+      const dateA = new Date(a.created_at || 0).getTime();
+      const dateB = new Date(b.created_at || 0).getTime();
+      return dateB - dateA; // Descending order (latest first)
+    });
   }, [orders, currentTab]);
 
 

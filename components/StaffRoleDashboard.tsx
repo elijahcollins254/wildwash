@@ -7,7 +7,7 @@ import { client } from '@/lib/api/client';
 import { getStoredAuthState, isValidAuthState } from '@/lib/auth';
 import { Spinner, OrderStatusUpdate } from '@/components';
 import Modal from '@/components/ui/Modal';
-import { sortByUrgency, calculateOrderUrgency, getUrgencyLabel } from '@/lib/orderUrgency';
+import { calculateOrderUrgency, getUrgencyLabel } from '@/lib/orderUrgency';
 import { useOrders } from '@/lib/context/OrderContext';
 
 // Debounce helper for search
@@ -225,8 +225,13 @@ export default function StaffRoleDashboard({ staffRole }: StaffRoleDashboardProp
   );
 
   // Orders already filtered by backend via context, just apply display sorting
+  // Sort by creation date (latest first)
   const filteredOrders = useMemo(() => {
-    return sortByUrgency(orders);
+    return [...orders].sort((a, b) => {
+      const dateA = new Date(a.created_at || 0).getTime();
+      const dateB = new Date(b.created_at || 0).getTime();
+      return dateB - dateA; // Descending order (latest first)
+    });
   }, [orders]);
 
   if (loading) {

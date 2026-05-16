@@ -566,7 +566,7 @@ export default function AdminPage(): React.ReactElement {
   }, [dateFilter, startDate, endDate]);
 
   const filteredOrders = useMemo(() => {
-    return displayOrders.filter(o => {
+    const filtered = displayOrders.filter(o => {
       if (statusFilter && String(o.status ?? '').toLowerCase() !== statusFilter.toLowerCase()) return false;
       if (riderFilter && getRiderName(o.rider).toLowerCase() !== riderFilter.toLowerCase()) return false;
       if (locationFilter) {
@@ -588,6 +588,13 @@ export default function AdminPage(): React.ReactElement {
       }
 
       return true;
+    });
+    
+    // Sort by creation date (latest first)
+    return [...filtered].sort((a, b) => {
+      const dateA = new Date(a.created_at || 0).getTime();
+      const dateB = new Date(b.created_at || 0).getTime();
+      return dateB - dateA; // Descending order (latest first)
     });
   }, [displayOrders, statusFilter, riderFilter, locationFilter, searchQuery, dateFilter, startDate, endDate, getRiderName, getDateRange]);
 

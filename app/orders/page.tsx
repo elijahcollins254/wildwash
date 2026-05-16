@@ -152,7 +152,7 @@ export default function OrdersPage(): React.JSX.Element {
 
   // Memoize filtered orders to avoid recalculation
   const filtered = useMemo(() => {
-    return orders.filter((o) => {
+    const results = orders.filter((o) => {
       const q = (query ?? "").trim().toLowerCase();
       if (!q) return true;
       return (
@@ -160,6 +160,13 @@ export default function OrdersPage(): React.JSX.Element {
         (o.package ?? "").toLowerCase().includes(q) ||
         (String(o.price ?? "").toLowerCase()).includes(q)
       );
+    });
+    
+    // Sort by creation date (latest first)
+    return [...results].sort((a, b) => {
+      const dateA = new Date(a.created_at || 0).getTime();
+      const dateB = new Date(b.created_at || 0).getTime();
+      return dateB - dateA; // Descending order (latest first)
     });
   }, [orders, query]);
 
