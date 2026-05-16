@@ -96,7 +96,17 @@ export default function RiderMapPage(): React.ReactElement {
     typeof window !== 'undefined' ? localStorage.getItem('wildwash_auth_state') || '{}' : '{}'
   );
   const token = authState.token || null;
-  const currentUserId = authState.user?.id || null;
+  // Try multiple possible auth state structures
+  const currentUserId = authState.user?.id || authState.userId || authState.id || null;
+  
+  // Debug: Log currentUserId and first order's pickup_rider for comparison
+  useEffect(() => {
+    if (orders && orders.length > 0 && currentUserId) {
+      console.log('[RiderPage] currentUserId:', currentUserId, 'type:', typeof currentUserId);
+      console.log('[RiderPage] First order pickup_rider:', orders[0]?.pickup_rider?.id, 'type:', typeof orders[0]?.pickup_rider?.id);
+      console.log('[RiderPage] Auth state:', authState);
+    }
+  }, [orders, currentUserId, authState]);
 
   // Use background polling for orders - smart updates without page reload
   const orders = useBackgroundOrderPolling(token, true, 60000); // 60 second default interval
@@ -306,14 +316,19 @@ export default function RiderMapPage(): React.ReactElement {
     
     let filtered: any[] = [];
     
+    // Normalize currentUserId for comparison (handle both string and number)
+    const normalizedUserId = currentUserId ? Number(currentUserId) : null;
+    
     switch (currentTab) {
       case 'my_pickups':
         // Pickup rider: orders assigned to them for pickup
         // Include orders with assigned_pickup or picked status, OR where user is pickup_rider
-        filtered = orders.filter((o) => 
-          ['assigned_pickup', 'picked'].includes(o.status) ||
-          (o.pickup_rider?.id === currentUserId)
-        );
+        filtered = orders.filter((o) => {
+          const isCorrectStatus = ['assigned_pickup', 'picked', 'requested', 'in_progress', 'washed', 'folded'].includes(o.status);
+          const isPickupRider = normalizedUserId && o.pickup_rider?.id === normalizedUserId;
+          const isRiderField = normalizedUserId && o.rider?.id === normalizedUserId && !o.pickup_rider; // Fallback for old rider field
+          return (isCorrectStatus && (isPickupRider || isRiderField)) || isPickupRider;
+        });
         break;
       
       case 'in_progress':
@@ -327,10 +342,11 @@ export default function RiderMapPage(): React.ReactElement {
       case 'ready_delivery':
         // Delivery rider: orders ready and assigned to them for delivery
         // Include orders with ready or assigned_delivery status, OR where user is delivery_rider
-        filtered = orders.filter((o) => 
-          ['ready', 'assigned_delivery'].includes(o.status) ||
-          (o.delivery_rider?.id === currentUserId)
-        );
+        filtered = orders.filter((o) => {
+          const isCorrectStatus = ['ready', 'assigned_delivery'].includes(o.status);
+          const isDeliveryRider = normalizedUserId && o.delivery_rider?.id === normalizedUserId;
+          return isCorrectStatus && isDeliveryRider || isDeliveryRider;
+        });
         break;
       
       case 'completed':
@@ -371,19 +387,23 @@ export default function RiderMapPage(): React.ReactElement {
                   { id: 'ready_delivery', label: 'Ready for Delivery', icon: FiTruck },
                   { id: 'completed', label: 'Completed', icon: FiCheck },
                 ] as const).map(({ id, label, icon: Icon }) => {
+                    const normalizedUserId = currentUserId ? Number(currentUserId) : null;
                     let count = 0;
                     if (id === 'my_pickups') {
-                      count = displayOrders.filter(o => 
-                        ['assigned_pickup', 'picked'].includes(o.status) ||
-                        (o.pickup_rider?.id === currentUserId)
-                      ).length;
+                      count = displayOrders.filter(o => {
+                        const isCorrectStatus = ['assigned_pickup', 'picked', 'requested', 'in_progress', 'washed', 'folded'].includes(o.status);
+                        const isPickupRider = normalizedUserId && o.pickup_rider?.id === normalizedUserId;
+                        const isRiderField = normalizedUserId && o.rider?.id === normalizedUserId && !o.pickup_rider;
+                        return (isCorrectStatus && (isPickupRider || isRiderField)) || isPickupRider;
+                      }).length;
                     } else if (id === 'in_progress') {
                       count = displayOrders.filter(o => ['picked', 'in_progress', 'washed', 'folded'].includes(o.status)).length;
                     } else if (id === 'ready_delivery') {
-                      count = displayOrders.filter(o => 
-                        ['ready', 'assigned_delivery'].includes(o.status) ||
-                        (o.delivery_rider?.id === currentUserId)
-                      ).length;
+                      count = displayOrders.filter(o => {
+                        const isCorrectStatus = ['ready', 'assigned_delivery'].includes(o.status);
+                        const isDeliveryRider = normalizedUserId && o.delivery_rider?.id === normalizedUserId;
+                        return isCorrectStatus && isDeliveryRider || isDeliveryRider;
+                      }).length;
                     } else if (id === 'completed') {
                       count = displayOrders.filter(o => o.status === 'delivered').length;
                     }
