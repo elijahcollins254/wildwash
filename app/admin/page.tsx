@@ -254,7 +254,7 @@ export default function AdminPage(): React.ReactElement {
     setAdminApiClient(client);
   }, []);
 
-  // Fetch orders page by page for infinite scroll
+  // Fetch orders with simple pagination (only current page, no accumulation)
   const fetchOrdersPage = useCallback(async (page: number) => {
     try {
       setOrdersPageLoading(true);
@@ -271,61 +271,25 @@ export default function AdminPage(): React.ReactElement {
         raw: order
       }));
       
-      // Accumulate orders (avoid duplicates)
-      setAllOrders((prev) => {
-        if (page === 1) {
-          return transformedOrders; // Reset on first page
-        }
-        const existingIds = new Set(prev.map(o => o.id));
-        const newOrders = transformedOrders.filter(o => !existingIds.has(o.id));
-        return [...prev, ...newOrders];
-      });
-      
-      // Stop pagination if:
-      // 1. This page returned fewer items than PAGE_SIZE (last page)
-      // 2. This page returned 0 items (past the end)
-      const PAGE_SIZE = 50;
-      if (list.length < PAGE_SIZE) {
-        setReachedEndOfOrders(true);
-      }
-      
+      // Only keep current page orders (don't accumulate all pages)
+      setAllOrders(transformedOrders);
       setOrdersPageLoading(false);
     } catch (err: any) {
       console.error('Error fetching orders page:', err);
-      // Stop pagination when we encounter an error
-      setReachedEndOfOrders(true);
       setOrdersPageLoading(false);
     }
-  }, [allOrders.length]);
+  }, []);
 
-  // Check if there are more pages to load
-  const PAGE_SIZE = 50;
-  const maxPossiblePages = Math.ceil(totalOrdersCount / PAGE_SIZE);
-  const hasMoreOrders = !reachedEndOfOrders && allOrders.length < totalOrdersCount && totalOrdersCount > 0 && ordersPage <= maxPossiblePages;
+  // Simple pagination (not infinite scroll)
+  const PAGE_SIZE = 25;
+  const totalPages = Math.ceil(totalOrdersCount / PAGE_SIZE);
 
-  // Infinite scroll trigger
-  const scrollObserverTarget = useInfiniteScroll({
-    onLoadMore: () => {
-      // Only load next page if we haven't reached the end and aren't already loading
-      if (hasMoreOrders && !ordersPageLoading && activeTab === 'orders') {
-        setOrdersPage((prev) => prev + 1);
-      }
-    },
-    hasMore: hasMoreOrders,
-    isLoading: ordersPageLoading,
-    threshold: 500,
-  });
-
-  // Fetch next page when ordersPage changes
+  // Fetch current page when ordersPage changes
   useEffect(() => {
-    if (ordersPage > 0) {
-      // Reset the end flag when fetching page 1 (fresh load)
-      if (ordersPage === 1) {
-        setReachedEndOfOrders(false);
-      }
+    if (ordersPage > 0 && ordersPage <= totalPages) {
       fetchOrdersPage(ordersPage);
     }
-  }, [ordersPage, fetchOrdersPage]);
+  }, [ordersPage, totalPages, fetchOrdersPage]);
 
   // Display orders: use paginated orders if available, fallback to Redux orders
   const displayOrders = allOrders.length > 0 ? allOrders : orders;
@@ -505,17 +469,23 @@ export default function AdminPage(): React.ReactElement {
     // 'analytics' tab uses existing orders data, no fetch needed
   }, [activeTab, dispatch]);
 
-  // Derived metrics
-  const totalOrders = totalOrdersCount || displayOrders.length;
-  const completed = displayOrders.filter((o) => String(o.status ?? "").toLowerCase() === "delivered").length;
-  const inProgress = displayOrders.filter((o) => String(o.status ?? "").toLowerCase() !== "delivered").length;
-  const totalRevenue = displayOrders.reduce((sum, o) => {
-    const price = Number(o.price ?? 0);
-    return sum + (isNaN(price) ? 0 : price);
-  }, 0);
+  // Derived metrics - memoized to avoid recalculation
+  const metrics = useMemo(() => {
+    return {
+      totalOrders: totalOrdersCount || displayOrders.length,
+      completed: displayOrders.filter((o) => String(o.status ?? "").toLowerCase() === "delivered").length,
+      inProgress: displayOrders.filter((o) => String(o.status ?? "").toLowerCase() !== "delivered").length,
+      totalRevenue: displayOrders.reduce((sum, o) => {
+        const price = Number(o.price ?? 0);
+        return sum + (isNaN(price) ? 0 : price);
+      }, 0),
+    };
+  }, [totalOrdersCount, displayOrders]);
+  
+  const { totalOrders, completed, inProgress, totalRevenue } = metrics;
 
-  // Latest location per rider (in case public endpoint returns multiple per rider)
-  const latestLocationByRider = (() => {
+  // Latest location per rider - memoized to avoid recalculation
+  const { latestLocationByRider, riderCount } = useMemo(() => {
     const map = new Map<string, RiderLocation>();
     for (const loc of locations) {
       const key = String(loc.rider ?? loc.rider_display ?? loc.id ?? Math.random());
@@ -524,10 +494,9 @@ export default function AdminPage(): React.ReactElement {
       const tsNew = new Date(loc.recorded_at ?? loc.raw?.created_at ?? 0).getTime();
       if (!existing || tsNew >= tsExisting) map.set(key, loc);
     }
-    return Array.from(map.entries()).map(([riderKey, loc]) => ({ riderKey, ...loc }));
-  })();
-
-  const riderCount = latestLocationByRider.length;
+    const latest = Array.from(map.entries()).map(([riderKey, loc]) => ({ riderKey, ...loc }));
+    return { latestLocationByRider: latest, riderCount: latest.length };
+  }, [locations]);
 
   // daily stats for charts
   const dailyStats = Object.values(
@@ -973,26 +942,26 @@ export default function AdminPage(): React.ReactElement {
             </div>
             ) : null}
 
-            {/* Infinite scroll loader trigger */}
-            {hasMoreOrders && !ordersPageLoading && (
-              <div ref={scrollObserverTarget} className="h-10 mt-8" />
-            )}
-
-            {/* Loading indicator when fetching more */}
-            {ordersPageLoading && ordersPage > 1 && (
-              <div className="flex justify-center py-8">
-                <div className="animate-spin">
-                  <div className="w-8 h-8 border-4 border-slate-200 dark:border-slate-800 border-t-red-600 rounded-full" />
+            {/* Simple Pagination Controls */}
+            {totalPages > 1 && (
+              <div className="mt-6 flex items-center justify-center gap-3">
+                <button
+                  onClick={() => setOrdersPage(Math.max(1, ordersPage - 1))}
+                  disabled={ordersPage === 1 || ordersPageLoading}
+                  className="px-4 py-2 rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors font-medium"
+                >
+                  ← Previous
+                </button>
+                <div className="text-sm font-medium text-slate-600 dark:text-slate-300">
+                  Page <span className="font-bold">{ordersPage}</span> of <span className="font-bold">{totalPages}</span>
                 </div>
-              </div>
-            )}
-
-            {/* All loaded indicator */}
-            {!hasMoreOrders && displayOrders.length > 0 && (
-              <div className="text-center py-8">
-                <p className="text-slate-500 dark:text-slate-400 text-sm">
-                  ✓ Loaded {displayOrders.length} of {totalOrdersCount} orders
-                </p>
+                <button
+                  onClick={() => setOrdersPage(Math.min(totalPages, ordersPage + 1))}
+                  disabled={ordersPage === totalPages || ordersPageLoading}
+                  className="px-4 py-2 rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors font-medium"
+                >
+                  Next →
+                </button>
               </div>
             )}
           </div>

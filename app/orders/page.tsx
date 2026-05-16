@@ -170,20 +170,6 @@ export default function OrdersPage(): React.JSX.Element {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [dispatch, page, pageSize, statusFilter, query, fullState.refreshCounter]);
 
-  // Auto-refresh orders every 5 seconds to keep progress bar updated
-  useEffect(() => {
-    // Only set up polling if there are active orders (not all delivered/cancelled)
-    const hasActiveOrders = orders.some(o => o.status !== "Delivered" && o.status !== "Cancelled");
-    
-    if (!hasActiveOrders) return;
-
-    const interval = setInterval(() => {
-      dispatch(fetchOrders());
-    }, 5000); // Refresh every 5 seconds
-
-    return () => clearInterval(interval);
-  }, [orders, dispatch]);
-
   // sync error message from state
   useEffect(() => {
     if (errorFromState) setErrorMessage(errorFromState);
