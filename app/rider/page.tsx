@@ -373,11 +373,17 @@ export default function RiderMapPage(): React.ReactElement {
                 ] as const).map(({ id, label, icon: Icon }) => {
                     let count = 0;
                     if (id === 'my_pickups') {
-                      count = displayOrders.filter(o => ['assigned_pickup', 'picked'].includes(o.status)).length;
+                      count = displayOrders.filter(o => 
+                        ['assigned_pickup', 'picked'].includes(o.status) ||
+                        (o.pickup_rider?.id === currentUserId)
+                      ).length;
                     } else if (id === 'in_progress') {
                       count = displayOrders.filter(o => ['picked', 'in_progress', 'washed', 'folded'].includes(o.status)).length;
                     } else if (id === 'ready_delivery') {
-                      count = displayOrders.filter(o => ['ready', 'assigned_delivery'].includes(o.status)).length;
+                      count = displayOrders.filter(o => 
+                        ['ready', 'assigned_delivery'].includes(o.status) ||
+                        (o.delivery_rider?.id === currentUserId)
+                      ).length;
                     } else if (id === 'completed') {
                       count = displayOrders.filter(o => o.status === 'delivered').length;
                     }

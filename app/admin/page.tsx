@@ -394,9 +394,25 @@ export default function AdminPage(): React.ReactElement {
     }
   }, []);
 
-  const handleRiderAssignment = useCallback(async (orderId: number, riderId: number) => {
+  const handleRiderAssignment = useCallback(async (orderId: number, riderId: number, orderStatus?: string) => {
     try {
-      await client.patch(`/orders/update/?id=${orderId}`, { rider: riderId });
+      // Determine if this is a pickup or delivery rider assignment based on order status
+      const payload: any = {};
+      
+      // Default to pickup_rider for most statuses
+      if (!orderStatus || ['requested', 'pending_assignment', 'assigned_pickup', 'picked', 'in_progress', 'washed', 'folded'].includes(orderStatus)) {
+        payload.pickup_rider = riderId;
+      } 
+      // Use delivery_rider for ready and delivery stages
+      else if (['ready', 'pending_delivery', 'assigned_delivery'].includes(orderStatus)) {
+        payload.delivery_rider = riderId;
+      } 
+      // Fallback to old rider field for compatibility
+      else {
+        payload.rider = riderId;
+      }
+      
+      await client.patch(`/orders/update/?id=${orderId}`, payload);
       setUserActionSuccess('Rider assigned successfully');
       dispatch(fetchOrders());
       setTimeout(() => setUserActionSuccess(null), 3000);
@@ -909,7 +925,7 @@ export default function AdminPage(): React.ReactElement {
                             <span className="text-green-600 dark:text-green-400">✓</span>
                           </div>
                         ) : (o.status === 'requested' || o.status === 'pending_assignment') ? (
-                          <InlineAssignRiderButton order={o} users={users} onAssign={handleRiderAssignment} />
+                          <InlineAssignRiderButton order={o} users={users} onAssign={(orderId, riderId) => handleRiderAssignment(orderId, riderId, o.status)} />
                         ) : (
                           <span className="text-slate-500">—</span>
                         )}
@@ -2159,7 +2175,7 @@ function AssignRiderButton({ order, users, onAssign }: { order: Order; users: Us
 }
 
 // Inline variant for Rider column - shows dropdown directly in table cell
-function InlineAssignRiderButton({ order, users, onAssign }: { order: Order; users: User[]; onAssign: (orderId: number, riderId: number) => void }) {
+function InlineAssignRiderButton({ order, users, onAssign }: { order: Order; users: User[]; onAssign: (orderId: number, riderId: number, status?: string) => void }) {
   const [selectedRider, setSelectedRider] = useState<string>('');
   const [isAssigning, setIsAssigning] = useState(false);
 
