@@ -91,11 +91,12 @@ export default function RiderMapPage(): React.ReactElement {
 
 
 
-  // Get authentication token
+  // Get authentication token and user ID
   const authState = JSON.parse(
     typeof window !== 'undefined' ? localStorage.getItem('wildwash_auth_state') || '{}' : '{}'
   );
   const token = authState.token || null;
+  const currentUserId = authState.user?.id || null;
 
   // Use background polling for orders - smart updates without page reload
   const orders = useBackgroundOrderPolling(token, true, 60000); // 60 second default interval
@@ -308,8 +309,10 @@ export default function RiderMapPage(): React.ReactElement {
     switch (currentTab) {
       case 'my_pickups':
         // Pickup rider: orders assigned to them for pickup
+        // Include orders with assigned_pickup or picked status, OR where user is pickup_rider
         filtered = orders.filter((o) => 
-          ['assigned_pickup', 'picked'].includes(o.status)
+          ['assigned_pickup', 'picked'].includes(o.status) ||
+          (o.pickup_rider?.id === currentUserId)
         );
         break;
       
@@ -323,8 +326,10 @@ export default function RiderMapPage(): React.ReactElement {
       
       case 'ready_delivery':
         // Delivery rider: orders ready and assigned to them for delivery
+        // Include orders with ready or assigned_delivery status, OR where user is delivery_rider
         filtered = orders.filter((o) => 
-          ['ready', 'assigned_delivery'].includes(o.status)
+          ['ready', 'assigned_delivery'].includes(o.status) ||
+          (o.delivery_rider?.id === currentUserId)
         );
         break;
       
@@ -343,7 +348,7 @@ export default function RiderMapPage(): React.ReactElement {
       const dateB = new Date(b.created_at || 0).getTime();
       return dateB - dateA; // Descending order (latest first)
     });
-  }, [orders, currentTab]);
+  }, [orders, currentTab, currentUserId]);
 
 
 
