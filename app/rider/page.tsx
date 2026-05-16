@@ -408,7 +408,7 @@ export default function RiderMapPage(): React.ReactElement {
 
               {loadingOrders ? (
                 <div className="py-8 text-center text-slate-500">
-                  <div className="animate-pulse mb-4">⏳ Loading orders...</div>
+                  <div className="animate-pulse mb-4">Loading orders...</div>
                   <div className="space-y-3">
                     {[1, 2, 3].map(i => (
                       <div key={i} className="h-24 bg-slate-100 dark:bg-slate-700 rounded-lg" />
