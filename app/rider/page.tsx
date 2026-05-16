@@ -304,7 +304,7 @@ export default function RiderMapPage(): React.ReactElement {
   const filteredOrders = useMemo(() => {
     if (!orders) return [];
     
-    let filtered: Order[] = [];
+    let filtered: any[] = [];
     
     switch (currentTab) {
       case 'my_pickups':
