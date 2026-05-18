@@ -99,6 +99,9 @@ export default function RiderMapPage(): React.ReactElement {
   // Try multiple possible auth state structures
   const currentUserId = authState.user?.id || authState.userId || authState.id || null;
   
+  // Use background polling for orders - smart updates without page reload
+  const orders = useBackgroundOrderPolling(token, true, 60000); // 60 second default interval
+  
   // Debug: Log currentUserId and first order's pickup_rider for comparison
   useEffect(() => {
     if (orders && orders.length > 0 && currentUserId) {
@@ -107,9 +110,6 @@ export default function RiderMapPage(): React.ReactElement {
       console.log('[RiderPage] Auth state:', authState);
     }
   }, [orders, currentUserId, authState]);
-
-  // Use background polling for orders - smart updates without page reload
-  const orders = useBackgroundOrderPolling(token, true, 60000); // 60 second default interval
 
   // Update loading state when orders arrive and capture errors
   useEffect(() => {
