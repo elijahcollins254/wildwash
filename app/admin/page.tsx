@@ -219,7 +219,11 @@ export default function AdminPage(): React.ReactElement {
   const [totalOrdersCount, setTotalOrdersCount] = useState(0);
   const [allOrders, setAllOrders] = useState<Order[]>([]);
   const [ordersPageLoading, setOrdersPageLoading] = useState(false);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [reachedEndOfOrders, setReachedEndOfOrders] = useState(false);
+  const [progressiveLoadedCount, setProgressiveLoadedCount] = useState(0);
+  const tableScrollRef = useRef<HTMLDivElement>(null);
+  const progressiveLoadTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const [statusFilter, setStatusFilter] = useState<string>('');
   const [riderFilter, setRiderFilter] = useState<string>('');
   const [locationFilter, setLocationFilter] = useState<string>('');
@@ -252,19 +256,25 @@ export default function AdminPage(): React.ReactElement {
   // Initialize Redux API client once
   useEffect(() => {
     setAdminApiClient(client);
+    
+    // Cleanup on unmount
+    return () => {
+      if (progressiveLoadTimeoutRef.current) {
+        clearTimeout(progressiveLoadTimeoutRef.current);
+      }
+    };
   }, []);
 
-  // Fetch orders with simple pagination (only current page, no accumulation)
-  const fetchOrdersPage = useCallback(async (page: number) => {
+  // Fetch orders with limit support for progressive loading
+  const fetchOrdersWithLimit = useCallback(async (limit: number) => {
     try {
-      setOrdersPageLoading(true);
       // Optimize: Request only necessary fields to reduce payload size and parsing time
+      // Using page_size instead of limit (Django's PageNumberPagination)
       const data = await client.get(
-        `/orders/?page=${page}&fields=id,code,created_at,price,total_price,status,rider,pickup_rider,delivery_rider,user,order_items`
+        `/orders/?page_size=${limit}&fields=id,code,created_at,price,total_price,status,rider,pickup_rider,delivery_rider,user,order_items`
       );
-      const paginatedData = data;
-      const list: any[] = Array.isArray(paginatedData?.results) ? paginatedData.results : [];
-      const count = paginatedData?.count || 0;
+      const list: any[] = Array.isArray(data?.results) ? data.results : [];
+      const count = data?.count || 0;
       
       setTotalOrdersCount(count);
       
@@ -274,8 +284,71 @@ export default function AdminPage(): React.ReactElement {
         raw: order
       }));
       
-      // Only keep current page orders (don't accumulate all pages)
+      // Accumulate orders (don't replace)
       setAllOrders(transformedOrders);
+      setProgressiveLoadedCount(limit);
+      return { orders: transformedOrders, total: count };
+    } catch (err: any) {
+      console.error('Error fetching orders:', err);
+      return { orders: [], total: 0 };
+    }
+  }, []);
+
+  // Progressive loading: Load 5 → 10 → 15 → 20 with delays
+  const startProgressiveLoad = useCallback(() => {
+    // Clear any pending timeouts
+    if (progressiveLoadTimeoutRef.current) {
+      clearTimeout(progressiveLoadTimeoutRef.current);
+    }
+
+    // Load 5 items immediately
+    setOrdersPageLoading(true);
+    fetchOrdersWithLimit(5).then(() => {
+      setOrdersPageLoading(false);
+
+      // Load 10 after 500ms
+      progressiveLoadTimeoutRef.current = setTimeout(async () => {
+        setIsLoadingMore(true);
+        await fetchOrdersWithLimit(10);
+        setIsLoadingMore(false);
+      }, 500);
+
+      // Load 15 after 1s
+      progressiveLoadTimeoutRef.current = setTimeout(async () => {
+        setIsLoadingMore(true);
+        await fetchOrdersWithLimit(15);
+        setIsLoadingMore(false);
+      }, 1000);
+
+      // Load 20 after 1.5s
+      progressiveLoadTimeoutRef.current = setTimeout(async () => {
+        setIsLoadingMore(true);
+        await fetchOrdersWithLimit(20);
+        setIsLoadingMore(false);
+      }, 1500);
+    });
+  }, [fetchOrdersWithLimit]);
+
+  // Legacy function for backward compatibility
+  const fetchOrdersPage = useCallback(async (page: number) => {
+    const pageSize = 25;
+    try {
+      setOrdersPageLoading(true);
+      const data = await client.get(
+        `/orders/?page=${page}&page_size=${pageSize}&fields=id,code,created_at,price,total_price,status,rider,pickup_rider,delivery_rider,user,order_items`
+      );
+      const list: any[] = Array.isArray(data?.results) ? data.results : [];
+      const count = data?.count || 0;
+      
+      setTotalOrdersCount(count);
+      
+      const transformedOrders = list.map((order: any) => ({
+        ...order,
+        raw: order
+      }));
+      
+      setAllOrders(transformedOrders);
+      setProgressiveLoadedCount(list.length);
       setOrdersPageLoading(false);
     } catch (err: any) {
       console.error('Error fetching orders page:', err);
@@ -283,13 +356,51 @@ export default function AdminPage(): React.ReactElement {
     }
   }, []);
 
+  // Progressive loading on initial mount (orders tab)
+  useEffect(() => {
+    if (activeTab === 'orders' && allOrders.length === 0) {
+      startProgressiveLoad();
+    }
+  }, [activeTab, startProgressiveLoad]);
+
+  // Infinite scroll detection - load more when user scrolls near bottom
+  useEffect(() => {
+    let isLoading = false;
+    
+    const handleScroll = () => {
+      if (!tableScrollRef.current || isLoading) return;
+      
+      const { scrollTop, scrollHeight, clientHeight } = tableScrollRef.current;
+      const isNearBottom = scrollHeight - scrollTop - clientHeight < 100;
+      
+      if (isNearBottom && progressiveLoadedCount < totalOrdersCount && activeTab === 'orders' && !isLoadingMore) {
+        // Load next batch
+        const nextLimit = Math.min(progressiveLoadedCount + 10, totalOrdersCount);
+        if (nextLimit > progressiveLoadedCount) {
+          isLoading = true;
+          setIsLoadingMore(true);
+          fetchOrdersWithLimit(nextLimit).finally(() => {
+            isLoading = false;
+            setIsLoadingMore(false);
+          });
+        }
+      }
+    };
+
+    const scrollContainer = tableScrollRef.current;
+    if (scrollContainer && activeTab === 'orders') {
+      scrollContainer.addEventListener('scroll', handleScroll);
+      return () => scrollContainer.removeEventListener('scroll', handleScroll);
+    }
+  }, [activeTab, progressiveLoadedCount, totalOrdersCount, fetchOrdersWithLimit, isLoadingMore]);
+
   // Simple pagination (not infinite scroll)
   const PAGE_SIZE = 25;
   const totalPages = Math.ceil(totalOrdersCount / PAGE_SIZE);
 
-  // Fetch current page when ordersPage changes
+  // Fetch current page when ordersPage changes (for manual pagination if needed)
   useEffect(() => {
-    if (ordersPage > 0 && ordersPage <= totalPages) {
+    if (ordersPage > 1 && ordersPage <= totalPages) {
       fetchOrdersPage(ordersPage);
     }
   }, [ordersPage, totalPages, fetchOrdersPage]);
@@ -880,7 +991,7 @@ export default function AdminPage(): React.ReactElement {
 
             {/* Show table when orders are loaded or loading is done */}
             {!(ordersLoading || ordersPageLoading) || allOrders.length > 0 ? (
-            <div className="overflow-x-auto overflow-y-auto max-h-[600px] scrollbar-thin scrollbar-thumb-gray-400 scrollbar-track-gray-100 dark:scrollbar-thumb-gray-600 dark:scrollbar-track-gray-800">
+            <div ref={tableScrollRef} className="overflow-x-auto overflow-y-auto max-h-[600px] scrollbar-thin scrollbar-thumb-gray-400 scrollbar-track-gray-100 dark:scrollbar-thumb-gray-600 dark:scrollbar-track-gray-800">
               <table className="min-w-full text-sm divide-y divide-slate-200/50 dark:divide-slate-800/50">
                 <thead className="sticky top-0 text-slate-600 dark:text-slate-400 bg-white/50 dark:bg-slate-900/50 z-10">
                   <tr>
@@ -965,6 +1076,16 @@ export default function AdminPage(): React.ReactElement {
                   )}
                 </tbody>
               </table>
+              
+              {/* Loading More Spinner */}
+              {isLoadingMore && (
+                <div className="flex justify-center items-center py-6">
+                  <div className="flex items-center gap-3">
+                    <Loader2 className="animate-spin text-red-600 w-5 h-5" />
+                    <span className="text-sm text-slate-600 dark:text-slate-400">Loading more orders...</span>
+                  </div>
+                </div>
+              )}
             </div>
             ) : null}
 
