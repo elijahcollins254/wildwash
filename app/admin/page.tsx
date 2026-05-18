@@ -258,7 +258,10 @@ export default function AdminPage(): React.ReactElement {
   const fetchOrdersPage = useCallback(async (page: number) => {
     try {
       setOrdersPageLoading(true);
-      const data = await client.get(`/orders/?page=${page}`);
+      // Optimize: Request only necessary fields to reduce payload size and parsing time
+      const data = await client.get(
+        `/orders/?page=${page}&fields=id,code,created_at,price,total_price,status,rider,pickup_rider,delivery_rider,user,order_items`
+      );
       const paginatedData = data;
       const list: any[] = Array.isArray(paginatedData?.results) ? paginatedData.results : [];
       const count = paginatedData?.count || 0;

@@ -1,0 +1,138 @@
+Optimized tool selectionLooking at your admin page code, here are **high-impact optimizations** you can implement: 
+
+Created 2 todos
+
+## Key Performance Bottlenecks & Solutions
+
+**1. API Response Optimization** (Biggest impact)
+```typescript
+// Currently: fetching ALL order fields
+// Problem: Unnecessary data transmission and parsing
+
+// Solution: Request only needed fields
+const fetchOrdersPage = useCallback(async (page: number) => {
+  try {
+    setOrdersPageLoading(true);
+    // Add query params to limit fields returned from API
+    const data = await client.get(
+      `/orders/?page=${page}&fields=id,code,created_at,price,status,rider,order_items`
+    );
+    // ... rest of code
+  }
+}, []);
+```
+
+**2. Virtual Scrolling** (Eliminates DOM bloat)
+Install `react-window`:
+```bash
+npm install react-window
+```
+Then replace your table with virtualized rendering for the 600px max-height table.
+
+**3. Debounce Search/Filters** (Prevent excessive filtering)
+```typescript
+const [searchQuery, setSearchQuery] = useState<string>('');
+const debouncedSearchQuery = useDebounce(searchQuery, 500); // 500ms delay
+
+// Update filteredOrders dependency to use debouncedSearchQuery instead
+const filteredOrders = useMemo(() => {
+  // ... use debouncedSearchQuery
+}, [displayOrders, statusFilter, riderFilter, locationFilter, debouncedSearchQuery, ...]);
+```
+
+**4. Don't Load Locations on Orders Tab** (Remove unnecessary parallel load)
+```typescript
+// Currently: fetchLocations() loads even if user never clicks Riders tab
+// Change to only load when Riders tab is clicked
+useEffect(() => {
+  const loadInitialData = async () => {
+    await Promise.all([
+      fetchOrdersPage(1).then(() => {
+        setOrdersPage(1);
+        loadedTabsRef.current.add('orders');
+      }),
+      // Remove this - let it lazy load with Riders tab
+      // dispatch(fetchLocations()).unwrap().catch(() => {...}),
+      
+      dispatch(fetchUsers()).unwrap().catch(() => {
+        loadedTabsRef.current.add('users');
+      })
+    ]);
+  };
+  loadInitialData();
+}, [dispatch, fetchOrdersPage]);
+```
+
+**5. Reduce Initial Page Size** (Load less data initially)
+```typescript
+const PAGE_SIZE = 10; // Change from 25 to 10 for faster first load
+// Users can paginate if they need more
+```
+
+**6. Cache Order Transformations**
+```typescript
+const transformedOrdersCache = useRef(new Map());
+
+const fetchOrdersPage = useCallback(async (page: number) => {
+  // Check cache first
+  if (transformedOrdersCache.current.has(page)) {
+    setAllOrders(transformedOrdersCache.current.get(page));
+    return;
+  }
+  // ... fetch and cache
+}, []);
+```
+
+**7. Memoize Filter Functions**
+```typescript
+const getRiderName = useCallback((rider: any): string => {
+  return getRiderNameHelper(rider);
+}, []); // Currently has no deps - good, but verify it's truly memoized
+
+// Add to memoization:
+const calculateOrderPrice = useCallback((order: any): number => {
+  if (order.order_items && Array.isArray(order.order_items) && order.order_items.length > 0) {
+    return order.order_items.reduce((total: number, item: any) => {
+      const itemPrice = Number(item.service_price ?? 0);
+      const quantity = Number(item.quantity ?? 1);
+      return total + (itemPrice * quantity);
+    }, 0);
+  }
+  return Number(order.total_price ?? order.price ?? order.price_display ?? 0);
+}, []);
+```
+
+**8. Request Cancellation** (Stop stale requests)
+```typescript
+const abortControllerRef = useRef<AbortController | null>(null);
+
+const fetchOrdersPage = useCallback(async (page: number) => {
+  // Cancel previous request
+  if (abortControllerRef.current) {
+    abortControllerRef.current.abort();
+  }
+  abortControllerRef.current = new AbortController();
+  
+  try {
+    setOrdersPageLoading(true);
+    const data = await client.get(`/orders/?page=${page}`, {
+      signal: abortControllerRef.current.signal
+    });
+    // ...
+  } catch (err: any) {
+    if (err.name !== 'AbortError') {
+      console.error('Error fetching orders page:', err);
+    }
+    setOrdersPageLoading(false);
+  }
+}, []);
+```
+
+## Quick Priority List
+1. **Add API field filtering** - 30-40% faster
+2. **Reduce PAGE_SIZE to 10** - Instant improvement
+3. **Remove locations from initial load** - 20-30% faster
+4. **Debounce filters** - Prevents lag during typing
+5. **Virtual scrolling** (if you have 100+ items) - Smoother scrolling
+
+Which of these would you like me to implement in your code?
