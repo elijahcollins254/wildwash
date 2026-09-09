@@ -1,9 +1,7 @@
 'use client';
 import React, { useEffect, useState, useMemo } from "react";
+import dynamic from "next/dynamic";
 import { useRouter } from "next/navigation";
-import { MapContainer, Marker, TileLayer, useMap, useMapEvents } from "react-leaflet";
-import L from "leaflet";
-import "leaflet/dist/leaflet.css";
 import { getStoredAuthState } from "@/lib/auth";
 import { useAppSelector } from "@/redux/hooks";
 import { selectCartItems } from "@/redux/features/cartSlice";
@@ -20,27 +18,10 @@ const API_BASE = process.env.NEXT_PUBLIC_API_BASE ?? ""; // empty = same origin
 
 const DEFAULT_PICKUP_POSITION: [number, number] = [-1.286389, 36.817223];
 
-function PickupPin({ position, onChange }: { position: [number, number]; onChange: (position: [number, number]) => void }) {
-  useMapEvents({
-    click(event) {
-      onChange([event.latlng.lat, event.latlng.lng]);
-    },
-  });
-
-  return <Marker position={position} draggable eventHandlers={{ dragend: (event) => {
-    const marker = event.target as L.Marker;
-    const location = marker.getLatLng();
-    onChange([location.lat, location.lng]);
-  }}} />;
-}
-
-function RecenterMap({ position }: { position: [number, number] }) {
-  const map = useMap();
-  useEffect(() => {
-    map.setView(position);
-  }, [map, position]);
-  return null;
-}
+const PickupMap = dynamic(() => import("../../components/PickupMap"), {
+  ssr: false,
+  loading: () => <div className="h-64 w-full animate-pulse bg-slate-100 dark:bg-slate-700" />,
+});
 
 import RouteGuard from "../../components/RouteGuard";
 
@@ -396,6 +377,7 @@ export default function Page() {
         setDropoffAddress("");
         setSameAsPickup(false);
         setDeliveryHours(72);
+        setPickupPosition(null);
         setFieldErrors({}); // Clear all validation errors
         
         // Redirect to orders page after a short delay
@@ -478,31 +460,34 @@ export default function Page() {
                 <div>
                   <div className="flex items-center justify-between mb-1">
                     <label className="block text-xs text-slate-500">Pin exact pickup location</label>
-                    <button
-                      type="button"
-                      onClick={() => navigator.geolocation?.getCurrentPosition(
-                        ({ coords }) => setPickupPosition([coords.latitude, coords.longitude]),
-                        () => setMessage("Unable to access your location. You can tap the map to place the pin.")
+                    <div className="flex items-center gap-3">
+                      <button
+                        type="button"
+                        onClick={() => navigator.geolocation?.getCurrentPosition(
+                          ({ coords }) => setPickupPosition([coords.latitude, coords.longitude]),
+                          () => setMessage("Unable to access your location. You can tap the map to place the pin.")
+                        )}
+                        className="text-xs font-medium text-red-600 hover:text-red-500"
+                      >
+                        Use my location
+                      </button>
+                      {pickupPosition && (
+                        <button
+                          type="button"
+                          onClick={() => setPickupPosition(null)}
+                          className="text-xs font-medium text-slate-500 hover:text-slate-700 dark:hover:text-slate-300"
+                        >
+                          Clear pin
+                        </button>
                       )}
-                      className="text-xs font-medium text-red-600 hover:text-red-500"
-                    >
-                      Use my location
-                    </button>
+                    </div>
                   </div>
                   <div className="overflow-hidden rounded-lg border border-slate-200 dark:border-slate-600">
-                    <MapContainer
-                      center={pickupPosition || DEFAULT_PICKUP_POSITION}
-                      zoom={pickupPosition ? 16 : 12}
-                      scrollWheelZoom
-                      className="h-64 w-full"
-                    >
-                      <TileLayer
-                        attribution='&copy; OpenStreetMap contributors'
-                        url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-                      />
-                      {pickupPosition && <PickupPin position={pickupPosition} onChange={setPickupPosition} />}
-                      <RecenterMap position={pickupPosition || DEFAULT_PICKUP_POSITION} />
-                    </MapContainer>
+                    <PickupMap
+                      position={pickupPosition || DEFAULT_PICKUP_POSITION}
+                      hasPin={pickupPosition !== null}
+                      onChange={setPickupPosition}
+                    />
                   </div>
                   <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
                     Tap the map or drag the pin to mark where the rider should collect your items.
@@ -776,6 +761,7 @@ export default function Page() {
                 setDropoffAddress("");
                 setSameAsPickup(false);
                 setDeliveryHours(72);
+                setPickupPosition(null);
                 setFieldErrors({}); // Clear validation errors
                 resetMessage();
               }} 
