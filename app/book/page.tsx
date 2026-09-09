@@ -1,6 +1,9 @@
 'use client';
 import React, { useEffect, useState, useMemo } from "react";
 import { useRouter } from "next/navigation";
+import { MapContainer, Marker, TileLayer, useMap, useMapEvents } from "react-leaflet";
+import L from "leaflet";
+import "leaflet/dist/leaflet.css";
 import { getStoredAuthState } from "@/lib/auth";
 import { useAppSelector } from "@/redux/hooks";
 import { selectCartItems } from "@/redux/features/cartSlice";
@@ -14,6 +17,30 @@ function getCookie(name: string) {
 }
 
 const API_BASE = process.env.NEXT_PUBLIC_API_BASE ?? ""; // empty = same origin
+
+const DEFAULT_PICKUP_POSITION: [number, number] = [-1.286389, 36.817223];
+
+function PickupPin({ position, onChange }: { position: [number, number]; onChange: (position: [number, number]) => void }) {
+  useMapEvents({
+    click(event) {
+      onChange([event.latlng.lat, event.latlng.lng]);
+    },
+  });
+
+  return <Marker position={position} draggable eventHandlers={{ dragend: (event) => {
+    const marker = event.target as L.Marker;
+    const location = marker.getLatLng();
+    onChange([location.lat, location.lng]);
+  }}} />;
+}
+
+function RecenterMap({ position }: { position: [number, number] }) {
+  const map = useMap();
+  useEffect(() => {
+    map.setView(position);
+  }, [map, position]);
+  return null;
+}
 
 import RouteGuard from "../../components/RouteGuard";
 
@@ -33,6 +60,7 @@ export default function Page() {
   const [customerNote, setCustomerNote] = useState<string>('');
   const [summaryExpanded, setSummaryExpanded] = useState<boolean>(false);
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
+  const [pickupPosition, setPickupPosition] = useState<[number, number] | null>(null);
 
   const cartItems = useAppSelector(selectCartItems);
   const cartServiceIds = useMemo(() => cartItems.map(item => item.id), [cartItems]);
@@ -182,6 +210,9 @@ export default function Page() {
       // Prefill pickup address if available
       if (data?.pickup_address && !pickupBuilding) {
         setPickupBuilding(data.pickup_address);
+      }
+      if (data?.pickup_latitude != null && data?.pickup_longitude != null) {
+        setPickupPosition([Number(data.pickup_latitude), Number(data.pickup_longitude)]);
       }
       // Prefill dropoff address from location if available and different from pickup
       if (data?.location && !dropoffAddress && data.location !== data?.pickup_address) {
@@ -334,6 +365,10 @@ export default function Page() {
         services: cartServiceIds,
         service_quantities: cartItems.map(item => ({ service_id: item.id, quantity: item.quantity || 1 })),
         pickup_address: pickupBuilding + (pickupContact ? ` (contact: ${pickupContact})` : ""),
+        ...(pickupPosition ? {
+          pickup_latitude: pickupPosition[0],
+          pickup_longitude: pickupPosition[1],
+        } : {}),
         dropoff_address: sameAsPickup ? pickupBuilding : dropoffAddress,
         urgency: calculatePriceMultiplier(effectiveDeliveryHours) === 2.0 ? 3 : calculatePriceMultiplier(effectiveDeliveryHours) === 1.3 ? 2 : 1, // Convert hours to urgency level
         // These fields might not be needed for a 'booking' vs an 'order'
@@ -438,6 +473,40 @@ export default function Page() {
                       <p className="mt-1 text-xs text-red-600 dark:text-red-400">{fieldErrors.pickupContact}</p>
                     )}
                   </div>
+                </div>
+
+                <div>
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="block text-xs text-slate-500">Pin exact pickup location</label>
+                    <button
+                      type="button"
+                      onClick={() => navigator.geolocation?.getCurrentPosition(
+                        ({ coords }) => setPickupPosition([coords.latitude, coords.longitude]),
+                        () => setMessage("Unable to access your location. You can tap the map to place the pin.")
+                      )}
+                      className="text-xs font-medium text-red-600 hover:text-red-500"
+                    >
+                      Use my location
+                    </button>
+                  </div>
+                  <div className="overflow-hidden rounded-lg border border-slate-200 dark:border-slate-600">
+                    <MapContainer
+                      center={pickupPosition || DEFAULT_PICKUP_POSITION}
+                      zoom={pickupPosition ? 16 : 12}
+                      scrollWheelZoom
+                      className="h-64 w-full"
+                    >
+                      <TileLayer
+                        attribution='&copy; OpenStreetMap contributors'
+                        url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+                      />
+                      {pickupPosition && <PickupPin position={pickupPosition} onChange={setPickupPosition} />}
+                      <RecenterMap position={pickupPosition || DEFAULT_PICKUP_POSITION} />
+                    </MapContainer>
+                  </div>
+                  <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+                    Tap the map or drag the pin to mark where the rider should collect your items.
+                  </p>
                 </div>
 
                 <div id="error-services">
