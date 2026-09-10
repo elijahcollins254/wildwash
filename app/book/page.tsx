@@ -290,6 +290,11 @@ export default function Page() {
       if (pickupBuilding.trim()) {
         profileUpdate.pickup_address = pickupBuilding;
       }
+
+      if (pickupPosition) {
+        profileUpdate.pickup_latitude = pickupPosition[0];
+        profileUpdate.pickup_longitude = pickupPosition[1];
+      }
       
       // Save dropoff address as the location if it's different from pickup
       if (!sameAsPickup && dropoffAddress.trim()) {

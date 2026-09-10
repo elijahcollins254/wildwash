@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import dynamic from "next/dynamic";
 import { useDispatch, useSelector } from "react-redux";
 import { useRouter } from "next/navigation";
 import { FiAlertTriangle } from "react-icons/fi";
@@ -18,6 +19,8 @@ type UserProfile = {
   last_name: string;
   location: string;
   pickup_address?: string;
+  pickup_latitude?: number | null;
+  pickup_longitude?: number | null;
 }
 
 type ServiceLocation = {
@@ -63,6 +66,9 @@ type OffersSubscription = {
   updated_at: string;
 }
 
+const DEFAULT_PICKUP_POSITION: [number, number] = [-1.286389, 36.817223];
+const PickupMap = dynamic(() => import("@/components/PickupMap"), { ssr: false });
+
 export default function ProfilePage() {
   const router = useRouter();
   const dispatch = useDispatch();
@@ -72,6 +78,7 @@ export default function ProfilePage() {
   const [saving, setSaving] = useState(false);
   const [editMode, setEditMode] = useState(false);
   const [formData, setFormData] = useState<Partial<UserProfile>>({});
+  const [pickupPosition, setPickupPosition] = useState<[number, number] | null>(null);
   const [locations, setLocations] = useState<ServiceLocation[]>([]);
   const [loadingLocations, setLoadingLocations] = useState(false);
   const [userOffers, setUserOffers] = useState<UserOffer[]>([]);
@@ -212,6 +219,9 @@ export default function ProfilePage() {
       const data = await client.get('/users/me/');
       setProfile(data);
       setFormData(data);
+      if (data.pickup_latitude != null && data.pickup_longitude != null) {
+        setPickupPosition([Number(data.pickup_latitude), Number(data.pickup_longitude)]);
+      }
       // Update profile completion status based on API response
       if (data.profile_complete) {
         setIsProfileComplete(true);
@@ -229,7 +239,11 @@ export default function ProfilePage() {
     setError(null);
 
     try {
-      const data = await client.patch('/users/me/', formData);
+      const data = await client.patch('/users/me/', {
+        ...formData,
+        pickup_latitude: pickupPosition?.[0] ?? null,
+        pickup_longitude: pickupPosition?.[1] ?? null,
+      });
       setProfile(data);
       setEditMode(false);
       
@@ -387,6 +401,29 @@ export default function ProfilePage() {
                     className="w-full rounded-md border dark:border-slate-800 bg-white dark:bg-slate-900 px-3 py-2 text-sm disabled:opacity-60 disabled:cursor-not-allowed resize-none"
                   />
                   <p className="text-xs text-slate-400 mt-1">This address will be pre-filled when you book a pickup, but you can change it anytime.</p>
+                </div>
+
+                <div className="md:col-span-2">
+                  <div className="flex items-center justify-between mb-2">
+                    <label className="block text-xs font-semibold text-slate-600 dark:text-slate-300">Default Pickup Pin</label>
+                    {pickupPosition && (
+                      <button
+                        type="button"
+                        onClick={() => setPickupPosition(null)}
+                        className="text-xs text-slate-500 hover:text-slate-700 dark:hover:text-slate-300"
+                      >
+                        Clear pin
+                      </button>
+                    )}
+                  </div>
+                  <div className="overflow-hidden rounded-lg border border-slate-200 dark:border-slate-700">
+                    <PickupMap
+                      position={pickupPosition || DEFAULT_PICKUP_POSITION}
+                      hasPin={pickupPosition !== null}
+                      onChange={setPickupPosition}
+                    />
+                  </div>
+                  <p className="text-xs text-slate-400 mt-1">Click the map or drag the marker to save the exact place riders should collect your items.</p>
                 </div>
               </div>
 
