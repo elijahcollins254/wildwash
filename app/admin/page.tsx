@@ -1004,7 +1004,7 @@ export default function AdminPage(): React.ReactElement {
                     <th className="text-left py-3 px-4 font-medium">Rider</th>
                     <th className="text-right py-3 px-4 font-medium">Price (KSh)</th>
                     <th className="text-right py-3 px-4 font-medium">Date</th>
-                    <th className="text-left py-3 px-4 font-medium">Details</th>
+                    <th className="text-left py-3 px-4 font-medium">Actions</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-200/50 dark:divide-slate-800/50">
@@ -1051,16 +1051,25 @@ export default function AdminPage(): React.ReactElement {
                       </td>
                       <td className="py-3 px-4 text-right text-slate-500">{o.created_at?.split?.("T")?.[0] ?? "—"}</td>
                       <td className="py-3 px-4">
-                        <button
-                          onClick={() => {
-                            setSelectedOrderForDetails(o);
-                            setStaffDetailsModalOpen(true);
-                          }}
-                          className="p-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200"
-                          title="View staff input details"
-                        >
-                          <Eye className="w-5 h-5" />
-                        </button>
+                        <div className="flex items-center gap-2">
+                          <button
+                            onClick={() => {
+                              setSelectedOrderForDetails(o);
+                              setStaffDetailsModalOpen(true);
+                            }}
+                            className="p-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200"
+                            title="View staff input details"
+                          >
+                            <Eye className="w-5 h-5" />
+                          </button>
+                          <Link
+                            href="/staff/admin"
+                            className="inline-flex items-center rounded-lg bg-red-600 px-3 py-2 text-xs font-semibold text-white transition-colors hover:bg-red-700"
+                            title="Open the staff order tools"
+                          >
+                            View as staff
+                          </Link>
+                        </div>
                       </td>
                     </tr>
                   ))}

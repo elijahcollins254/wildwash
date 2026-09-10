@@ -22,7 +22,7 @@ function debounce(fn: Function, ms: number) {
 type Order = Record<string, any>;
 
 interface StaffRoleDashboardProps {
-  staffRole: 'washer' | 'folder' | 'fumigator' | 'staff';
+  staffRole: 'washer' | 'folder' | 'fumigator' | 'staff' | 'admin';
 }
 
 const ROLE_CONFIG = {
@@ -46,6 +46,12 @@ const ROLE_CONFIG = {
   },
   staff: {
     title: 'Staff Dashboard',
+    statusAction: null,
+    targetStatus: null,
+    color: 'slate'
+  },
+  admin: {
+    title: 'Admin Staff Dashboard',
     statusAction: null,
     targetStatus: null,
     color: 'slate'
@@ -542,6 +548,7 @@ export default function StaffRoleDashboard({ staffRole }: StaffRoleDashboardProp
                             folder: { price: 'folder_price', items: 'folder_items', notes: 'folder_notes', weight: 'folder_weight' },
                             fumigator: { price: 'fumigator_price', items: 'fumigator_items', notes: 'fumigator_notes', weight: 'fumigator_weight' },
                             staff: { price: 'staff_price', items: 'staff_items', notes: 'staff_notes', weight: 'staff_weight' },
+                            admin: { price: 'staff_price', items: 'staff_items', notes: 'staff_notes', weight: 'staff_weight' },
                           };
                           
                           const rolePrice = o[roleFieldMap[staffRole]?.price];
@@ -832,6 +839,7 @@ export default function StaffRoleDashboard({ staffRole }: StaffRoleDashboardProp
                         folder: { price: 'folder_price', items: 'folder_items', notes: 'folder_notes', weight: 'folder_weight' },
                         fumigator: { price: 'fumigator_price', items: 'fumigator_items', notes: 'fumigator_notes', weight: 'fumigator_weight' },
                         staff: { price: 'staff_price', items: 'staff_items', notes: 'staff_notes', weight: 'staff_weight' },
+                        admin: { price: 'staff_price', items: 'staff_items', notes: 'staff_notes', weight: 'staff_weight' },
                       };
                       
                       const fieldMap = roleFieldMap[staffRole];
