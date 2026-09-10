@@ -2,6 +2,12 @@
 
 import { useEffect, useRef, useState } from "react";
 
+declare global {
+  interface Window {
+    google?: any;
+  }
+}
+
 type PickupMapProps = {
   position: [number, number];
   hasPin: boolean;
