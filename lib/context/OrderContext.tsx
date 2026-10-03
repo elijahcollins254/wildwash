@@ -47,6 +47,7 @@ export interface OrderContextType {
   
   // Manual refresh
   refetchOrders: () => Promise<void>;
+  loadMoreOrders: () => Promise<void>;
   
   // Role-specific method
   fetchOrdersForRole: (staffRole: 'washer' | 'folder' | 'fumigator' | 'staff' | 'admin' | 'rider') => Promise<void>;
@@ -75,19 +76,24 @@ export const OrderProvider: React.FC<OrderProviderProps> = ({ children }) => {
   const [searchQuery, setSearchQuery] = useState('');
   
   // Refs for smart caching and polling
-  const cacheRef = useRef<{ orders: Order[]; timestamp: number; filters: any }>({
+  const cacheRef = useRef<{ orders: Order[]; count: number; timestamp: number; filters: any }>({
     orders: [],
+    count: 0,
     timestamp: 0,
     filters: {}
   });
   const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const debounceTimerRef = useRef<NodeJS.Timeout | null>(null);
   const lastFetchTimeRef = useRef<number>(0);
+  const currentPageRef = useRef(1);
+  const requestIdRef = useRef(0);
+  const filtersInitializedRef = useRef(false);
 
   /**
    * Fetch orders with filters - uses backend filtering for speed
    */
-  const fetchOrders = useCallback(async (page = 1, useCache = false) => {
+  const fetchOrders = useCallback(async (page = 1, useCache = false, append = false) => {
+    const requestId = ++requestIdRef.current;
     try {
       // Check cache validity (5 minute TTL) - only use cache on initial load
       const cacheAge = Date.now() - cacheRef.current.timestamp;
@@ -97,7 +103,8 @@ export const OrderProvider: React.FC<OrderProviderProps> = ({ children }) => {
       if (useCache && cacheAge < 300000 && !filterChanged && cacheRef.current.orders.length > 0) {
         console.log('[OrderContext] Using cached orders');
         setOrders(cacheRef.current.orders);
-        setTotalOrdersCount(cacheRef.current.orders.length);
+        setTotalOrdersCount(cacheRef.current.count);
+        currentPageRef.current = 1;
         return;
       }
 
@@ -115,34 +122,35 @@ export const OrderProvider: React.FC<OrderProviderProps> = ({ children }) => {
       const endpoint = `/orders/?${params.toString()}`;
       console.log('[OrderContext] Fetching from:', endpoint);
 
-      // Small delay to allow backend to process recent changes
-      await new Promise(resolve => setTimeout(resolve, 150));
-
       const data = await client.get(endpoint);
       const list = Array.isArray(data?.results) ? data.results : [];
       const count = data?.count || 0;
 
-      // Cache the results
-      cacheRef.current = {
-        orders: list,
-        timestamp: Date.now(),
-        filters: { statusFilter, riderFilter, searchQuery }
-      };
+      if (requestId !== requestIdRef.current) return;
 
-      // Force state update with new orders
-      setOrders([...list]); // Spread ensures a new array reference for React
+      if (!append) {
+        cacheRef.current = {
+          orders: list,
+          count,
+          timestamp: Date.now(),
+          filters: { statusFilter, riderFilter, searchQuery }
+        };
+      }
+
+      setOrders(currentOrders => append ? [...currentOrders, ...list] : [...list]);
       setTotalOrdersCount(count);
+      currentPageRef.current = page;
       lastFetchTimeRef.current = Date.now();
       
       console.log('[OrderContext] Orders updated:', list.length, 'items');
 
     } catch (err: any) {
+      if (requestId !== requestIdRef.current) return;
       console.error('[OrderContext] Fetch error:', err);
       setError(err?.message || 'Failed to load orders');
-      // Clear cache on error to force fresh fetch next time
-      cacheRef.current = { orders: [], timestamp: 0, filters: {} };
+      cacheRef.current = { orders: [], count: 0, timestamp: 0, filters: {} };
     } finally {
-      setIsLoading(false);
+      if (requestId === requestIdRef.current) setIsLoading(false);
     }
   }, [statusFilter, riderFilter, searchQuery]);
 
@@ -181,10 +189,15 @@ export const OrderProvider: React.FC<OrderProviderProps> = ({ children }) => {
    */
   const refetchOrders = useCallback(async () => {
     // Clear cache to force fresh fetch
-    cacheRef.current = { orders: [], timestamp: 0, filters: {} };
+    cacheRef.current = { orders: [], count: 0, timestamp: 0, filters: {} };
     console.log('[OrderContext] Cache cleared for manual refresh');
     await fetchOrders(1, false);
   }, [fetchOrders]);
+
+  const loadMoreOrders = useCallback(async () => {
+    if (isLoading || orders.length >= totalOrdersCount) return;
+    await fetchOrders(currentPageRef.current + 1, false, true);
+  }, [fetchOrders, isLoading, orders.length, totalOrdersCount]);
 
   // Initial load
   useEffect(() => {
@@ -193,6 +206,10 @@ export const OrderProvider: React.FC<OrderProviderProps> = ({ children }) => {
 
   // Fetch when filters change (debounced)
   useEffect(() => {
+    if (!filtersInitializedRef.current) {
+      filtersInitializedRef.current = true;
+      return;
+    }
     debouncedFetch();
   }, [statusFilter, riderFilter, searchQuery, debouncedFetch]);
 
@@ -241,6 +258,7 @@ export const OrderProvider: React.FC<OrderProviderProps> = ({ children }) => {
     setSearchQuery,
     resetFilters,
     refetchOrders,
+    loadMoreOrders,
     fetchOrdersForRole,
   };
 

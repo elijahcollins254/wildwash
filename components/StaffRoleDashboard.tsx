@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useState, useCallback, useMemo, useRef } from "react";
+import React, { useEffect, useState, useCallback, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import Link from 'next/link';
 import { client } from '@/lib/api/client';
@@ -76,6 +76,7 @@ export default function StaffRoleDashboard({ staffRole }: StaffRoleDashboardProp
     setSearchQuery,
     resetFilters,
     refetchOrders,
+    loadMoreOrders,
   } = useOrders();
   
   // Local state
@@ -164,22 +165,16 @@ export default function StaffRoleDashboard({ staffRole }: StaffRoleDashboardProp
     }
   }, [createOrderForm, refetchOrders, staffRole]);
 
-  // Track loaded data sections to avoid re-fetching
-  const loadedSectionsRef = useRef<Set<string>>(new Set());
-  const observerTarget = useRef<HTMLDivElement>(null);
-  
-  // Pagination state (removed infinite scroll, using simple pagination)
-  const [currentPage, setCurrentPage] = useState(1);
-  
   // Compute if there are more pages to load
   const hasMore = orders.length < totalOrdersCount && totalOrdersCount > 0;
 
-  // Simple pagination handler (no infinite scroll complexity)
   const loadMore = useCallback(() => {
     if (hasMore && !ordersLoading) {
-      setCurrentPage(prev => prev + 1);
+      return loadMoreOrders().then(() => {
+        setDisplayLimit(prev => prev + 20);
+      });
     }
-  }, [hasMore, ordersLoading]);
+  }, [hasMore, loadMoreOrders, ordersLoading]);
 
   // Initialize: fetch profile once on mount
   useEffect(() => {
@@ -209,7 +204,6 @@ export default function StaffRoleDashboard({ staffRole }: StaffRoleDashboardProp
       }
     })();
 
-    loadedSectionsRef.current.add('profile');
   }, [staffRole, router]);
 
   const total = totalOrdersCount || orders.length;
@@ -382,7 +376,7 @@ export default function StaffRoleDashboard({ staffRole }: StaffRoleDashboardProp
             </select>
 
             <button 
-              onClick={() => { resetFilters(); setDisplayLimit(20); setCurrentPage(1); }} 
+              onClick={() => { resetFilters(); setDisplayLimit(20); }} 
               className="text-sm text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300"
             >
               Reset
@@ -423,7 +417,7 @@ export default function StaffRoleDashboard({ staffRole }: StaffRoleDashboardProp
         )}
 
         {/* Orders Table */}
-        {!ordersLoading || orders.length > 0 && (
+        {(!ordersLoading || orders.length > 0) && (
         <div className="rounded-2xl bg-white dark:bg-slate-800 p-6 shadow-xl border border-slate-200 dark:border-slate-700">
           <h2 className="text-lg font-semibold mb-3 text-slate-900 dark:text-slate-100">Recent Orders</h2>
           <div className="overflow-x-auto">
@@ -612,7 +606,7 @@ export default function StaffRoleDashboard({ staffRole }: StaffRoleDashboardProp
               <button
                 onClick={async () => {
                   try {
-                    loadMore();
+                    await loadMore();
                   } catch (err: any) {
                     showModal('Loading Error', err?.message || 'Failed to load more orders', 'error');
                   }
