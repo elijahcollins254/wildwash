@@ -19,8 +19,12 @@ export default function Footer() {
               Admin
             </Link>
           </div>
-          <div className="flex-shrink-0 text-sm text-slate-500 dark:text-slate-400 mb-4 md:mb-0">
-            © {new Date().getFullYear()} Wild Wash. All rights reserved.
+          <div className="flex flex-shrink-0 flex-col items-center gap-2 text-sm text-slate-500 dark:text-slate-400 mb-4 md:mb-0">
+            <span>© {new Date().getFullYear()} Wild Wash. All rights reserved.</span>
+            <div className="flex gap-4">
+              <Link href="/privacy" className="hover:underline">Privacy</Link>
+              <Link href="/delete-account" className="hover:underline">Request data or account deletion</Link>
+            </div>
           </div>
           <div className="flex-1 hidden md:block"></div>
         </div>

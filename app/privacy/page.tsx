@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 
 export const metadata: Metadata = {
   title: "Privacy Policy | Wild Wash",
@@ -38,7 +39,7 @@ const sections: Array<{ title: string; paragraphs: string[]; bullets?: string[] 
   },
   {
     title: "Storage, security, and retention",
-    paragraphs: ["Account and service information is processed by Wild Wash and its service providers. We use reasonable administrative and technical safeguards appropriate to the information we handle, but no internet transmission or storage system can be guaranteed to be completely secure." , "We keep information for as long as needed to provide the services, maintain your account and transaction history, resolve issues, and meet legal, accounting, and safety obligations. Retention periods depend on the type of information and the reason it was collected. You can request account deletion using the contact details below; some records may need to be retained where the law requires or permits it."],
+    paragraphs: ["Account and service information is processed by Wild Wash and its service providers. We use reasonable administrative and technical safeguards appropriate to the information we handle, but no internet transmission or storage system can be guaranteed to be completely secure." , "We keep information for as long as needed to provide the services, maintain your account and transaction history, resolve issues, and meet legal, accounting, and safety obligations. Retention periods depend on the type of information and the reason it was collected. You can request account or data deletion on our deletion request page. Some payment, transaction, order, application, security, or dispute records may be retained for applicable legal, tax, accounting, security, or dispute-resolution purposes; periods vary by record and applicable requirement."],
   },
   {
     title: "Your choices and rights",
@@ -67,6 +68,9 @@ export default function PrivacyPolicyPage() {
           <h1 className="mt-2 text-3xl font-bold">Privacy Policy</h1>
           <p className="mt-3 text-sm text-slate-600 dark:text-slate-400">Last updated: October 4, 2026</p>
           <p className="mt-4 leading-7 text-slate-700 dark:text-slate-300">This policy explains how Wild Wash handles personal information when you use the Wild Wash mobile app, website, and related services.</p>
+          <p className="mt-4 rounded-md border border-red-200 bg-white p-4 leading-7 text-slate-700 dark:border-red-900 dark:bg-slate-900 dark:text-slate-300">
+            To request deletion of your Wild Wash account or personal data, visit <Link href="/delete-account" className="font-semibold text-red-700 underline dark:text-red-400">Request account or data deletion</Link>.
+          </p>
         </header>
         <div className="divide-y divide-slate-200 dark:divide-slate-800">
           {sections.map((section) => (
