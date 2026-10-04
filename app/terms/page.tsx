@@ -235,14 +235,8 @@ export default function TermsPage(): React.JSX.Element {
             <h2 className="text-2xl font-bold text-slate-900 dark:text-white mb-4">12. Data Privacy & Security</h2>
             <div className="space-y-3 text-slate-700 dark:text-slate-300">
               <p>
-                Wildwash is committed to protecting your personal and financial information. All data is:
+                Wildwash uses reasonable safeguards to protect personal and financial information. We share information with service providers and other parties when needed to provide services, process payments, meet legal obligations, or protect people and property, as explained in our Privacy Policy. We do not sell personal information.
               </p>
-              <ul className="list-disc list-inside space-y-2 ml-4">
-                <li>Encrypted using industry-standard SSL/TLS protocols</li>
-                <li>Stored securely in compliance with data protection laws</li>
-                <li>Never shared with third parties without your explicit consent</li>
-                <li>Accessible only to authorized Wildwash personnel</li>
-              </ul>
               <p className="mt-4">
                 For more details, please refer to our <Link href="/privacy" className="text-red-600 hover:text-red-700 underline">Privacy Policy</Link>.
               </p>
