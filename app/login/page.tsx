@@ -23,6 +23,11 @@ export default function LoginPage() {
   const isLoading = useSelector((state: RootState) => state.auth.isLoading);
   const user = useSelector((state: RootState) => state.auth.user);
 
+  const getRequestedRedirect = (fallback: string) => {
+    const redirect = new URLSearchParams(window.location.search).get("redirect");
+    return redirect?.startsWith("/") && !redirect.startsWith("//") ? redirect : fallback;
+  };
+
   // If already authenticated, redirect based on user role and profile completion
   useEffect(() => {
     console.log('[LoginPage] Auth check:', {
@@ -109,7 +114,7 @@ export default function LoginPage() {
     if (result.success) {
       // Redirect based on the result
       if (result.redirectUrl) {
-        router.push(result.redirectUrl);
+        router.push(getRequestedRedirect(result.redirectUrl));
       }
     } else {
       setError(result.error || "Login failed");
@@ -136,9 +141,9 @@ export default function LoginPage() {
       console.log('[GoogleSignIn] Google login successful, redirecting to:', result.redirectUrl);
       // Loading stays true while redirecting
       if (result.redirectUrl) {
-        router.push(result.redirectUrl);
+        router.push(getRequestedRedirect(result.redirectUrl));
       } else {
-        router.push('/');
+        router.push(getRequestedRedirect('/'));
       }
     } catch (err) {
       console.error('[GoogleSignIn] Unexpected error:', err);

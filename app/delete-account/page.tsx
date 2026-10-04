@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import DeletionRequestForm from "./DeletionRequestForm";
+import Link from "next/link";
 
 export const metadata: Metadata = {
   title: "Request Account or Data Deletion | Wild Wash",
@@ -35,9 +35,11 @@ export default function DeleteAccountPage() {
         <section className="py-6">
           <h2 className="text-xl font-semibold">Send a request</h2>
           <p className="mt-2 leading-7 text-slate-700 dark:text-slate-300">
-            Choose what you want deleted and provide an email address or phone number linked to your account. The button opens an email addressed to Wild Wash support; your request is sent only after you send that email.
+            Sign in to verify that you own the account, then choose whether to close your account or request deletion of selected data. Your account stays active while Wild Wash reviews your request.
           </p>
-          <DeletionRequestForm />
+          <Link href="/request-deletion" className="mt-5 inline-flex rounded-md bg-red-700 px-5 py-3 font-semibold text-white hover:bg-red-800 focus:outline-none focus:ring-2 focus:ring-red-700 focus:ring-offset-2">
+            Continue to deletion request
+          </Link>
         </section>
 
         <p className="border-t border-slate-200 pt-5 text-sm leading-6 text-slate-600 dark:border-slate-800 dark:text-slate-400">
