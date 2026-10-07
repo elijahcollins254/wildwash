@@ -13,6 +13,13 @@ interface PaymentStatus {
   order_id: string;
   amount: number;
   delivery_requested?: boolean;
+  payment_summary?: {
+    final_total: number | null;
+    paid_amount: number;
+    remaining_amount: number;
+    paid_percent: number;
+    price_finalized: boolean;
+  };
 }
 
 export default function PaymentStatusPage() {
@@ -142,53 +149,7 @@ export default function PaymentStatusPage() {
 
   const handleRetryCheckout = async () => {
     setRetryLoading(true);
-    try {
-      // Fetch fresh order data to ensure we have the latest price
-      let token = null;
-      
-      if (typeof window !== 'undefined') {
-        const authState = localStorage.getItem('wildwash_auth_state');
-        if (authState) {
-          try {
-            const parsed = JSON.parse(authState);
-            token = parsed.token;
-          } catch (e) {
-            console.error('Error parsing auth state:', e);
-          }
-        }
-      }
-      
-      if (!token) {
-        token = localStorage.getItem('token');
-      }
-
-      const apiBase = process.env.NEXT_PUBLIC_API_BASE || '';
-      const headers: Record<string, string> = { Accept: 'application/json' };
-      if (token) {
-        headers['Authorization'] = `Token ${token}`;
-      }
-
-      const response = await fetch(`${apiBase}/orders/orders/${orderId}/`, {
-        method: 'GET',
-        credentials: 'include',
-        headers,
-      });
-
-      if (!response.ok) {
-        throw new Error(`Failed to fetch order: ${response.statusText}`);
-      }
-
-      const latestOrder = await response.json();
-      const latestPrice = (latestOrder.actual_price || latestOrder.price || '0').toString().replace(/[^0-9.]/g, '');
-      
-      // Redirect to checkout with the latest price from the server
-      window.location.href = `/checkout?order_id=${encodeURIComponent(latestOrder.code)}&amount=${encodeURIComponent(latestPrice)}`;
-    } catch (err: any) {
-      console.error('Error preparing retry:', err);
-      setError(`Error preparing checkout: ${err?.message || 'Unknown error'}`);
-    } finally {
-      setRetryLoading(false);
-    }
+    window.location.href = `/checkout?order_id=${encodeURIComponent(orderId)}`;
   };
 
   if (loading && !paymentStatus) {
@@ -211,8 +172,14 @@ export default function PaymentStatusPage() {
               <div className="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-green-100">
                 <FiCheck className="h-6 w-6 text-green-600" />
               </div>
-              <h2 className="mt-4 text-2xl font-bold text-gray-900">Payment Successful</h2>
-              <p className="mt-2 text-gray-600">Your payment has been processed successfully.</p>
+              <h2 className="mt-4 text-2xl font-bold text-gray-900">
+                {paymentStatus.payment_summary && paymentStatus.payment_summary.remaining_amount > 0 ? 'Partial Payment Received' : 'Payment Successful'}
+              </h2>
+              <p className="mt-2 text-gray-600">
+                {paymentStatus.payment_summary && paymentStatus.payment_summary.remaining_amount > 0
+                  ? 'Your payment has been applied to the order balance.'
+                  : 'Your payment has been processed successfully.'}
+              </p>
             </div>
 
             <div className="mt-6 p-4 bg-gray-50 rounded-lg space-y-3">
@@ -228,6 +195,26 @@ export default function PaymentStatusPage() {
                 <span className="text-gray-600">Reference ID:</span>
                 <span className="font-semibold text-gray-900 text-sm">{paymentStatus.checkout_request_id}</span>
               </div>
+              {paymentStatus.payment_summary && (
+                <>
+                  <div className="flex justify-between">
+                    <span className="text-gray-600">{paymentStatus.payment_summary.price_finalized ? 'Final total:' : 'Estimated total:'}</span>
+                    <span className="font-semibold text-gray-900">KES {paymentStatus.payment_summary.final_total?.toLocaleString() ?? 'Pending'}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-600">Paid so far:</span>
+                    <span className="font-semibold text-gray-900">KES {paymentStatus.payment_summary.paid_amount.toLocaleString()}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-600">Remaining:</span>
+                    <span className="font-semibold text-gray-900">KES {paymentStatus.payment_summary.remaining_amount.toLocaleString()}</span>
+                  </div>
+                  <div className="h-2 overflow-hidden rounded-full bg-gray-200">
+                    <div className="h-full rounded-full bg-green-600" style={{ width: `${paymentStatus.payment_summary.paid_percent}%` }} />
+                  </div>
+                  <p className="text-right text-xs text-gray-500">{paymentStatus.payment_summary.paid_percent}% paid</p>
+                </>
+              )}
             </div>
 
             {deliverySuccess && (
@@ -247,6 +234,14 @@ export default function PaymentStatusPage() {
             )}
 
             <div className="mt-6 space-y-3">
+              {paymentStatus.payment_summary && paymentStatus.payment_summary.remaining_amount > 0 ? (
+                <Link
+                  href={`/checkout?order_id=${encodeURIComponent(orderId)}`}
+                  className="w-full bg-red-600 hover:bg-red-700 text-white font-semibold py-3 px-4 rounded-lg transition duration-200 text-center block"
+                >
+                  Pay Remaining Balance
+                </Link>
+              ) : (
               <button
                 onClick={handleRequestDelivery}
                 disabled={requestingDelivery || deliverySuccess || paymentStatus.delivery_requested}
@@ -267,6 +262,7 @@ export default function PaymentStatusPage() {
                   '🚴 Request Delivery Now'
                 )}
               </button>
+              )}
               <Link
                 href={`/orders/${orderId}`}
                 className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-3 px-4 rounded-lg transition duration-200 text-center block"

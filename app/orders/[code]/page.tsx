@@ -38,6 +38,16 @@ type Order = {
   statusLog?: StatusPoint[];
   is_paid?: boolean;
   payment_method?: string | null; // 'mpesa', 'bnpl', 'tradein', 'gift', etc.
+  payment_summary?: {
+    estimate_total: number | null;
+    final_total: number | null;
+    paid_amount: number;
+    pending_amount: number;
+    remaining_amount: number;
+    payable_amount: number;
+    paid_percent: number;
+    price_finalized: boolean;
+  };
 };
 
 function getCookie(name: string) {
@@ -140,14 +150,7 @@ export default function OrderDetailsPage() {
         throw new Error('Order not found');
       }
 
-      // Get the actual_price from staff input details
-      const actualPrice = getLatestActualPrice(latestOrder.staff_input_details);
-      if (!actualPrice) {
-        throw new Error('This order does not have a final price set. Please contact staff to set the actual price before proceeding to checkout.');
-      }
-
-      // Redirect to checkout with the latest actual_price from the server
-      router.push(`/checkout?order_id=${encodeURIComponent(latestOrder.code)}&amount=${encodeURIComponent(String(actualPrice))}`);
+      router.push(`/checkout?order_id=${encodeURIComponent(latestOrder.code)}`);
     } catch (err: any) {
       console.error('Error preparing checkout:', err);
       showModal('Error', `Error preparing checkout: ${err?.message || 'Unknown error'}`, 'error');
@@ -249,6 +252,7 @@ export default function OrderDetailsPage() {
           statusLog: found.timeline ?? found.status_log ?? [],
           is_paid: found.is_paid ?? false,
           payment_method: found.payment_method ?? null,
+          payment_summary: found.payment_summary ?? undefined,
         };
 
         setOrder(mapped);
@@ -344,6 +348,44 @@ export default function OrderDetailsPage() {
                 Status: {order.status}
               </div>
             </div>
+
+            {order.payment_summary && (
+              <section className="mt-8 rounded-lg border border-slate-200 bg-white/70 p-5 dark:border-slate-700 dark:bg-slate-900/40">
+                <div className="flex items-center justify-between gap-4">
+                  <h2 className="font-semibold">Payment Progress</h2>
+                  <span className="text-sm font-semibold text-green-700 dark:text-green-400">
+                    {order.payment_summary.paid_percent}% paid
+                  </span>
+                </div>
+                <div
+                  role="progressbar"
+                  aria-label="Order payment progress"
+                  aria-valuenow={order.payment_summary.paid_percent}
+                  aria-valuemin={0}
+                  aria-valuemax={100}
+                  className="mt-3 h-3 overflow-hidden rounded-full bg-slate-200 dark:bg-slate-700"
+                >
+                  <div className="h-full rounded-full bg-green-600 transition-all" style={{ width: `${order.payment_summary.paid_percent}%` }} />
+                </div>
+                <div className="mt-4 grid grid-cols-1 gap-2 text-sm sm:grid-cols-3">
+                  <div>
+                    <div className="text-slate-500 dark:text-slate-400">{order.payment_summary.price_finalized ? 'Final total' : 'Estimated total'}</div>
+                    <div className="font-semibold">KES {order.payment_summary.final_total?.toLocaleString() ?? 'Pending'}</div>
+                  </div>
+                  <div>
+                    <div className="text-slate-500 dark:text-slate-400">Paid so far</div>
+                    <div className="font-semibold">KES {order.payment_summary.paid_amount.toLocaleString()}</div>
+                  </div>
+                  <div>
+                    <div className="text-slate-500 dark:text-slate-400">Remaining</div>
+                    <div className="font-semibold">KES {order.payment_summary.remaining_amount.toLocaleString()}</div>
+                  </div>
+                </div>
+                {!order.payment_summary.price_finalized && (
+                  <p className="mt-3 text-xs text-amber-700 dark:text-amber-400">The estimate may change when staff records the final price.</p>
+                )}
+              </section>
+            )}
 
             {/* Details grid */}
             <div className="mt-8 grid grid-cols-1 sm:grid-cols-2 gap-6">
@@ -464,7 +506,7 @@ export default function OrderDetailsPage() {
 
             {/* Actions */}
             <div className="mt-6">
-              {!order.is_paid && (
+              {!order.is_paid && (order.payment_summary?.payable_amount ?? 1) > 0 && (
                 <button
                   onClick={handleProceedToCheckout}
                   disabled={checkoutLoading}
@@ -472,6 +514,9 @@ export default function OrderDetailsPage() {
                 >
                   {checkoutLoading ? "Preparing checkout..." : "Proceed to Checkout"}
                 </button>
+              )}
+              {!order.is_paid && order.payment_summary?.payable_amount === 0 && !order.payment_summary.price_finalized && (
+                <p className="text-sm text-slate-600 dark:text-slate-300">The estimate is covered. The final price is pending staff confirmation.</p>
               )}
             </div>
 

@@ -25,6 +25,17 @@ interface UserData {
   last_name?: string;
 }
 
+interface PaymentSummary {
+  estimate_total: number | null;
+  final_total: number | null;
+  paid_amount: number;
+  pending_amount: number;
+  remaining_amount: number;
+  payable_amount: number;
+  paid_percent: number;
+  price_finalized: boolean;
+}
+
 export default function CheckoutForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -43,6 +54,7 @@ export default function CheckoutForm() {
   const [success, setSuccess] = useState('');
   const [loadingUserData, setLoadingUserData] = useState(true);
   const [profileIncomplete, setProfileIncomplete] = useState(false);
+  const [paymentSummary, setPaymentSummary] = useState<PaymentSummary | null>(null);
 
   // Check if profile is complete - fetch fresh data to avoid stale Redux state
   useEffect(() => {
@@ -96,7 +108,32 @@ export default function CheckoutForm() {
   // Auto-fill form from query params and user data on mount
   useEffect(() => {
     const orderId = searchParams.get('order_id');
-    const amount = searchParams.get('amount');
+
+    const fetchPaymentSummary = async () => {
+      if (!orderId) return;
+
+      try {
+        const authState = localStorage.getItem('wildwash_auth_state');
+        const token = authState ? JSON.parse(authState).token : null;
+        const apiBase = process.env.NEXT_PUBLIC_API_BASE;
+        if (!apiBase) return;
+
+        const response = await axios.get<any>(`${apiBase}/orders?code=${encodeURIComponent(orderId)}`, {
+          headers: { ...(token && { 'Authorization': `Token ${token}` }) },
+        });
+        const orders = response.data?.results || response.data;
+        const summary = Array.isArray(orders) ? orders[0]?.payment_summary : orders?.payment_summary;
+        if (!summary) return;
+
+        setPaymentSummary(summary);
+        setFormData(prev => ({
+          ...prev,
+          amount: String(Math.floor(summary.payable_amount)),
+        }));
+      } catch (err) {
+        console.error('Error fetching order payment summary:', err);
+      }
+    };
     
     const fetchUserData = async () => {
       try {
@@ -128,7 +165,6 @@ export default function CheckoutForm() {
         setFormData(prev => ({
           ...prev,
           order_id: orderId || prev.order_id,
-          amount: amount || prev.amount,
           phone: user.phone || '',
         }));
       } catch (err) {
@@ -143,7 +179,6 @@ export default function CheckoutForm() {
               setFormData(prev => ({
                 ...prev,
                 order_id: orderId || prev.order_id,
-                amount: amount || prev.amount,
                 phone: user.phone || '',
               }));
             } else {
@@ -155,7 +190,6 @@ export default function CheckoutForm() {
           setFormData(prev => ({
             ...prev,
             order_id: orderId || prev.order_id,
-            amount: amount || prev.amount,
           }));
         }
       } finally {
@@ -163,13 +197,14 @@ export default function CheckoutForm() {
       }
     };
 
+    fetchPaymentSummary();
     fetchUserData();
   }, [searchParams]);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
     // Don't allow editing amount or order_id fields
-    if (name === 'amount' || name === 'order_id') return;
+    if (name === 'order_id') return;
     setFormData(prev => ({
       ...prev,
       [name]: value
@@ -192,7 +227,22 @@ export default function CheckoutForm() {
     // Check if amount is set and greater than 0
     const amount = parseFloat(formData.amount);
     if (!formData.amount || amount <= 0) {
-      setError('This order does not have a price set. Please contact staff to set the actual price for this order before proceeding to checkout.');
+      setError('Enter a payment amount greater than zero.');
+      return false;
+    }
+
+    if (!paymentSummary) {
+      setError('Could not load this order’s payment balance. Please refresh and try again.');
+      return false;
+    }
+
+    if (amount > paymentSummary.payable_amount) {
+      setError(`Payment cannot exceed the remaining payable amount of KES ${paymentSummary.payable_amount.toLocaleString()}.`);
+      return false;
+    }
+
+    if (formData.paymentMethod === 'mpesa' && !Number.isInteger(amount)) {
+      setError('M-Pesa payments must be in whole KES amounts.');
       return false;
     }
 
@@ -474,7 +524,7 @@ export default function CheckoutForm() {
           {/* Amount */}
           <div>
             <label htmlFor="amount" className="block text-sm font-medium text-slate-900 dark:text-slate-100">
-              Amount (KES)
+              Pay now (KES)
             </label>
             <div className="mt-2 relative">
               <span className="absolute left-4 top-3 text-slate-500 dark:text-slate-400 font-medium">KES</span>
@@ -484,14 +534,50 @@ export default function CheckoutForm() {
                 name="amount"
                 value={formData.amount}
                 placeholder="0.00"
-                step="0.01"
+                onChange={handleChange}
+                step={formData.paymentMethod === 'mpesa' ? '1' : '0.01'}
                 min="1"
-                className="block w-full pl-14 pr-4 py-3 border border-slate-200 dark:border-slate-700 rounded-full bg-slate-50 dark:bg-slate-900/50 text-slate-900 dark:text-slate-100 cursor-not-allowed opacity-75 text-sm"
-                disabled={true}
-                readOnly={true}
+                max={paymentSummary?.payable_amount}
+                className="block w-full pl-14 pr-4 py-3 border border-slate-200 dark:border-slate-700 rounded-full bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 focus:ring-2 focus:ring-red-500 outline-none text-sm"
+                disabled={loading || !paymentSummary}
               />
             </div>
-            <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">This amount is fixed for your order</p>
+            <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+              Choose any amount up to KES {paymentSummary?.payable_amount.toLocaleString() ?? '...'}.
+            </p>
+            {paymentSummary && (
+              <div className="mt-4 space-y-2 rounded-lg border border-slate-200 dark:border-slate-700 p-3">
+                <div className="flex justify-between text-sm">
+                  <span>{paymentSummary.price_finalized ? 'Final total' : 'Estimated total'}</span>
+                  <span className="font-medium">KES {paymentSummary.final_total?.toLocaleString() ?? 'Pending'}</span>
+                </div>
+                <div className="flex justify-between text-sm">
+                  <span>Paid so far</span>
+                  <span className="font-medium">KES {paymentSummary.paid_amount.toLocaleString()}</span>
+                </div>
+                <div className="flex justify-between text-sm">
+                  <span>Remaining</span>
+                  <span className="font-semibold">KES {paymentSummary.remaining_amount.toLocaleString()}</span>
+                </div>
+                <div
+                  role="progressbar"
+                  aria-label="Order payment progress"
+                  aria-valuenow={paymentSummary.paid_percent}
+                  aria-valuemin={0}
+                  aria-valuemax={100}
+                  className="h-2 overflow-hidden rounded-full bg-slate-200 dark:bg-slate-700"
+                >
+                  <div className="h-full rounded-full bg-green-600 transition-all" style={{ width: `${paymentSummary.paid_percent}%` }} />
+                </div>
+                <p className="text-right text-xs text-slate-500 dark:text-slate-400">{paymentSummary.paid_percent}% paid</p>
+                {!paymentSummary.price_finalized && (
+                  <p className="text-xs text-amber-700 dark:text-amber-400">This is an estimate. The final total will be set by staff.</p>
+                )}
+                {paymentSummary.pending_amount > 0 && (
+                  <p className="text-xs text-slate-500 dark:text-slate-400">KES {paymentSummary.pending_amount.toLocaleString()} is awaiting payment confirmation.</p>
+                )}
+              </div>
+            )}
           </div>
 
           {/* Phone Number - Only show for M-PESA */}
