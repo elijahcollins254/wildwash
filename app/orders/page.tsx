@@ -124,15 +124,7 @@ export default function OrdersPage(): React.JSX.Element {
       return;
     }
 
-    // Get the actual_price from staff input details
-    const actualPrice = getLatestActualPrice(order.staff_input_details);
-    if (!actualPrice) {
-      setErrorMessage('This order does not have a final price set. Please contact staff to set the actual price before proceeding to checkout.');
-      setShowErrorModal(true);
-      return;
-    }
-
-    router.push(`/checkout?order_id=${encodeURIComponent(order.code)}&amount=${encodeURIComponent(String(actualPrice))}`);
+    router.push(`/checkout?order_id=${encodeURIComponent(order.code)}`);
   }, [orders, router]);
 
   // Local controlled search / filter bound to redux meta
