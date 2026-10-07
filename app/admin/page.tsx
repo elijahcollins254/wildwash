@@ -48,6 +48,13 @@ type RawLocation = Record<string, any>;
 type RawUser = Record<string, any>;
 type RawLoan = Record<string, any>;
 
+type LaundryLocation = {
+  id: number;
+  name: string;
+  region?: string;
+  is_active?: boolean;
+};
+
 type Order = {
   id?: number;
   code?: string;
@@ -271,7 +278,7 @@ export default function AdminPage(): React.ReactElement {
       // Optimize: Request only necessary fields to reduce payload size and parsing time
       // Using page_size instead of limit (Django's PageNumberPagination)
       const data = await client.get(
-        `/orders/?page_size=${limit}&fields=id,code,created_at,price,total_price,status,rider,pickup_rider,delivery_rider,user,order_items`
+        `/orders/?page_size=${limit}&fields=id,code,created_at,price,total_price,status,rider,pickup_rider,delivery_rider,user,service_location,order_items`
       );
       const list: any[] = Array.isArray(data?.results) ? data.results : [];
       const count = data?.count || 0;
@@ -335,7 +342,7 @@ export default function AdminPage(): React.ReactElement {
     try {
       setOrdersPageLoading(true);
       const data = await client.get(
-        `/orders/?page=${page}&page_size=${pageSize}&fields=id,code,created_at,price,total_price,status,rider,pickup_rider,delivery_rider,user,order_items`
+        `/orders/?page=${page}&page_size=${pageSize}&fields=id,code,created_at,price,total_price,status,rider,pickup_rider,delivery_rider,user,service_location,order_items`
       );
       const list: any[] = Array.isArray(data?.results) ? data.results : [];
       const count = data?.count || 0;
@@ -535,6 +542,20 @@ export default function AdminPage(): React.ReactElement {
       setTimeout(() => setUserActionError(null), 3000);
     }
   }, [dispatch]);
+
+  const handleLaundryAssignment = useCallback(async (orderId: number, locationId: number, location: LaundryLocation) => {
+    await client.post('/orders/assign-location/', {
+      order_id: orderId,
+      service_location_id: locationId,
+    });
+    setAllOrders((currentOrders) => currentOrders.map((order) => (
+      order.id === orderId
+        ? { ...order, raw: { ...order.raw, service_location: location } }
+        : order
+    )));
+    setUserActionSuccess(`Order assigned to ${location.name}`);
+    setTimeout(() => setUserActionSuccess(null), 3000);
+  }, []);
 
   const openEditModal = (user: User) => {
     setSelectedUser(user);
@@ -1001,6 +1022,7 @@ export default function AdminPage(): React.ReactElement {
                     <th className="text-left py-3 px-4 font-medium">User Name</th>
                     <th className="text-left py-3 px-4 font-medium">Phone</th>
                     <th className="text-left py-3 px-4 font-medium">Location</th>
+                    <th className="text-left py-3 px-4 font-medium">Laundry</th>
                     <th className="text-left py-3 px-4 font-medium">Rider</th>
                     <th className="text-right py-3 px-4 font-medium">Price (KSh)</th>
                     <th className="text-right py-3 px-4 font-medium">Date</th>
@@ -1032,6 +1054,12 @@ export default function AdminPage(): React.ReactElement {
                       <td className="py-3 px-4">{o.raw?.user?.first_name && o.raw?.user?.last_name ? `${o.raw.user.first_name} ${o.raw.user.last_name}` : o.raw?.user?.username || "—"}</td>
                       <td className="py-3 px-4">{o.raw?.user?.phone || "—"}</td>
                       <td className="py-3 px-4">{o.raw?.user?.location || "—"}</td>
+                      <td className="py-3 px-4">
+                        <LaundryAssignmentButton
+                          order={o}
+                          onAssign={handleLaundryAssignment}
+                        />
+                      </td>
                       <td className="py-3 px-4">
                         {o.rider ? (
                           <div className="flex items-center gap-2">
@@ -2381,6 +2409,185 @@ function InlineAssignRiderButton({ order, users, onAssign }: { order: Order; use
         </>
       )}
     </div>
+  );
+}
+
+function LaundryAssignmentButton({
+  order,
+  onAssign,
+}: {
+  order: Order;
+  onAssign: (orderId: number, locationId: number, location: LaundryLocation) => Promise<void>;
+}) {
+  const [isOpen, setIsOpen] = useState(false);
+  const [locations, setLocations] = useState<LaundryLocation[]>([]);
+  const [search, setSearch] = useState('');
+  const [selectedLocationId, setSelectedLocationId] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const customerRegion = String(order.raw?.user?.location ?? '').trim();
+  const currentLocation = order.raw?.service_location as LaundryLocation | null | undefined;
+
+  const openSelector = async () => {
+    setIsOpen(true);
+    setLoading(true);
+    setError(null);
+    setSelectedLocationId('');
+    try {
+      const response = await client.get('/users/locations/?page_size=100');
+      const results = Array.isArray(response) ? response : response?.results ?? [];
+      const activeLocations = results.filter((location: LaundryLocation) => location.is_active !== false);
+      setLocations(activeLocations);
+
+      const normalize = (value?: string) => String(value ?? '').trim().toLowerCase();
+      const recommended = activeLocations.find((location: LaundryLocation) => (
+        customerRegion && normalize(location.region) === normalize(customerRegion)
+      ));
+      const current = activeLocations.find((location: LaundryLocation) => location.id === currentLocation?.id);
+      setSearch(recommended && !current ? customerRegion : '');
+      if (current || recommended) setSelectedLocationId(String((current || recommended).id));
+    } catch (requestError: any) {
+      setError(requestError?.message ?? 'Could not load laundry locations');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const normalizedQuery = search.trim().toLowerCase();
+  const normalizedRegion = customerRegion.toLowerCase();
+  const filteredLocations = locations
+    .filter((location) => (
+      !normalizedQuery ||
+      location.name.toLowerCase().includes(normalizedQuery) ||
+      String(location.region ?? '').toLowerCase().includes(normalizedQuery)
+    ))
+    .sort((first, second) => {
+      const firstMatches = normalizedRegion && first.region?.trim().toLowerCase() === normalizedRegion;
+      const secondMatches = normalizedRegion && second.region?.trim().toLowerCase() === normalizedRegion;
+      return Number(Boolean(secondMatches)) - Number(Boolean(firstMatches)) || first.name.localeCompare(second.name);
+    });
+
+  const confirmAssignment = async () => {
+    const selectedLocation = locations.find((location) => String(location.id) === selectedLocationId);
+    if (!selectedLocation || !order.id) return;
+    setSaving(true);
+    setError(null);
+    try {
+      await onAssign(order.id, selectedLocation.id, selectedLocation);
+      setIsOpen(false);
+    } catch (requestError: any) {
+      setError(requestError?.message ?? 'Could not assign this order');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <>
+      <div className="flex min-w-40 flex-col items-start gap-1">
+        <span className="font-medium text-slate-800 dark:text-slate-200">
+          {currentLocation?.name || 'Unassigned'}
+        </span>
+        {currentLocation?.region && (
+          <span className="text-xs text-slate-500">{currentLocation.region}</span>
+        )}
+        <button
+          type="button"
+          onClick={openSelector}
+          className="text-xs font-semibold text-blue-700 hover:text-blue-900 dark:text-blue-400 dark:hover:text-blue-300"
+        >
+          {currentLocation?.name ? 'Change laundry' : 'Assign laundry'}
+        </button>
+      </div>
+
+      {isOpen && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 p-4" role="presentation">
+          <section
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="laundry-assignment-title"
+            className="w-full max-w-xl rounded-xl bg-white p-5 shadow-2xl dark:bg-slate-900"
+          >
+            <div className="mb-4 flex items-start justify-between gap-4">
+              <div>
+                <h2 id="laundry-assignment-title" className="text-lg font-semibold text-slate-900 dark:text-white">
+                  Assign order to a laundry
+                </h2>
+                <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
+                  {customerRegion ? `Customer region: ${customerRegion}` : 'Customer has no profile region set.'}
+                </p>
+              </div>
+              <button type="button" onClick={() => setIsOpen(false)} className="text-sm text-slate-500 hover:text-slate-900 dark:hover:text-white">
+                Close
+              </button>
+            </div>
+
+            <label className="mb-3 block">
+              <span className="sr-only">Filter laundries by name or region</span>
+              <input
+                value={search}
+                onChange={(event) => setSearch(event.target.value)}
+                placeholder="Filter by laundry or region"
+                className="w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-800 dark:text-white"
+              />
+            </label>
+
+            {error && <p className="mb-3 text-sm text-red-600" role="alert">{error}</p>}
+            <div className="max-h-72 space-y-2 overflow-y-auto">
+              {loading ? (
+                <p className="py-8 text-center text-sm text-slate-500">Loading laundry locations...</p>
+              ) : filteredLocations.length ? filteredLocations.map((location) => {
+                const isRecommended = Boolean(normalizedRegion) && location.region?.trim().toLowerCase() === normalizedRegion;
+                const isSelected = String(location.id) === selectedLocationId;
+                return (
+                  <button
+                    key={location.id}
+                    type="button"
+                    onClick={() => setSelectedLocationId(String(location.id))}
+                    className={`flex w-full items-center justify-between gap-3 rounded-md border p-3 text-left transition-colors ${
+                      isSelected
+                        ? 'border-blue-600 bg-blue-50 dark:border-blue-400 dark:bg-blue-950/40'
+                        : 'border-slate-200 hover:bg-slate-50 dark:border-slate-700 dark:hover:bg-slate-800'
+                    }`}
+                  >
+                    <span>
+                      <span className="block font-medium text-slate-900 dark:text-white">{location.name}</span>
+                      <span className="block text-xs text-slate-500">{location.region || 'Region not set'}</span>
+                    </span>
+                    {isRecommended && (
+                      <span className="whitespace-nowrap text-xs font-semibold text-emerald-700 dark:text-emerald-400">
+                        Customer region
+                      </span>
+                    )}
+                  </button>
+                );
+              }) : !loading ? (
+                <p className="py-8 text-center text-sm text-slate-500">No matching laundry locations.</p>
+              ) : null}
+            </div>
+
+            <div className="mt-5 flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setIsOpen(false)}
+                className="rounded-md border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 dark:border-slate-700 dark:text-slate-200"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={confirmAssignment}
+                disabled={!selectedLocationId || saving || loading}
+                className="rounded-md bg-blue-700 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-800 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {saving ? 'Assigning...' : 'Confirm assignment'}
+              </button>
+            </div>
+          </section>
+        </div>
+      )}
+    </>
   );
 }
 
