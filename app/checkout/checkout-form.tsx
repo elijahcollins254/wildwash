@@ -29,6 +29,7 @@ interface PaymentSummary {
   estimate_total: number | null;
   final_total: number | null;
   paid_amount: number;
+  overpaid_amount: number;
   pending_amount: number;
   remaining_amount: number;
   payable_amount: number;
@@ -546,7 +547,7 @@ export default function CheckoutForm() {
               Choose any amount up to KES {paymentSummary?.payable_amount.toLocaleString() ?? '...'}.
             </p>
             {paymentSummary && (
-              <div className="mt-4 space-y-2 rounded-lg border border-slate-200 dark:border-slate-700 p-3">
+              <div className="mt-4 space-y-2 rounded-lg border border-rose-200 bg-rose-50/60 dark:border-rose-900/50 dark:bg-rose-950/20 p-3">
                 <div className="flex justify-between text-sm">
                   <span>{paymentSummary.price_finalized ? 'Final total' : 'Estimated total'}</span>
                   <span className="font-medium">KES {paymentSummary.final_total?.toLocaleString() ?? 'Pending'}</span>
@@ -559,6 +560,11 @@ export default function CheckoutForm() {
                   <span>Remaining</span>
                   <span className="font-semibold">KES {paymentSummary.remaining_amount.toLocaleString()}</span>
                 </div>
+                {paymentSummary.overpaid_amount > 0 && (
+                  <p className="text-sm font-semibold text-rose-800 dark:text-rose-200">
+                    Overpaid by KES {paymentSummary.overpaid_amount.toLocaleString()}
+                  </p>
+                )}
                 <div
                   role="progressbar"
                   aria-label="Order payment progress"
@@ -567,9 +573,9 @@ export default function CheckoutForm() {
                   aria-valuemax={100}
                   className="h-2 overflow-hidden rounded-full bg-slate-200 dark:bg-slate-700"
                 >
-                  <div className="h-full rounded-full bg-green-600 transition-all" style={{ width: `${paymentSummary.paid_percent}%` }} />
+                  <div className="h-full rounded-full bg-rose-400 transition-all" style={{ width: `${paymentSummary.paid_percent}%` }} />
                 </div>
-                <p className="text-right text-xs text-slate-500 dark:text-slate-400">{paymentSummary.paid_percent}% paid</p>
+                <p className="text-right text-xs font-medium text-rose-700 dark:text-rose-300">{paymentSummary.paid_percent}% paid</p>
                 {!paymentSummary.price_finalized && (
                   <p className="text-xs text-amber-700 dark:text-amber-400">This is an estimate. The final total will be set by staff.</p>
                 )}

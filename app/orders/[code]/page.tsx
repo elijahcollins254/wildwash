@@ -42,6 +42,7 @@ type Order = {
     estimate_total: number | null;
     final_total: number | null;
     paid_amount: number;
+    overpaid_amount: number;
     pending_amount: number;
     remaining_amount: number;
     payable_amount: number;
@@ -350,10 +351,10 @@ export default function OrderDetailsPage() {
             </div>
 
             {order.payment_summary && (
-              <section className="mt-8 rounded-lg border border-slate-200 bg-white/70 p-5 dark:border-slate-700 dark:bg-slate-900/40">
+              <section className="mt-8 rounded-lg border border-rose-200 bg-rose-50/60 p-5 dark:border-rose-900/50 dark:bg-rose-950/20">
                 <div className="flex items-center justify-between gap-4">
                   <h2 className="font-semibold">Payment Progress</h2>
-                  <span className="text-sm font-semibold text-green-700 dark:text-green-400">
+                  <span className="text-sm font-semibold text-rose-700 dark:text-rose-300">
                     {order.payment_summary.paid_percent}% paid
                   </span>
                 </div>
@@ -365,7 +366,7 @@ export default function OrderDetailsPage() {
                   aria-valuemax={100}
                   className="mt-3 h-3 overflow-hidden rounded-full bg-slate-200 dark:bg-slate-700"
                 >
-                  <div className="h-full rounded-full bg-green-600 transition-all" style={{ width: `${order.payment_summary.paid_percent}%` }} />
+                  <div className="h-full rounded-full bg-rose-400 transition-all" style={{ width: `${order.payment_summary.paid_percent}%` }} />
                 </div>
                 <div className="mt-4 grid grid-cols-1 gap-2 text-sm sm:grid-cols-3">
                   <div>
@@ -381,6 +382,11 @@ export default function OrderDetailsPage() {
                     <div className="font-semibold">KES {order.payment_summary.remaining_amount.toLocaleString()}</div>
                   </div>
                 </div>
+                {order.payment_summary.overpaid_amount > 0 && (
+                  <p className="mt-3 text-sm font-semibold text-rose-800 dark:text-rose-200">
+                    Overpaid by KES {order.payment_summary.overpaid_amount.toLocaleString()}
+                  </p>
+                )}
                 {!order.payment_summary.price_finalized && (
                   <p className="mt-3 text-xs text-amber-700 dark:text-amber-400">The estimate may change when staff records the final price.</p>
                 )}

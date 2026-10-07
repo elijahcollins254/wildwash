@@ -16,6 +16,7 @@ interface PaymentStatus {
   payment_summary?: {
     final_total: number | null;
     paid_amount: number;
+    overpaid_amount: number;
     remaining_amount: number;
     paid_percent: number;
     price_finalized: boolean;
@@ -182,7 +183,7 @@ export default function PaymentStatusPage() {
               </p>
             </div>
 
-            <div className="mt-6 p-4 bg-gray-50 rounded-lg space-y-3">
+            <div className="mt-6 space-y-3 rounded-lg border border-rose-200 bg-rose-50/60 p-4 dark:border-rose-900/50 dark:bg-rose-950/20">
               <div className="flex justify-between">
                 <span className="text-gray-600">Order ID:</span>
                 <span className="font-semibold text-gray-900">{paymentStatus.order_id}</span>
@@ -209,10 +210,15 @@ export default function PaymentStatusPage() {
                     <span className="text-gray-600">Remaining:</span>
                     <span className="font-semibold text-gray-900">KES {paymentStatus.payment_summary.remaining_amount.toLocaleString()}</span>
                   </div>
+                  {paymentStatus.payment_summary.overpaid_amount > 0 && (
+                    <p className="text-sm font-semibold text-rose-800 dark:text-rose-200">
+                      Overpaid by KES {paymentStatus.payment_summary.overpaid_amount.toLocaleString()}
+                    </p>
+                  )}
                   <div className="h-2 overflow-hidden rounded-full bg-gray-200">
-                    <div className="h-full rounded-full bg-green-600" style={{ width: `${paymentStatus.payment_summary.paid_percent}%` }} />
+                    <div className="h-full rounded-full bg-rose-400" style={{ width: `${paymentStatus.payment_summary.paid_percent}%` }} />
                   </div>
-                  <p className="text-right text-xs text-gray-500">{paymentStatus.payment_summary.paid_percent}% paid</p>
+                  <p className="text-right text-xs font-medium text-rose-700 dark:text-rose-300">{paymentStatus.payment_summary.paid_percent}% paid</p>
                 </>
               )}
             </div>
