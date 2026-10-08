@@ -95,6 +95,14 @@ type User = {
   raw?: RawUser;
 };
 
+type AdminRiderWallet = {
+  rider_id: number;
+  username: string;
+  name: string;
+  phone: string;
+  balance: string;
+};
+
 type LoanApplication = {
   id?: string;
   loan_type?: string;
@@ -259,6 +267,12 @@ export default function AdminPage(): React.ReactElement {
   const [userActionSuccess, setUserActionSuccess] = useState<string | null>(null);
   const [activityLogs, setActivityLogs] = useState<any[]>([]);
   const [selectedUserForLogs, setSelectedUserForLogs] = useState<User | null>(null);
+  const [riderWallets, setRiderWallets] = useState<AdminRiderWallet[]>([]);
+  const [riderWalletsLoading, setRiderWalletsLoading] = useState(false);
+  const [riderWalletActionError, setRiderWalletActionError] = useState('');
+  const [riderWalletActionMessage, setRiderWalletActionMessage] = useState('');
+  const [riderCreditAmounts, setRiderCreditAmounts] = useState<Record<number, string>>({});
+  const [riderCreditReasons, setRiderCreditReasons] = useState<Record<number, string>>({});
 
   // Initialize Redux API client once
   useEffect(() => {
@@ -543,6 +557,35 @@ export default function AdminPage(): React.ReactElement {
     }
   }, [dispatch]);
 
+  const loadRiderWallets = useCallback(async () => {
+    setRiderWalletsLoading(true);
+    setRiderWalletActionError('');
+    try {
+      const data = await client.get('/riders/wallets/');
+      setRiderWallets(Array.isArray(data) ? data : []);
+    } catch (err: any) {
+      setRiderWalletActionError(err?.message || 'Unable to load rider wallets.');
+    } finally {
+      setRiderWalletsLoading(false);
+    }
+  }, []);
+
+  const creditRiderWallet = useCallback(async (riderId: number) => {
+    setRiderWalletActionError('');
+    setRiderWalletActionMessage('');
+    try {
+      await client.post(`/riders/wallets/${riderId}/credit/`, {
+        amount: riderCreditAmounts[riderId],
+        reason: riderCreditReasons[riderId],
+      });
+      setRiderWalletActionMessage('Wallet credited and audit entry recorded.');
+      setRiderCreditAmounts((current) => ({ ...current, [riderId]: '' }));
+      await loadRiderWallets();
+    } catch (err: any) {
+      setRiderWalletActionError(err?.message || 'Unable to credit rider wallet.');
+    }
+  }, [loadRiderWallets, riderCreditAmounts, riderCreditReasons]);
+
   const handleLaundryAssignment = useCallback(async (orderId: number, locationId: number, location: LaundryLocation) => {
     await client.post('/orders/assign-location/', {
       order_id: orderId,
@@ -619,6 +662,10 @@ export default function AdminPage(): React.ReactElement {
     }
     // 'analytics' tab uses existing orders data, no fetch needed
   }, [activeTab, dispatch]);
+
+  useEffect(() => {
+    if (activeTab === 'riders') void loadRiderWallets();
+  }, [activeTab, loadRiderWallets]);
 
   // Derived metrics - memoized to avoid recalculation
   const metrics = useMemo(() => {
@@ -1341,6 +1388,33 @@ export default function AdminPage(): React.ReactElement {
                   )}
                 </tbody>
               </table>
+            </div>
+
+            <div className="mt-8 border-t border-slate-200 pt-6 dark:border-slate-700">
+              <h3 className="mb-1 text-lg font-semibold">Rider wallets</h3>
+              <p className="mb-4 text-sm text-slate-500 dark:text-slate-400">Credits immediately increase the rider’s available balance and are permanently attributed to the admin account and reason.</p>
+              {riderWalletActionError && <p role="alert" className="mb-3 rounded-lg bg-red-50 p-3 text-sm text-red-700 dark:bg-red-900/20 dark:text-red-300">{riderWalletActionError}</p>}
+              {riderWalletActionMessage && <p role="status" className="mb-3 rounded-lg bg-green-50 p-3 text-sm text-green-700 dark:bg-green-900/20 dark:text-green-300">{riderWalletActionMessage}</p>}
+              {riderWalletsLoading ? <div className="py-6 text-center text-sm text-slate-500">Loading rider wallets…</div> : (
+                <div className="overflow-x-auto">
+                  <table className="min-w-full text-sm">
+                    <thead className="border-b border-slate-200 text-left text-xs uppercase text-slate-500 dark:border-slate-700"><tr><th className="py-3 pr-4">Rider</th><th className="py-3 pr-4">M-Pesa phone</th><th className="py-3 pr-4">Balance</th><th className="py-3 pr-4">Credit amount</th><th className="py-3 pr-4">Reason (required)</th><th className="py-3">Action</th></tr></thead>
+                    <tbody>
+                      {riderWallets.map((rider) => (
+                        <tr key={rider.rider_id} className="border-b border-slate-100 dark:border-slate-800">
+                          <td className="py-3 pr-4 font-medium">{rider.name}<div className="text-xs text-slate-500">@{rider.username}</div></td>
+                          <td className="py-3 pr-4">{rider.phone || '—'}</td>
+                          <td className="py-3 pr-4 font-semibold">KSh {Number(rider.balance).toLocaleString('en-KE')}</td>
+                          <td className="py-3 pr-4"><input aria-label={`Credit amount for ${rider.username}`} type="number" min="0.01" step="0.01" value={riderCreditAmounts[rider.rider_id] || ''} onChange={(event) => setRiderCreditAmounts((current) => ({ ...current, [rider.rider_id]: event.target.value }))} className="w-32 rounded-lg border border-slate-300 bg-white px-2 py-2 dark:border-slate-600 dark:bg-slate-800" placeholder="Amount" /></td>
+                          <td className="py-3 pr-4"><input aria-label={`Credit reason for ${rider.username}`} type="text" value={riderCreditReasons[rider.rider_id] || ''} onChange={(event) => setRiderCreditReasons((current) => ({ ...current, [rider.rider_id]: event.target.value }))} className="min-w-48 rounded-lg border border-slate-300 bg-white px-2 py-2 dark:border-slate-600 dark:bg-slate-800" placeholder="e.g. weekly earnings" /></td>
+                          <td className="py-3"><button type="button" onClick={() => void creditRiderWallet(rider.rider_id)} disabled={!riderCreditAmounts[rider.rider_id] || !riderCreditReasons[rider.rider_id]?.trim()} className="rounded-lg bg-emerald-600 px-3 py-2 text-xs font-semibold text-white hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-50">Add funds</button></td>
+                        </tr>
+                      ))}
+                      {riderWallets.length === 0 && <tr><td colSpan={6} className="py-6 text-center text-slate-500">No riders found.</td></tr>}
+                    </tbody>
+                  </table>
+                </div>
+              )}
             </div>
           </div>
         </div>

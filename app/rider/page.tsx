@@ -1,13 +1,14 @@
 "use client";
 
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import { Package } from "lucide-react";
+import { CreditCard, Package, UserRound, Wallet } from "lucide-react";
 import Link from "next/link";
 import RouteGuard from "@/components/RouteGuard";
 import Modal from "@/components/ui/Modal";
 import { useBackgroundOrderPolling } from "@/lib/hooks/useBackgroundOrderPolling";
 import { FiArrowRight, FiCheck, FiX, FiBox, FiClock, FiTruck } from "react-icons/fi";
 import { AiOutlineLoading3Quarters } from "react-icons/ai";
+import { client } from "@/lib/api/client";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_BASE || '';
 
@@ -57,11 +58,37 @@ type OrderUpdatePayload = {
   description?: string;
 };
 
+type RiderWallet = {
+  balance: string;
+  payout_phone: string;
+  transactions: Array<{
+    id: number;
+    reference: string;
+    type: string;
+    status: string;
+    amount: string;
+    balance_after: string;
+    reason: string;
+    payout_phone: string;
+    provider_transaction_id: string;
+    created_at: string;
+  }>;
+};
+
 /* --- Component --- */
 export default function RiderMapPage(): React.ReactElement {
   const [loadingOrders, setLoadingOrders] = useState(true);
   const [orderLoadError, setOrderLoadError] = useState<string | null>(null);
   const [currentTab, setCurrentTab] = useState<'my_pickups' | 'in_progress' | 'ready_delivery' | 'completed'>('my_pickups');
+  const [dashboardTab, setDashboardTab] = useState<'orders' | 'payments' | 'profile'>('orders');
+  const [wallet, setWallet] = useState<RiderWallet | null>(null);
+  const [walletLoading, setWalletLoading] = useState(false);
+  const [walletError, setWalletError] = useState('');
+  const [walletMessage, setWalletMessage] = useState('');
+  const [payoutPhone, setPayoutPhone] = useState('');
+  const [withdrawalAmount, setWithdrawalAmount] = useState('');
+  const [walletActionLoading, setWalletActionLoading] = useState(false);
+  const [profile, setProfile] = useState<Record<string, any> | null>(null);
 
   // Confirmation state for action buttons (orderId -> timestamp)
   const [confirmingOrderId, setConfirmingOrderId] = useState<number | null>(null);
@@ -101,6 +128,61 @@ export default function RiderMapPage(): React.ReactElement {
   
   // Use background polling for orders - smart updates without page reload
   const orders = useBackgroundOrderPolling(token, true, 60000); // 60 second default interval
+
+  const refreshWallet = async () => {
+    setWalletLoading(true);
+    setWalletError('');
+    try {
+      const data = await client.get('/riders/wallet/me/');
+      setWallet(data);
+      setPayoutPhone(data.payout_phone || '');
+    } catch (err: any) {
+      setWalletError(err?.message || 'Unable to load wallet details.');
+    } finally {
+      setWalletLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (dashboardTab === 'payments') void refreshWallet();
+    if (dashboardTab === 'profile') {
+      client.get('/users/me/').then(setProfile).catch((err: any) => setWalletError(err?.message || 'Unable to load profile.'));
+      void refreshWallet();
+    }
+  }, [dashboardTab]);
+
+  const savePayoutPhone = async () => {
+    setWalletActionLoading(true);
+    setWalletError('');
+    setWalletMessage('');
+    try {
+      const data = await client.patch('/riders/wallet/me/', { payout_phone: payoutPhone });
+      setWallet(data);
+      setPayoutPhone(data.payout_phone || '');
+      setWalletMessage('M-Pesa payout number saved.');
+    } catch (err: any) {
+      setWalletError(err?.message || 'Unable to save payout number.');
+    } finally {
+      setWalletActionLoading(false);
+    }
+  };
+
+  const requestWithdrawal = async () => {
+    if (!window.confirm(`Withdraw KSh ${Number(withdrawalAmount).toLocaleString('en-KE')} to ${wallet?.payout_phone || 'your saved M-Pesa number'}?`)) return;
+    setWalletActionLoading(true);
+    setWalletError('');
+    setWalletMessage('');
+    try {
+      const result = await client.post('/riders/wallet/me/', { amount: Number(withdrawalAmount) });
+      setWalletMessage(result.message || 'Withdrawal request submitted.');
+      setWithdrawalAmount('');
+      await refreshWallet();
+    } catch (err: any) {
+      setWalletError(err?.message || 'Unable to request withdrawal.');
+    } finally {
+      setWalletActionLoading(false);
+    }
+  };
   
   // Debug: Log currentUserId and first order's pickup_rider for comparison
   useEffect(() => {
@@ -374,8 +456,98 @@ export default function RiderMapPage(): React.ReactElement {
       <div className="min-h-screen bg-gradient-to-b from-white via-[#f8fafc] to-[#eef2ff] dark:from-[#071025] dark:via-[#041022] dark:to-[#011018] text-slate-900 dark:text-slate-100 py-12">
         <div className="max-w-6xl mx-auto px-4">
           <div className="grid grid-cols-1 gap-6">
+            <nav className="flex flex-wrap gap-2" aria-label="Rider dashboard">
+              {([
+                { id: 'orders', label: 'Orders', icon: Package },
+                { id: 'payments', label: 'Payments', icon: Wallet },
+                { id: 'profile', label: 'Profile', icon: UserRound },
+              ] as const).map(({ id, label, icon: Icon }) => (
+                <button
+                  key={id}
+                  type="button"
+                  onClick={() => setDashboardTab(id)}
+                  className={`flex items-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold transition-colors ${dashboardTab === id ? 'bg-red-600 text-white shadow-md' : 'border border-slate-200 bg-white text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200'}`}
+                >
+                  <Icon className="h-4 w-4" />{label}
+                </button>
+              ))}
+            </nav>
+
+            {dashboardTab === 'payments' && (
+              <section className="rounded-2xl bg-white/80 p-5 shadow dark:bg-white/5">
+                <div className="mb-5 flex items-center justify-between gap-3">
+                  <div>
+                    <h2 className="text-xl font-bold">Rider payments</h2>
+                    <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">Withdraw your available wallet balance to M-Pesa.</p>
+                  </div>
+                  <button type="button" onClick={() => void refreshWallet()} className="rounded-lg border border-slate-200 px-3 py-2 text-sm dark:border-slate-700">Refresh</button>
+                </div>
+                {walletError && <p role="alert" className="mb-4 rounded-lg bg-red-50 p-3 text-sm text-red-700 dark:bg-red-900/20 dark:text-red-300">{walletError}</p>}
+                {walletMessage && <p role="status" className="mb-4 rounded-lg bg-green-50 p-3 text-sm text-green-700 dark:bg-green-900/20 dark:text-green-300">{walletMessage}</p>}
+                <div className="mb-5 rounded-2xl bg-gradient-to-r from-emerald-600 to-teal-600 p-5 text-white">
+                  <div className="text-sm text-white/80">Available balance</div>
+                  <div className="mt-1 text-3xl font-extrabold">KSh {Number(wallet?.balance || 0).toLocaleString('en-KE')}</div>
+                  {walletLoading && <div className="mt-2 text-xs text-white/75">Refreshing wallet…</div>}
+                </div>
+                <div className="grid gap-5 lg:grid-cols-2">
+                  <div className="rounded-xl border border-slate-200 p-4 dark:border-slate-700">
+                    <h3 className="font-semibold">Payout number</h3>
+                    <p className="mb-3 mt-1 text-xs text-slate-500 dark:text-slate-400">Use a Kenyan M-Pesa number you control.</p>
+                    <div className="flex flex-col gap-2 sm:flex-row">
+                      <input value={payoutPhone} onChange={(event) => setPayoutPhone(event.target.value)} type="tel" placeholder="0712345678 or 254712345678" className="min-w-0 flex-1 rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm dark:border-slate-600 dark:bg-slate-800" />
+                      <button type="button" onClick={() => void savePayoutPhone()} disabled={walletActionLoading || !payoutPhone.trim()} className="rounded-lg bg-slate-900 px-4 py-2 text-sm font-semibold text-white disabled:opacity-50 dark:bg-slate-700">Save number</button>
+                    </div>
+                  </div>
+                  <div className="rounded-xl border border-slate-200 p-4 dark:border-slate-700">
+                    <h3 className="font-semibold">Withdraw to M-Pesa</h3>
+                    <p className="mb-3 mt-1 text-xs text-slate-500 dark:text-slate-400">Only whole KSh amounts are supported. Pending withdrawals are reserved until Safaricom confirms them.</p>
+                    <div className="flex flex-col gap-2 sm:flex-row">
+                      <input value={withdrawalAmount} onChange={(event) => setWithdrawalAmount(event.target.value)} type="number" min="1" step="1" placeholder="Amount in KSh" className="min-w-0 flex-1 rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm dark:border-slate-600 dark:bg-slate-800" />
+                      <button type="button" onClick={() => void requestWithdrawal()} disabled={walletActionLoading || !withdrawalAmount || !wallet?.payout_phone} className="flex items-center justify-center gap-2 rounded-lg bg-emerald-600 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-700 disabled:opacity-50"><CreditCard className="h-4 w-4" />{walletActionLoading ? 'Processing…' : 'Withdraw'}</button>
+                    </div>
+                    {!wallet?.payout_phone && <p className="mt-2 text-xs text-amber-600">Save your payout number before requesting a withdrawal.</p>}
+                  </div>
+                </div>
+                <div className="mt-6">
+                  <h3 className="mb-3 font-semibold">Wallet activity</h3>
+                  {!wallet?.transactions?.length ? <p className="rounded-lg bg-slate-50 p-4 text-sm text-slate-500 dark:bg-slate-800">No wallet transactions yet. Your admin will add available funds here.</p> : (
+                    <div className="overflow-x-auto">
+                      <table className="min-w-full text-left text-sm">
+                        <thead className="border-b border-slate-200 text-xs uppercase text-slate-500 dark:border-slate-700"><tr><th className="py-2 pr-4">Type</th><th className="py-2 pr-4">Amount</th><th className="py-2 pr-4">Status</th><th className="py-2 pr-4">Date</th><th className="py-2">Details</th></tr></thead>
+                        <tbody>{wallet.transactions.map((entry) => <tr key={entry.id} className="border-b border-slate-100 dark:border-slate-800"><td className="py-3 pr-4 capitalize">{entry.type}</td><td className="py-3 pr-4 font-semibold">KSh {Number(entry.amount).toLocaleString('en-KE')}</td><td className="py-3 pr-4 capitalize">{entry.status}</td><td className="py-3 pr-4 whitespace-nowrap">{new Date(entry.created_at).toLocaleString()}</td><td className="py-3 text-slate-500">{entry.reason || entry.provider_transaction_id || '—'}</td></tr>)}</tbody>
+                      </table>
+                    </div>
+                  )}
+                </div>
+              </section>
+            )}
+
+            {dashboardTab === 'profile' && (
+              <section className="rounded-2xl bg-white/80 p-5 shadow dark:bg-white/5">
+                <h2 className="text-xl font-bold">Rider profile</h2>
+                <p className="mb-5 mt-1 text-sm text-slate-500 dark:text-slate-400">Your account details and M-Pesa payout destination.</p>
+                {walletError && <p role="alert" className="mb-4 rounded-lg bg-red-50 p-3 text-sm text-red-700 dark:bg-red-900/20 dark:text-red-300">{walletError}</p>}
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <ProfileValue label="Name" value={`${profile?.first_name || ''} ${profile?.last_name || ''}`.trim() || profile?.username || '—'} />
+                  <ProfileValue label="Username" value={profile?.username || '—'} />
+                  <ProfileValue label="Phone" value={profile?.phone || '—'} />
+                  <ProfileValue label="Email" value={profile?.email || '—'} />
+                  <ProfileValue label="Role" value={profile?.role || 'Rider'} />
+                </div>
+                <div className="mt-5 rounded-xl border border-slate-200 p-4 dark:border-slate-700">
+                  <h3 className="font-semibold">M-Pesa payout number</h3>
+                  <p className="mb-3 mt-1 text-xs text-slate-500 dark:text-slate-400">The wallet uses this number for withdrawals.</p>
+                  <div className="flex flex-col gap-2 sm:flex-row">
+                    <input value={payoutPhone} onChange={(event) => setPayoutPhone(event.target.value)} type="tel" placeholder="0712345678 or 254712345678" className="min-w-0 flex-1 rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm dark:border-slate-600 dark:bg-slate-800" />
+                    <button type="button" onClick={() => void savePayoutPhone()} disabled={walletActionLoading || !payoutPhone.trim()} className="rounded-lg bg-red-600 px-4 py-2 text-sm font-semibold text-white disabled:opacity-50">{walletActionLoading ? 'Saving…' : 'Save number'}</button>
+                  </div>
+                  {walletMessage && <p role="status" className="mt-3 text-sm text-green-700 dark:text-green-300">{walletMessage}</p>}
+                </div>
+              </section>
+            )}
+
             {/* Left: Order list & filters */}
-            <section className="rounded-2xl bg-white/80 dark:bg-white/5 p-4 shadow">
+            {dashboardTab === 'orders' && <section className="rounded-2xl bg-white/80 dark:bg-white/5 p-4 shadow">
               <div className="flex items-center gap-3 mb-4">
                 <Package className="w-5 h-5 text-red-600" />
                 <h2 className="text-lg font-semibold">Orders</h2>
@@ -532,10 +704,10 @@ export default function RiderMapPage(): React.ReactElement {
 
                 </div>
               )}
-            </section>
+            </section>}
 
           {/* Details Modal - Minimalistic */}
-          {detailsOrderId !== null && (
+          {dashboardTab === 'orders' && detailsOrderId !== null && (
             <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onClick={handleCloseDetailsForm}>
               <div
                 className="w-full max-w-md bg-white dark:bg-slate-800 rounded-xl p-4 shadow-lg overflow-y-auto"
@@ -667,4 +839,13 @@ function formatDateTime(s?: string | null) {
 
 function capitalize(s: string) {
   return s.charAt(0).toUpperCase() + s.slice(1);
+}
+
+function ProfileValue({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-xl border border-slate-200 p-4 dark:border-slate-700">
+      <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">{label}</div>
+      <div className="mt-1 break-words font-medium">{value}</div>
+    </div>
+  );
 }
