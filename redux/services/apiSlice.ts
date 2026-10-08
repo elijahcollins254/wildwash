@@ -162,10 +162,31 @@ export const apiSlice = createApi({
     }),
     // Service endpoints
     getServices: builder.query<Service[], void>({
-      query: () => '/services/',
-      transformResponse: (response: any) => {
-        // Handle paginated response or direct array
-        return Array.isArray(response) ? response : (response?.results || []);
+      async queryFn(_arg, _queryApi, _extraOptions, baseQuery) {
+        let url = '/services/';
+        const services: Service[] = [];
+
+        while (url) {
+          const response = await baseQuery(url);
+          if (response.error) return { error: response.error };
+
+          const payload = response.data as PaginatedResponse<Service> | Service[];
+          if (Array.isArray(payload)) {
+            services.push(...payload);
+            break;
+          }
+          if (!payload || !Array.isArray(payload.results)) break;
+
+          services.push(...payload.results);
+          if (payload.next) {
+            const nextUrl = new URL(payload.next);
+            url = `${nextUrl.pathname}${nextUrl.search}`;
+          } else {
+            url = '';
+          }
+        }
+
+        return { data: services };
       },
       providesTags: ['Services'],
     }),
