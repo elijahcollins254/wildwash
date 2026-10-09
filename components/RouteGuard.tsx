@@ -53,7 +53,7 @@ export default function RouteGuard({ children, requireAdmin = false, requireRide
     const staffRoles = ['staff', 'washer', 'folder', 'fumigator', 'rider'];
     const hasRequiredRole = 
       (requireAdmin && userRole === 'admin') || 
-      (requireRider && userRole === 'rider') ||
+      (requireRider && (userRole === 'rider' || userRole === 'admin')) ||
       (requireStaff && staffRoles.includes(userRole || ''));
     console.log('Role check:', { requireAdmin, requireRider, requireStaff, userRole, hasRequiredRole });
 
@@ -82,7 +82,7 @@ export default function RouteGuard({ children, requireAdmin = false, requireRide
     return null;
   }
 
-  if ((requireAdmin && userRole !== 'admin') || (requireRider && userRole !== 'rider') || (requireStaff && !['staff', 'washer', 'folder', 'fumigator', 'rider'].includes(userRole || ''))) {
+  if ((requireAdmin && userRole !== 'admin') || (requireRider && userRole !== 'rider' && userRole !== 'admin') || (requireStaff && !['staff', 'washer', 'folder', 'fumigator', 'rider'].includes(userRole || ''))) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gradient-to-b from-white via-[#f8fafc] to-[#eef2ff] dark:from-[#071025] dark:via-[#041022] dark:to-[#011018]">
         <div className="max-w-md w-full p-8 bg-white dark:bg-slate-800 rounded-2xl shadow-lg">
@@ -92,7 +92,7 @@ export default function RouteGuard({ children, requireAdmin = false, requireRide
               {requireAdmin 
                 ? "Sorry, this page is only accessible to administrators."
                 : requireRider 
-                ? "Sorry, this page is only accessible to riders."
+                ? "Sorry, this page is only accessible to riders and administrators."
                 : "Sorry, this page is only accessible to staff members."}
               You will be redirected to the home page shortly.
             </p>
