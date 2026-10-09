@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useEffect, useState, useCallback, useMemo } from "react";
+import dynamic from 'next/dynamic';
 import { useRouter } from "next/navigation";
 import Link from 'next/link';
 import { client } from '@/lib/api/client';
@@ -9,6 +10,9 @@ import { Spinner, OrderStatusUpdate } from '@/components';
 import Modal from '@/components/ui/Modal';
 import { calculateOrderUrgency, getUrgencyLabel } from '@/lib/orderUrgency';
 import { useOrders } from '@/lib/context/OrderContext';
+
+const PickupMap = dynamic(() => import('@/components/PickupMap'), { ssr: false });
+const DEFAULT_WASHER_POSITION: [number, number] = [-1.286389, 36.817223];
 
 // Debounce helper for search
 function debounce(fn: Function, ms: number) {
@@ -20,6 +24,16 @@ function debounce(fn: Function, ms: number) {
 }
 
 type Order = Record<string, any>;
+
+type WasherAnalytics = {
+  completed_orders: number;
+  in_progress_orders: number;
+  revenue: number;
+  commission_rate: number;
+  commission: number;
+  reviews: Array<Record<string, any>>;
+  average_rating?: number | null;
+};
 
 interface StaffRoleDashboardProps {
   staffRole: 'washer' | 'folder' | 'fumigator' | 'staff' | 'admin';
@@ -83,6 +97,23 @@ export default function StaffRoleDashboard({ staffRole }: StaffRoleDashboardProp
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [profile, setProfile] = useState<any | null>(null);
+  const [activeDashboardTab, setActiveDashboardTab] = useState<'orders' | 'analytics' | 'payments' | 'profile'>('orders');
+  const [washerAnalytics, setWasherAnalytics] = useState<WasherAnalytics | null>(null);
+  const [analyticsLoading, setAnalyticsLoading] = useState(false);
+  const [analyticsHasLoaded, setAnalyticsHasLoaded] = useState(false);
+  const [analyticsError, setAnalyticsError] = useState('');
+  const [washerProfileForm, setWasherProfileForm] = useState({
+    first_name: '',
+    last_name: '',
+    phone: '',
+    email: '',
+    pickup_address: '',
+    machine_count: '0',
+  });
+  const [washerPosition, setWasherPosition] = useState<[number, number] | null>(null);
+  const [profileSaving, setProfileSaving] = useState(false);
+  const [profileMessage, setProfileMessage] = useState('');
+  const [profileError, setProfileError] = useState('');
   const [detailsFormOrderId, setDetailsFormOrderId] = useState<number | null>(null);
   const [detailsForm, setDetailsForm] = useState<{ items?: number; weight_kg?: string; pickup_notes?: string; actual_price?: string }>({});
   const [displayLimit, setDisplayLimit] = useState<number>(20);
@@ -197,6 +228,19 @@ export default function StaffRoleDashboard({ staffRole }: StaffRoleDashboardProp
         const meData = await client.get('/users/me/');
         console.log(`[${staffRole.toUpperCase()}] Profile fetched:`, meData);
         setProfile(meData);
+        if (staffRole === 'washer') {
+          setWasherProfileForm({
+            first_name: meData.first_name ?? '',
+            last_name: meData.last_name ?? '',
+            phone: meData.phone ?? '',
+            email: meData.email ?? '',
+            pickup_address: meData.pickup_address ?? '',
+            machine_count: String(meData.machine_count ?? 0),
+          });
+          if (meData.pickup_latitude != null && meData.pickup_longitude != null) {
+            setWasherPosition([Number(meData.pickup_latitude), Number(meData.pickup_longitude)]);
+          }
+        }
         setLoading(false);
       } catch (err: any) {
         setError(err?.message ?? `Failed to load ${staffRole} dashboard`);
@@ -205,6 +249,57 @@ export default function StaffRoleDashboard({ staffRole }: StaffRoleDashboardProp
     })();
 
   }, [staffRole, router]);
+
+  const loadWasherAnalytics = useCallback(async () => {
+    setAnalyticsLoading(true);
+    setAnalyticsError('');
+    try {
+      const data = await client.get('/orders/washer-analytics/');
+      setWasherAnalytics(data);
+    } catch (err: any) {
+      setAnalyticsError(err?.message || 'Unable to load washer analytics.');
+    } finally {
+      setAnalyticsLoading(false);
+      setAnalyticsHasLoaded(true);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (staffRole === 'washer' && (activeDashboardTab === 'analytics' || activeDashboardTab === 'payments') && !analyticsHasLoaded && !analyticsLoading) {
+      void loadWasherAnalytics();
+    }
+  }, [staffRole, activeDashboardTab, analyticsHasLoaded, analyticsLoading, loadWasherAnalytics]);
+
+  const saveWasherProfile = useCallback(async () => {
+    const machineCount = Number(washerProfileForm.machine_count);
+    if (!Number.isInteger(machineCount) || machineCount < 0) {
+      setProfileError('Machine count must be a whole number of zero or more.');
+      setProfileMessage('');
+      return;
+    }
+
+    setProfileSaving(true);
+    setProfileError('');
+    setProfileMessage('');
+    try {
+      const updatedProfile = await client.patch('/users/me/', {
+        first_name: washerProfileForm.first_name.trim(),
+        last_name: washerProfileForm.last_name.trim(),
+        phone: washerProfileForm.phone.trim(),
+        email: washerProfileForm.email.trim(),
+        pickup_address: washerProfileForm.pickup_address.trim(),
+        machine_count: machineCount,
+        pickup_latitude: washerPosition?.[0] ?? null,
+        pickup_longitude: washerPosition?.[1] ?? null,
+      });
+      setProfile(updatedProfile);
+      setProfileMessage('Washer profile saved.');
+    } catch (err: any) {
+      setProfileError(err?.message || 'Unable to save washer profile.');
+    } finally {
+      setProfileSaving(false);
+    }
+  }, [washerPosition, washerProfileForm]);
 
   const total = totalOrdersCount || orders.length;
 
@@ -308,14 +403,29 @@ export default function StaffRoleDashboard({ staffRole }: StaffRoleDashboardProp
                 </p>
               </div>
             </div>
-            <button 
+            {activeDashboardTab === 'orders' && <button 
               onClick={() => setShowCreateOrderModal(true)}
               className="px-6 py-2 bg-green-600 text-white rounded-full hover:bg-green-700 dark:bg-green-700 dark:hover:bg-green-600 text-sm font-semibold whitespace-nowrap shadow-md hover:shadow-lg transition-all"
             >
               + Create Order
-            </button>
+            </button>}
           </div>
-          <div className="mt-4 flex flex-wrap items-center gap-3">
+          {staffRole === 'washer' && (
+            <nav aria-label="Washer dashboard sections" className="mb-5 flex flex-wrap gap-2 border-b border-slate-200 pb-3 dark:border-slate-700">
+              {(['orders', 'analytics', 'payments', 'profile'] as const).map((tab) => (
+                <button
+                  key={tab}
+                  type="button"
+                  onClick={() => setActiveDashboardTab(tab)}
+                  aria-current={activeDashboardTab === tab ? 'page' : undefined}
+                  className={`rounded-full px-4 py-2 text-sm font-semibold capitalize transition-colors ${activeDashboardTab === tab ? 'bg-blue-600 text-white shadow' : 'bg-white text-slate-600 hover:bg-slate-100 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700'}`}
+                >
+                  {tab}
+                </button>
+              ))}
+            </nav>
+          )}
+          {(staffRole !== 'washer' || activeDashboardTab === 'orders') && <div className="mt-4 flex flex-wrap items-center gap-3">
             <select
               value={statusFilter}
               onChange={(e) => {
@@ -381,9 +491,10 @@ export default function StaffRoleDashboard({ staffRole }: StaffRoleDashboardProp
             >
               Reset
             </button>
-          </div>
+          </div>}
         </header>
 
+        {(staffRole !== 'washer' || activeDashboardTab === 'orders') && <>
         <div className="mb-6">
           <div className="inline-flex items-center gap-4">
             <div className="text-sm text-slate-500 dark:text-slate-400">Total orders for location</div>
@@ -644,6 +755,149 @@ export default function StaffRoleDashboard({ staffRole }: StaffRoleDashboardProp
           )}
         </div>
         )}
+        </>}
+
+        {staffRole === 'washer' && activeDashboardTab === 'analytics' && (
+          <section aria-labelledby="washer-analytics-heading" className="space-y-6">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <h2 id="washer-analytics-heading" className="text-xl font-bold text-slate-900 dark:text-white">Washer analytics</h2>
+                <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">Your order activity and customer feedback.</p>
+              </div>
+              <button type="button" onClick={() => void loadWasherAnalytics()} disabled={analyticsLoading} className="rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-white disabled:opacity-50 dark:border-slate-600 dark:text-slate-200 dark:hover:bg-slate-800">
+                {analyticsLoading ? 'Refreshing…' : 'Refresh'}
+              </button>
+            </div>
+            {analyticsError && <div role="alert" className="rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-700 dark:border-red-800 dark:bg-red-900/20 dark:text-red-300">{analyticsError}</div>}
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <div className="rounded-2xl border border-emerald-200 bg-white p-5 shadow-sm dark:border-emerald-900 dark:bg-slate-800">
+                <p className="text-sm font-medium text-slate-500 dark:text-slate-400">Completed orders</p>
+                <p className="mt-2 text-3xl font-bold text-emerald-700 dark:text-emerald-400">{analyticsLoading && !washerAnalytics ? '—' : washerAnalytics?.completed_orders ?? 0}</p>
+              </div>
+              <div className="rounded-2xl border border-blue-200 bg-white p-5 shadow-sm dark:border-blue-900 dark:bg-slate-800">
+                <p className="text-sm font-medium text-slate-500 dark:text-slate-400">In progress</p>
+                <p className="mt-2 text-3xl font-bold text-blue-700 dark:text-blue-400">{analyticsLoading && !washerAnalytics ? '—' : washerAnalytics?.in_progress_orders ?? 0}</p>
+              </div>
+            </div>
+            <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-700 dark:bg-slate-800">
+              <div className="flex flex-wrap items-start justify-between gap-3">
+                <div>
+                  <h3 className="text-lg font-semibold text-slate-900 dark:text-white">Customer ratings &amp; reviews</h3>
+                  <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
+                    {washerAnalytics?.average_rating != null ? `Average rating: ${Number(washerAnalytics.average_rating).toFixed(1)} / 5` : 'Ratings summary'}
+                  </p>
+                </div>
+                {washerAnalytics?.reviews?.length ? <span className="rounded-full bg-amber-100 px-3 py-1 text-sm font-semibold text-amber-800 dark:bg-amber-900/30 dark:text-amber-300">{washerAnalytics.reviews.length} review{washerAnalytics.reviews.length === 1 ? '' : 's'}</span> : null}
+              </div>
+              {washerAnalytics?.reviews?.length ? (
+                <ul className="mt-4 divide-y divide-slate-100 dark:divide-slate-700">
+                  {washerAnalytics.reviews.map((review, index) => (
+                    <li key={String(review.id ?? index)} className="py-4 first:pt-0 last:pb-0">
+                      <div className="flex flex-wrap items-center justify-between gap-2">
+                        <span className="font-medium text-slate-900 dark:text-white">{review.customer_name ?? review.customer ?? 'Customer'}</span>
+                        {review.rating != null && <span className="text-sm font-semibold text-amber-600 dark:text-amber-400">★ {Number(review.rating).toFixed(1)} / 5</span>}
+                      </div>
+                      <p className="mt-2 text-sm text-slate-600 dark:text-slate-300">{review.comment ?? review.review ?? review.text ?? 'No written comment.'}</p>
+                      {review.created_at && <p className="mt-2 text-xs text-slate-400">{new Date(review.created_at).toLocaleDateString()}</p>}
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <p className="mt-4 rounded-lg bg-slate-50 p-4 text-sm text-slate-600 dark:bg-slate-900 dark:text-slate-400">Customer ratings and reviews will appear here when feedback is enabled for orders.</p>
+              )}
+            </div>
+          </section>
+        )}
+
+        {staffRole === 'washer' && activeDashboardTab === 'payments' && (
+          <section aria-labelledby="washer-payments-heading" className="space-y-6">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <h2 id="washer-payments-heading" className="text-xl font-bold text-slate-900 dark:text-white">Payments</h2>
+                <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">Revenue and estimated commission from your assigned orders.</p>
+              </div>
+              <button type="button" onClick={() => void loadWasherAnalytics()} disabled={analyticsLoading} className="rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-white disabled:opacity-50 dark:border-slate-600 dark:text-slate-200 dark:hover:bg-slate-800">
+                {analyticsLoading ? 'Refreshing…' : 'Refresh'}
+              </button>
+            </div>
+            {analyticsError && <div role="alert" className="rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-700 dark:border-red-800 dark:bg-red-900/20 dark:text-red-300">{analyticsError}</div>}
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <div className="rounded-2xl border border-emerald-200 bg-white p-6 shadow-sm dark:border-emerald-900 dark:bg-slate-800">
+                <p className="text-sm font-medium text-slate-500 dark:text-slate-400">Paid revenue</p>
+                <p className="mt-2 text-3xl font-bold text-emerald-700 dark:text-emerald-400">KSh {Number(washerAnalytics?.revenue ?? 0).toLocaleString('en-KE')}</p>
+              </div>
+              <div className="rounded-2xl border border-violet-200 bg-white p-6 shadow-sm dark:border-violet-900 dark:bg-slate-800">
+                <p className="text-sm font-medium text-slate-500 dark:text-slate-400">Commission ({((washerAnalytics?.commission_rate ?? 0.1) * 100).toFixed(0)}%)</p>
+                <p className="mt-2 text-3xl font-bold text-violet-700 dark:text-violet-400">KSh {Number(washerAnalytics?.commission ?? 0).toLocaleString('en-KE')}</p>
+              </div>
+            </div>
+            <p className="text-xs text-slate-500 dark:text-slate-400">Revenue reflects payments received for orders assigned to your washer account. Commission is an estimate based on the configured rate.</p>
+          </section>
+        )}
+
+        {staffRole === 'washer' && activeDashboardTab === 'profile' && (
+          <section aria-labelledby="washer-profile-heading" className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-700 dark:bg-slate-800">
+            <div className="mb-5">
+              <h2 id="washer-profile-heading" className="text-xl font-bold text-slate-900 dark:text-white">Washer profile</h2>
+              <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">Update your contact details, service pin and available machines.</p>
+            </div>
+            {profileError && <div role="alert" className="mb-4 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700 dark:border-red-800 dark:bg-red-900/20 dark:text-red-300">{profileError}</div>}
+            {profileMessage && <div role="status" className="mb-4 rounded-lg border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-700 dark:border-emerald-800 dark:bg-emerald-900/20 dark:text-emerald-300">{profileMessage}</div>}
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+              <label className="text-sm font-medium text-slate-700 dark:text-slate-300">First name
+                <input value={washerProfileForm.first_name} onChange={(event) => setWasherProfileForm((current) => ({ ...current, first_name: event.target.value }))} className="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-slate-900 dark:border-slate-600 dark:bg-slate-900 dark:text-white" />
+              </label>
+              <label className="text-sm font-medium text-slate-700 dark:text-slate-300">Last name
+                <input value={washerProfileForm.last_name} onChange={(event) => setWasherProfileForm((current) => ({ ...current, last_name: event.target.value }))} className="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-slate-900 dark:border-slate-600 dark:bg-slate-900 dark:text-white" />
+              </label>
+              <label className="text-sm font-medium text-slate-700 dark:text-slate-300">Phone number
+                <input type="tel" value={washerProfileForm.phone} onChange={(event) => setWasherProfileForm((current) => ({ ...current, phone: event.target.value }))} className="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-slate-900 dark:border-slate-600 dark:bg-slate-900 dark:text-white" />
+              </label>
+              <label className="text-sm font-medium text-slate-700 dark:text-slate-300">Email
+                <input type="email" value={washerProfileForm.email} onChange={(event) => setWasherProfileForm((current) => ({ ...current, email: event.target.value }))} className="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-slate-900 dark:border-slate-600 dark:bg-slate-900 dark:text-white" />
+              </label>
+              <label className="text-sm font-medium text-slate-700 dark:text-slate-300">Location / address
+                <input value={washerProfileForm.pickup_address} onChange={(event) => setWasherProfileForm((current) => ({ ...current, pickup_address: event.target.value }))} className="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-slate-900 dark:border-slate-600 dark:bg-slate-900 dark:text-white" placeholder="Washer business or pickup address" />
+              </label>
+              <label className="text-sm font-medium text-slate-700 dark:text-slate-300">Number of machines
+                <input type="number" min="0" step="1" value={washerProfileForm.machine_count} onChange={(event) => setWasherProfileForm((current) => ({ ...current, machine_count: event.target.value }))} className="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-slate-900 dark:border-slate-600 dark:bg-slate-900 dark:text-white" />
+              </label>
+            </div>
+            <div className="mt-6">
+              <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+                <div>
+                  <h3 className="font-semibold text-slate-900 dark:text-white">GPS drop pin</h3>
+                  <p className="text-sm text-slate-500 dark:text-slate-400">Click the map or drag the marker to set your washer location.</p>
+                </div>
+                {washerPosition && <span className="text-xs text-slate-500 dark:text-slate-400">{washerPosition[0].toFixed(6)}, {washerPosition[1].toFixed(6)}</span>}
+              </div>
+              <PickupMap position={washerPosition ?? DEFAULT_WASHER_POSITION} hasPin={washerPosition !== null} onChange={(position: [number, number]) => { setWasherPosition(position); setProfileError(''); setProfileMessage(''); }} />
+              <div className="mt-3 grid grid-cols-1 gap-4 sm:grid-cols-2">
+                <label className="text-sm font-medium text-slate-700 dark:text-slate-300">Latitude
+                  <input type="number" step="0.000001" value={washerPosition?.[0] ?? ''} onChange={(event) => {
+                    const latitude = event.target.value === '' ? null : Number(event.target.value);
+                    setWasherPosition(latitude === null ? null : [latitude, washerPosition?.[1] ?? DEFAULT_WASHER_POSITION[1]]);
+                    setProfileMessage('');
+                  }} className="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-slate-900 dark:border-slate-600 dark:bg-slate-900 dark:text-white" />
+                </label>
+                <label className="text-sm font-medium text-slate-700 dark:text-slate-300">Longitude
+                  <input type="number" step="0.000001" value={washerPosition?.[1] ?? ''} onChange={(event) => {
+                    const longitude = event.target.value === '' ? null : Number(event.target.value);
+                    setWasherPosition(longitude === null ? null : [washerPosition?.[0] ?? DEFAULT_WASHER_POSITION[0], longitude]);
+                    setProfileMessage('');
+                  }} className="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-slate-900 dark:border-slate-600 dark:bg-slate-900 dark:text-white" />
+                </label>
+              </div>
+              <button type="button" onClick={() => { setWasherPosition(null); setProfileMessage(''); }} className="mt-2 text-sm font-medium text-blue-700 hover:underline dark:text-blue-400">Clear location pin</button>
+            </div>
+            <div className="mt-6 flex justify-end">
+              <button type="button" onClick={() => void saveWasherProfile()} disabled={profileSaving} className="rounded-lg bg-blue-600 px-5 py-2.5 text-sm font-semibold text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50">
+                {profileSaving ? 'Saving…' : 'Save profile'}
+              </button>
+            </div>
+          </section>
+        )}
+
         {showCreateOrderModal && (
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm" onClick={() => setShowCreateOrderModal(false)}>
             <div className="w-full max-w-md bg-white dark:bg-slate-800 rounded-3xl shadow-2xl p-6 max-h-[90vh] overflow-y-auto border border-slate-200 dark:border-slate-700" onClick={(e) => e.stopPropagation()}>
