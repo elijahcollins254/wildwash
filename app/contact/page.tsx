@@ -13,9 +13,10 @@ export default function ContactPage() {
   const [error, setError] = useState<null | string>(null);
 
   // Primary contacts
-  const mainPhone = "+254 700 000 000";
-  const whatsappNumber = "+254705415948"; // E.164 recommended for whatsapp links
-  const supportEmail = "hello@wildwash.co";
+  const mainPhone = "0769760460";
+  const secondPhone = "0705415948";
+  const whatsappNumber = "254705415948"; // E.164 recommended for whatsapp links
+  const supportEmail = "Wildwash.jungletechnologies@gmail.com";
   const officeAddress = "Wild Wash HQ — Westlands, Nairobi";
 
   function submitForm(e?: React.FormEvent) {
@@ -39,7 +40,7 @@ export default function ContactPage() {
     <div className="min-h-screen bg-gradient-to-b from-white via-[#f8fafc] to-[#eef2ff] dark:from-[#071025] dark:via-[#041022] dark:to-[#011018] text-slate-900 dark:text-slate-100 py-12">
       <div className="max-w-4xl mx-auto px-4">
         <header className="mb-6">
-          <h1 className="text-3xl font-extrabold">Contact Wild Wash</h1>
+          <h1 className="text-3xl font-extrabold">Contact us</h1>
           <p className="mt-2 text-sm text-slate-600 dark:text-slate-300">Need help? Find every way to reach us below — phone, WhatsApp, email, or raise a request using the form.</p>
         </header>
 
@@ -47,7 +48,8 @@ export default function ContactPage() {
           <div className="rounded-2xl bg-white/80 dark:bg-white/5 p-4 shadow">
             <div className="font-semibold">Customer support</div>
             <div className="mt-3 text-sm text-slate-700">
-              <div className="mb-2">Phone: <a href={`tel:${mainPhone.replace(/\s/g, "")}`} className="underline">{mainPhone}</a></div>
+              <div className="mb-2">Phone: <a href={`tel:${mainPhone}`} className="underline">{mainPhone}</a></div>
+              <div className="mb-2">Phone: <a href={`tel:${secondPhone}`} className="underline">{secondPhone}</a></div>
               <div className="mb-2">WhatsApp: <a href={`https://api.whatsapp.com/send?phone=${encodeURIComponent(whatsappNumber)}&text=Hi%20Wild%20Wash`} target="_blank" rel="noreferrer" className="underline">Message us on WhatsApp</a></div>
               <div className="mb-2">Email: <a href={`mailto:${supportEmail}`} className="underline">{supportEmail}</a></div>
             </div>
@@ -124,7 +126,8 @@ export default function ContactPage() {
             <div>
               <div className="font-semibold">Quick actions</div>
               <div className="mt-2 flex flex-col gap-2">
-                <a href={`tel:${mainPhone.replace(/\s/g, "")}`} className="text-sm px-3 py-2 rounded bg-slate-100 dark:bg-white/5">Call support</a>
+                <a href={`tel:${mainPhone}`} className="text-sm px-3 py-2 rounded bg-slate-100 dark:bg-white/5">Call 0769760460</a>
+                <a href={`tel:${secondPhone}`} className="text-sm px-3 py-2 rounded bg-slate-100 dark:bg-white/5">Call 0705415948</a>
                 <a href={`https://api.whatsapp.com/send?phone=${encodeURIComponent(whatsappNumber)}&text=Hi%20Wild%20Wash`} target="_blank" rel="noreferrer" className="text-sm px-3 py-2 rounded bg-slate-100 dark:bg-white/5">Message on WhatsApp</a>
                 <Link href="/faq" className="text-sm px-3 py-2 rounded bg-slate-100 dark:bg-white/5">Visit FAQ</Link>
               </div>
@@ -146,7 +149,7 @@ export default function ContactPage() {
           <p className="text-sm text-slate-600 mt-1">If you believe an item is lost or damaged, contact support immediately by phone or WhatsApp so we can prioritise your case. For urgent cases use the WhatsApp link above and include your tracking code.</p>
         </div>
 
-        <div className="mt-6 text-xs text-slate-500">By contacting us you agree to our <Link href="/terms" className="underline">terms</Link> and <Link href="/privacy" className="underline">privacy policy</Link>.</div>
+        <div className="mt-6 text-xs text-slate-500">By contacting us you agree to our <Link href="/terms-of-service" className="underline">terms of service</Link> and <Link href="/privacy" className="underline">privacy policy</Link>.</div>
       </div>
     </div>
   );

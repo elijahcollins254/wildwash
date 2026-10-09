@@ -35,6 +35,23 @@ type WasherAnalytics = {
   average_rating?: number | null;
 };
 
+type WasherWallet = {
+  balance: string;
+  payout_phone: string;
+  transactions: Array<{
+    id: number;
+    reference: string;
+    type: string;
+    status: string;
+    amount: string;
+    balance_after: string;
+    reason: string;
+    payout_phone: string;
+    provider_transaction_id: string;
+    created_at: string;
+  }>;
+};
+
 interface StaffRoleDashboardProps {
   staffRole: 'washer' | 'folder' | 'fumigator' | 'staff' | 'admin';
 }
@@ -102,6 +119,13 @@ export default function StaffRoleDashboard({ staffRole }: StaffRoleDashboardProp
   const [analyticsLoading, setAnalyticsLoading] = useState(false);
   const [analyticsHasLoaded, setAnalyticsHasLoaded] = useState(false);
   const [analyticsError, setAnalyticsError] = useState('');
+  const [washerWallet, setWasherWallet] = useState<WasherWallet | null>(null);
+  const [walletLoading, setWalletLoading] = useState(false);
+  const [walletActionLoading, setWalletActionLoading] = useState(false);
+  const [walletError, setWalletError] = useState('');
+  const [walletMessage, setWalletMessage] = useState('');
+  const [washerPayoutPhone, setWasherPayoutPhone] = useState('');
+  const [washerWithdrawalAmount, setWasherWithdrawalAmount] = useState('');
   const [washerProfileForm, setWasherProfileForm] = useState({
     first_name: '',
     last_name: '',
@@ -269,6 +293,62 @@ export default function StaffRoleDashboard({ staffRole }: StaffRoleDashboardProp
       void loadWasherAnalytics();
     }
   }, [staffRole, activeDashboardTab, analyticsHasLoaded, analyticsLoading, loadWasherAnalytics]);
+
+  const refreshWasherWallet = useCallback(async () => {
+    setWalletLoading(true);
+    setWalletError('');
+    try {
+      const data = await client.get('/riders/washer-wallet/me/');
+      setWasherWallet(data);
+      setWasherPayoutPhone(data.payout_phone ?? '');
+    } catch (err: any) {
+      setWalletError(err?.message || 'Unable to load washer wallet.');
+    } finally {
+      setWalletLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (staffRole === 'washer' && activeDashboardTab === 'payments') void refreshWasherWallet();
+  }, [staffRole, activeDashboardTab, refreshWasherWallet]);
+
+  const saveWasherPayoutPhone = useCallback(async () => {
+    setWalletActionLoading(true);
+    setWalletError('');
+    setWalletMessage('');
+    try {
+      const data = await client.patch('/riders/washer-wallet/me/', { payout_phone: washerPayoutPhone });
+      setWasherWallet(data);
+      setWasherPayoutPhone(data.payout_phone ?? '');
+      setWalletMessage('M-Pesa payout number saved.');
+    } catch (err: any) {
+      setWalletError(err?.message || 'Unable to save payout number.');
+    } finally {
+      setWalletActionLoading(false);
+    }
+  }, [washerPayoutPhone]);
+
+  const requestWasherWithdrawal = useCallback(async () => {
+    const amount = Number(washerWithdrawalAmount);
+    if (!Number.isInteger(amount) || amount <= 0) {
+      setWalletError('Enter a positive whole KSh amount.');
+      return;
+    }
+    if (!window.confirm(`Withdraw KSh ${amount.toLocaleString('en-KE')} to ${washerWallet?.payout_phone || 'your saved M-Pesa number'}?`)) return;
+    setWalletActionLoading(true);
+    setWalletError('');
+    setWalletMessage('');
+    try {
+      const result = await client.post('/riders/washer-wallet/me/', { amount });
+      setWalletMessage(result.message || 'Withdrawal request submitted.');
+      setWasherWithdrawalAmount('');
+      await refreshWasherWallet();
+    } catch (err: any) {
+      setWalletError(err?.message || 'Unable to request withdrawal.');
+    } finally {
+      setWalletActionLoading(false);
+    }
+  }, [refreshWasherWallet, washerWallet?.payout_phone, washerWithdrawalAmount]);
 
   const saveWasherProfile = useCallback(async () => {
     const machineCount = Number(washerProfileForm.machine_count);
@@ -830,6 +910,43 @@ export default function StaffRoleDashboard({ staffRole }: StaffRoleDashboardProp
                 <p className="text-sm font-medium text-slate-500 dark:text-slate-400">Commission ({((washerAnalytics?.commission_rate ?? 0.1) * 100).toFixed(0)}%)</p>
                 <p className="mt-2 text-3xl font-bold text-violet-700 dark:text-violet-400">KSh {Number(washerAnalytics?.commission ?? 0).toLocaleString('en-KE')}</p>
               </div>
+            </div>
+            {walletError && <div role="alert" className="rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-700 dark:border-red-800 dark:bg-red-900/20 dark:text-red-300">{walletError}</div>}
+            {walletMessage && <div role="status" className="rounded-lg border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-700 dark:border-emerald-800 dark:bg-emerald-900/20 dark:text-emerald-300">{walletMessage}</div>}
+            <div className="rounded-2xl bg-gradient-to-r from-emerald-600 to-teal-600 p-5 text-white shadow-sm">
+              <div className="text-sm text-white/80">Available wallet balance</div>
+              <div className="mt-1 text-3xl font-extrabold">KSh {Number(washerWallet?.balance ?? 0).toLocaleString('en-KE')}</div>
+              {walletLoading && <div className="mt-2 text-xs text-white/75">Refreshing wallet…</div>}
+            </div>
+            <div className="grid gap-5 lg:grid-cols-2">
+              <div className="rounded-xl border border-slate-200 bg-white p-4 dark:border-slate-700 dark:bg-slate-800">
+                <h3 className="font-semibold text-slate-900 dark:text-white">M-Pesa payout number</h3>
+                <p className="mb-3 mt-1 text-xs text-slate-500 dark:text-slate-400">Save a Kenyan M-Pesa number where B2C withdrawals should be sent.</p>
+                <div className="flex flex-col gap-2 sm:flex-row">
+                  <input value={washerPayoutPhone} onChange={(event) => setWasherPayoutPhone(event.target.value)} type="tel" placeholder="0712345678 or 254712345678" className="min-w-0 flex-1 rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 dark:border-slate-600 dark:bg-slate-900 dark:text-white" />
+                  <button type="button" onClick={() => void saveWasherPayoutPhone()} disabled={walletActionLoading || !washerPayoutPhone.trim()} className="rounded-lg bg-slate-900 px-4 py-2 text-sm font-semibold text-white disabled:opacity-50 dark:bg-slate-700">{walletActionLoading ? 'Saving…' : 'Save number'}</button>
+                </div>
+              </div>
+              <div className="rounded-xl border border-slate-200 bg-white p-4 dark:border-slate-700 dark:bg-slate-800">
+                <h3 className="font-semibold text-slate-900 dark:text-white">Withdraw to M-Pesa</h3>
+                <p className="mb-3 mt-1 text-xs text-slate-500 dark:text-slate-400">Whole KSh amounts only. Funds are reserved until Safaricom confirms the request.</p>
+                <div className="flex flex-col gap-2 sm:flex-row">
+                  <input value={washerWithdrawalAmount} onChange={(event) => setWasherWithdrawalAmount(event.target.value)} type="number" min="1" step="1" placeholder="Amount in KSh" className="min-w-0 flex-1 rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 dark:border-slate-600 dark:bg-slate-900 dark:text-white" />
+                  <button type="button" onClick={() => void requestWasherWithdrawal()} disabled={walletActionLoading || !washerWithdrawalAmount || !washerWallet?.payout_phone || Number(washerWallet?.balance ?? 0) < Number(washerWithdrawalAmount)} className="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-50">{walletActionLoading ? 'Processing…' : 'Withdraw'}</button>
+                </div>
+                {!washerWallet?.payout_phone && <p className="mt-2 text-xs text-amber-600">Save your M-Pesa payout number before requesting a withdrawal.</p>}
+              </div>
+            </div>
+            <div className="rounded-2xl border border-slate-200 bg-white p-5 dark:border-slate-700 dark:bg-slate-800">
+              <h3 className="mb-3 font-semibold text-slate-900 dark:text-white">Wallet activity</h3>
+              {!washerWallet?.transactions?.length ? <p className="rounded-lg bg-slate-50 p-4 text-sm text-slate-500 dark:bg-slate-900">No wallet transactions yet. Your admin can add available funds.</p> : (
+                <div className="overflow-x-auto">
+                  <table className="min-w-full text-left text-sm">
+                    <thead className="border-b border-slate-200 text-xs uppercase text-slate-500 dark:border-slate-700"><tr><th className="py-2 pr-4">Type</th><th className="py-2 pr-4">Amount</th><th className="py-2 pr-4">Status</th><th className="py-2 pr-4">Date</th><th className="py-2">Details</th></tr></thead>
+                    <tbody>{washerWallet.transactions.map((entry) => <tr key={entry.id} className="border-b border-slate-100 dark:border-slate-700"><td className="py-3 pr-4 capitalize">{entry.type}</td><td className="py-3 pr-4 font-semibold">KSh {Number(entry.amount).toLocaleString('en-KE')}</td><td className="py-3 pr-4 capitalize">{entry.status}</td><td className="whitespace-nowrap py-3 pr-4">{new Date(entry.created_at).toLocaleString()}</td><td className="py-3 text-slate-500">{entry.reason || entry.provider_transaction_id || '—'}</td></tr>)}</tbody>
+                  </table>
+                </div>
+              )}
             </div>
             <p className="text-xs text-slate-500 dark:text-slate-400">Revenue reflects payments received for orders assigned to your washer account. Commission is an estimate based on the configured rate.</p>
           </section>

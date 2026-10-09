@@ -319,6 +319,10 @@ export default function HomePage() {
           )}
         </div>
 
+        <p className="mb-6 text-center text-sm font-semibold text-slate-600 dark:text-slate-300">
+          Trusted by 597903+ users
+        </p>
+
         {/* Services grid */}
         {loading ? (
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 md:gap-6">

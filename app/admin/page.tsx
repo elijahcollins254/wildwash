@@ -103,6 +103,14 @@ type AdminRiderWallet = {
   balance: string;
 };
 
+type AdminWasherWallet = {
+  washer_id: number;
+  username: string;
+  name: string;
+  phone: string;
+  balance: string;
+};
+
 type LoanApplication = {
   id?: string;
   loan_type?: string;
@@ -273,6 +281,12 @@ export default function AdminPage(): React.ReactElement {
   const [riderWalletActionMessage, setRiderWalletActionMessage] = useState('');
   const [riderCreditAmounts, setRiderCreditAmounts] = useState<Record<number, string>>({});
   const [riderCreditReasons, setRiderCreditReasons] = useState<Record<number, string>>({});
+  const [washerWallets, setWasherWallets] = useState<AdminWasherWallet[]>([]);
+  const [washerWalletsLoading, setWasherWalletsLoading] = useState(false);
+  const [washerWalletActionError, setWasherWalletActionError] = useState('');
+  const [washerWalletActionMessage, setWasherWalletActionMessage] = useState('');
+  const [washerCreditAmounts, setWasherCreditAmounts] = useState<Record<number, string>>({});
+  const [washerCreditReasons, setWasherCreditReasons] = useState<Record<number, string>>({});
 
   // Initialize Redux API client once
   useEffect(() => {
@@ -586,6 +600,35 @@ export default function AdminPage(): React.ReactElement {
     }
   }, [loadRiderWallets, riderCreditAmounts, riderCreditReasons]);
 
+  const loadWasherWallets = useCallback(async () => {
+    setWasherWalletsLoading(true);
+    setWasherWalletActionError('');
+    try {
+      const data = await client.get('/riders/washer-wallets/');
+      setWasherWallets(Array.isArray(data) ? data : []);
+    } catch (err: any) {
+      setWasherWalletActionError(err?.message || 'Unable to load washer wallets.');
+    } finally {
+      setWasherWalletsLoading(false);
+    }
+  }, []);
+
+  const creditWasherWallet = useCallback(async (washerId: number) => {
+    setWasherWalletActionError('');
+    setWasherWalletActionMessage('');
+    try {
+      await client.post(`/riders/washer-wallets/${washerId}/credit/`, {
+        amount: washerCreditAmounts[washerId],
+        reason: washerCreditReasons[washerId],
+      });
+      setWasherWalletActionMessage('Washer wallet credited and audit entry recorded.');
+      setWasherCreditAmounts((current) => ({ ...current, [washerId]: '' }));
+      await loadWasherWallets();
+    } catch (err: any) {
+      setWasherWalletActionError(err?.message || 'Unable to credit washer wallet.');
+    }
+  }, [loadWasherWallets, washerCreditAmounts, washerCreditReasons]);
+
   const handleLaundryAssignment = useCallback(async (orderId: number, locationId: number, location: LaundryLocation) => {
     await client.post('/orders/assign-location/', {
       order_id: orderId,
@@ -666,6 +709,10 @@ export default function AdminPage(): React.ReactElement {
   useEffect(() => {
     if (activeTab === 'riders') void loadRiderWallets();
   }, [activeTab, loadRiderWallets]);
+
+  useEffect(() => {
+    if (activeTab === 'analytics') void loadWasherWallets();
+  }, [activeTab, loadWasherWallets]);
 
   // Derived metrics - memoized to avoid recalculation
   const metrics = useMemo(() => {
@@ -1411,6 +1458,32 @@ export default function AdminPage(): React.ReactElement {
                         </tr>
                       ))}
                       {riderWallets.length === 0 && <tr><td colSpan={6} className="py-6 text-center text-slate-500">No riders found.</td></tr>}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+            <div className="mt-8 border-t border-slate-200 pt-6 dark:border-slate-700">
+              <h3 className="mb-1 text-lg font-semibold">Washer wallets</h3>
+              <p className="mb-4 text-sm text-slate-500 dark:text-slate-400">Credit a washer’s withdrawable balance. Each credit is recorded with the administrator and reason.</p>
+              {washerWalletActionError && <p role="alert" className="mb-3 rounded-lg bg-red-50 p-3 text-sm text-red-700 dark:bg-red-900/20 dark:text-red-300">{washerWalletActionError}</p>}
+              {washerWalletActionMessage && <p role="status" className="mb-3 rounded-lg bg-green-50 p-3 text-sm text-green-700 dark:bg-green-900/20 dark:text-green-300">{washerWalletActionMessage}</p>}
+              {washerWalletsLoading ? <div className="py-6 text-center text-sm text-slate-500">Loading washer wallets…</div> : (
+                <div className="overflow-x-auto">
+                  <table className="min-w-full text-sm">
+                    <thead className="border-b border-slate-200 text-left text-xs uppercase text-slate-500 dark:border-slate-700"><tr><th className="py-3 pr-4">Washer</th><th className="py-3 pr-4">Phone</th><th className="py-3 pr-4">Balance</th><th className="py-3 pr-4">Credit amount</th><th className="py-3 pr-4">Reason (required)</th><th className="py-3">Action</th></tr></thead>
+                    <tbody>
+                      {washerWallets.map((washer) => (
+                        <tr key={washer.washer_id} className="border-b border-slate-100 dark:border-slate-800">
+                          <td className="py-3 pr-4 font-medium">{washer.name}<div className="text-xs text-slate-500">@{washer.username}</div></td>
+                          <td className="py-3 pr-4">{washer.phone || '—'}</td>
+                          <td className="py-3 pr-4 font-semibold">KSh {Number(washer.balance).toLocaleString('en-KE')}</td>
+                          <td className="py-3 pr-4"><input aria-label={`Credit amount for ${washer.username}`} type="number" min="0.01" step="0.01" value={washerCreditAmounts[washer.washer_id] || ''} onChange={(event) => setWasherCreditAmounts((current) => ({ ...current, [washer.washer_id]: event.target.value }))} className="w-32 rounded-lg border border-slate-300 bg-white px-2 py-2 dark:border-slate-600 dark:bg-slate-800" placeholder="Amount" /></td>
+                          <td className="py-3 pr-4"><input aria-label={`Credit reason for ${washer.username}`} type="text" value={washerCreditReasons[washer.washer_id] || ''} onChange={(event) => setWasherCreditReasons((current) => ({ ...current, [washer.washer_id]: event.target.value }))} className="min-w-48 rounded-lg border border-slate-300 bg-white px-2 py-2 dark:border-slate-600 dark:bg-slate-800" placeholder="e.g. weekly earnings" /></td>
+                          <td className="py-3"><button type="button" onClick={() => void creditWasherWallet(washer.washer_id)} disabled={!washerCreditAmounts[washer.washer_id] || !washerCreditReasons[washer.washer_id]?.trim()} className="rounded-lg bg-emerald-600 px-3 py-2 text-xs font-semibold text-white hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-50">Add funds</button></td>
+                        </tr>
+                      ))}
+                      {washerWallets.length === 0 && <tr><td colSpan={6} className="py-6 text-center text-slate-500">No washers found.</td></tr>}
                     </tbody>
                   </table>
                 </div>

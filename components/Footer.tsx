@@ -22,6 +22,9 @@ export default function Footer() {
           <div className="flex flex-shrink-0 flex-col items-center gap-2 text-sm text-slate-500 dark:text-slate-400 mb-4 md:mb-0">
             <span>© {new Date().getFullYear()} Wild Wash. All rights reserved.</span>
             <div className="flex gap-4">
+              <Link href="/about" className="hover:underline">About</Link>
+              <Link href="/contact" className="hover:underline">Contact</Link>
+              <Link href="/terms-of-service" className="hover:underline">Terms of Service</Link>
               <Link href="/privacy" className="hover:underline">Privacy</Link>
               <Link href="/delete-account" className="hover:underline">Request data or account deletion</Link>
             </div>

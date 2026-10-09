@@ -162,7 +162,7 @@ export default function Home() {
 
         {/* Testimonials & Trust */}
         <section className="mt-12">
-          <h3 className="text-2xl font-bold">Trusted by customers</h3>
+          <h3 className="text-2xl font-bold">Trusted by 597903+ users</h3>
           <div className="mt-4 grid grid-cols-1 md:grid-cols-3 gap-4">
             <Testimonial name="Aisha" role="Nairobi" quote="Wild Wash picked up my clothes late at night — they were back the same day, neatly folded and tracked. No missing items!" />
             <Testimonial name="James" role="Enterprise - Hotel" quote="Our linens are cleaned and fumigated with reports — the tracking saved us time resolving a misplaced batch." />
