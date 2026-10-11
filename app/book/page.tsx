@@ -358,7 +358,7 @@ export default function Page() {
         dropoff_address: sameAsPickup ? pickupBuilding : dropoffAddress,
         urgency: calculatePriceMultiplier(effectiveDeliveryHours) === 2.0 ? 3 : calculatePriceMultiplier(effectiveDeliveryHours) === 1.3 ? 2 : 1, // Convert hours to urgency level
         // These fields might not be needed for a 'booking' vs an 'order'
-        items: cartItems.length,
+        items: cartItems.reduce((total, item) => total + (item.quantity || 1), 0),
         weight_kg: null, // To be determined at pickup
         price: Math.round(totalWithMultiplier * 100) / 100, // Round to 2 decimal places to avoid validation errors
         estimated_delivery: new Date(Date.now() + effectiveDeliveryHours * 60 * 60 * 1000).toISOString(), // Based on selected delivery hours
