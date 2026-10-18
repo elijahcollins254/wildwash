@@ -170,6 +170,41 @@ export default function Home() {
           </div>
         </section>
 
+        {/* Social profiles */}
+        <section id="profiles" className="mt-12">
+          <div className="flex items-center justify-between gap-3 flex-wrap">
+            <h3 className="text-2xl font-bold">See our profile</h3>
+            <a href="https://www.wildwash.co.ke/" target="_blank" rel="noreferrer" className="text-sm font-medium text-red-600 hover:text-red-700">Visit website</a>
+          </div>
+
+          <div className="mt-5 grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
+            <ProfileCard
+              title="Website"
+              subtitle="See all prices"
+              href="https://www.wildwash.co.ke/"
+              accent="from-red-500 to-rose-600"
+            />
+            <ProfileCard
+              title="Instagram"
+              subtitle="See sample works"
+              href="https://www.instagram.com/wild.wash_home_services_io/"
+              accent="from-pink-500 to-violet-600"
+            />
+            <ProfileCard
+              title="TikTok"
+              subtitle="Watch quick service clips"
+              href="https://www.tiktok.com/@wildwashhomeservices?_r=1&_t=ZS-99bBp9VFkNo"
+              accent="from-slate-900 to-slate-700"
+            />
+            <ProfileCard
+              title="WhatsApp"
+              subtitle="0769760460"
+              href="https://api.whatsapp.com/send?phone=254769760460&text=Hi%20Wild%20Wash"
+              accent="from-emerald-500 to-emerald-600"
+            />
+          </div>
+        </section>
+
         {/* CTA & Contact */}
         <section className="mt-12 grid grid-cols-1 md:grid-cols-3 gap-6">
           <div className="md:col-span-2 bg-red-50 dark:bg-red-900/20 rounded-2xl p-6 shadow">
@@ -188,12 +223,30 @@ export default function Home() {
             </div>
             <div className="mt-4">
               <div className="text-xs text-slate-500">Phone</div>
-              <div className="font-medium">+254 705 415948</div>
+              <div className="font-medium">+254 769 760 460</div>
             </div>
           </div>
         </section>
       </main>
     </div>
+  );
+}
+
+function ProfileCard({ title, subtitle, href, accent }: { title: string; subtitle: string; href: string; accent: string }) {
+  return (
+    <a
+      href={href}
+      target="_blank"
+      rel="noreferrer"
+      className="group block rounded-2xl border border-slate-200/80 bg-white/80 p-4 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md dark:border-slate-700 dark:bg-white/5"
+    >
+      <div className={`mb-4 flex h-16 items-center justify-center rounded-xl bg-gradient-to-br ${accent} text-lg font-bold text-white shadow-inner`}>
+        {title.slice(0, 1)}
+      </div>
+      <div className="text-xs font-semibold uppercase tracking-[0.12em] text-slate-500 dark:text-slate-400">{title}</div>
+      <div className="mt-2 text-base font-semibold text-slate-800 dark:text-slate-100">{subtitle}</div>
+      <div className="mt-4 inline-flex items-center text-sm font-medium text-red-600 dark:text-red-300">Open profile →</div>
+    </a>
   );
 }
 
