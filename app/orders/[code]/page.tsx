@@ -512,6 +512,14 @@ export default function OrderDetailsPage() {
 
             {/* Actions */}
             <div className="mt-6">
+              {order.status === "Delivered" && (
+                <Link
+                  href={`/orders/${encodeURIComponent(order.code)}/rating`}
+                  className="mr-3 inline-block rounded-lg border border-red-600 px-6 py-3 font-medium text-red-600 transition-colors hover:bg-red-50 dark:hover:bg-red-950/30"
+                >
+                  Rate this order
+                </Link>
+              )}
               {!order.is_paid && (order.payment_summary?.payable_amount ?? 1) > 0 && (
                 <button
                   onClick={handleProceedToCheckout}

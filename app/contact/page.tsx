@@ -15,7 +15,7 @@ export default function ContactPage() {
   // Primary contacts
   const mainPhone = "0769760460";
   const secondPhone = "0705415948";
-  const whatsappNumber = "254705415948"; // E.164 recommended for whatsapp links
+  const whatsappNumber = "254769760460";
   const supportEmail = "Wildwash.jungletechnologies@gmail.com";
   const officeAddress = "Wild Wash HQ — Westlands, Nairobi";
 
@@ -43,6 +43,12 @@ export default function ContactPage() {
           <h1 className="text-3xl font-extrabold">Contact us</h1>
           <p className="mt-2 text-sm text-slate-600 dark:text-slate-300">Need help? Find every way to reach us below — phone, WhatsApp, email, or raise a request using the form.</p>
         </header>
+
+        <div className="mb-6 flex flex-wrap gap-3 rounded-xl border border-slate-200 bg-white/80 p-4 dark:border-slate-800 dark:bg-white/5">
+          <a href={`tel:${mainPhone}`} className="rounded-lg bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-700">Call 0769760460</a>
+          <a href={`https://api.whatsapp.com/send?phone=${whatsappNumber}&text=Hi%20Wild%20Wash`} target="_blank" rel="noreferrer" className="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-700">WhatsApp 0769760460</a>
+          <a href="https://www.wildwash.co.ke/" target="_blank" rel="noreferrer" className="rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium hover:bg-slate-50 dark:border-slate-700 dark:hover:bg-slate-900">Website and prices</a>
+        </div>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           <div className="rounded-2xl bg-white/80 dark:bg-white/5 p-4 shadow">
@@ -136,9 +142,9 @@ export default function ContactPage() {
             <div>
               <div className="font-semibold">Social</div>
               <div className="mt-2 flex items-center gap-3">
-                <a href="https://facebook.com" target="_blank" rel="noreferrer" className="text-sm underline">Facebook</a>
-                <a href="https://instagram.com" target="_blank" rel="noreferrer" className="text-sm underline">Instagram</a>
-                <a href="https://twitter.com" target="_blank" rel="noreferrer" className="text-sm underline">X</a>
+                <a href="https://www.wildwash.co.ke/" target="_blank" rel="noreferrer" className="text-sm underline">Website</a>
+                <a href="https://www.instagram.com/wild.wash_home_services_io/" target="_blank" rel="noreferrer" className="text-sm underline">Instagram</a>
+                <a href="https://www.tiktok.com/@wildwashhomeservices?_r=1&_t=ZS-99bBp9VFkNo" target="_blank" rel="noreferrer" className="text-sm underline">TikTok</a>
               </div>
             </div>
           </aside>
