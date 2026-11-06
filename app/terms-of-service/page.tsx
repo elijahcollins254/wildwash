@@ -74,7 +74,7 @@ const sections: Array<{ title: string; paragraphs: string[]; bullets?: string[] 
     title: "Changes and contact",
     paragraphs: [
       "We may revise these terms from time to time. The latest version will be posted on this page with its updated date. Changes apply from publication unless a later effective date is stated; continued use after that date means you accept the updated terms.",
-      "For questions about these terms or a service order, contact Wild Wash at 0769760460 or 0705415948, or email Wildwash.jungletechnologies@gmail.com.",
+      "For questions about these terms or a service order, contact Wild Wash at 0769760460 or 0705415948, or email Wildwash.jungletechnologies@gmail.com",
     ],
   },
 ];
