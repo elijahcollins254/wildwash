@@ -175,7 +175,7 @@ export default function HomePage() {
   const cardRefs = useRef<Map<number, HTMLDivElement>>(new Map());
   const categoriesScrollRef = useRef<HTMLDivElement>(null);
   const observerRef = useRef<IntersectionObserver | null>(null);
-  const promoCardRefs = useRef<(HTMLDivElement | null)[]>([]);
+  const promoCardRefs = useRef<(HTMLElement | null)[]>([]);
 
   // Fetch services using Redux
   const { data: servicesData, isLoading: loading, error: servicesError } = useGetServicesQuery();
