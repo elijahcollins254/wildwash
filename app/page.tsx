@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useSelector } from "react-redux";
 import Link from "next/link";
 import {
+  ArrowRightIcon,
   CubeTransparentIcon,
   HomeModernIcon,
   BugAntIcon,
@@ -15,14 +16,73 @@ import {
   SparklesIcon,
   XMarkIcon,
   ArrowUpIcon,
+  ChevronLeftIcon,
+  ChevronRightIcon,
+  CreditCardIcon,
+  TagIcon,
+  TruckIcon,
 } from "@heroicons/react/24/outline";
 import { useAppDispatch } from "@/redux/hooks";
 import { addToCart } from "@/redux/features/cartSlice";
 import { useGetServicesQuery } from "@/redux/services/apiSlice";
 import type { Service } from "@/redux/services/apiSlice";
 import type { RootState } from "@/redux/store";
+import { client } from "@/lib/api/client";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_BASE ?? "";
+
+type Offer = {
+  id: number;
+  title: string;
+  description: string;
+  discount_percent: number;
+  discount_amount: number;
+  is_active: boolean;
+  valid_from?: string;
+  valid_until: string | null;
+};
+
+const isOffer = (value: unknown): value is Offer => {
+  if (!value || typeof value !== "object") return false;
+  const offer = value as Record<string, unknown>;
+  return (
+    typeof offer.id === "number" &&
+    typeof offer.title === "string" &&
+    typeof offer.description === "string" &&
+    typeof offer.discount_percent === "number" &&
+    typeof offer.discount_amount === "number" &&
+    typeof offer.is_active === "boolean" &&
+    (typeof offer.valid_from === "string" || offer.valid_from === undefined) &&
+    (typeof offer.valid_until === "string" || offer.valid_until === null)
+  );
+};
+
+const promoSlides = [
+  {
+    eyebrow: "Wild Wash, made easy",
+    title: "More time for what matters.",
+    description: "Book laundry and home-care services from one simple place.",
+    action: "Explore services",
+    href: "/services",
+    style: "from-red-700 via-rose-600 to-orange-500",
+  },
+  {
+    eyebrow: "Fresh deals, real savings",
+    title: "Find your next great offer.",
+    description: "See current offers and claim the ones that work for you.",
+    action: "View offers",
+    href: "/offers",
+    style: "from-slate-950 via-slate-800 to-red-900",
+  },
+  {
+    eyebrow: "Care for your home",
+    title: "Laundry is just the beginning.",
+    description: "Explore cleaning, fumigation, repairs and more.",
+    action: "Browse all services",
+    href: "/services",
+    style: "from-emerald-800 via-teal-700 to-cyan-700",
+  },
+];
 
 // Extended service type with UI properties (omit icon from Service since we're replacing it)
 type ServiceWithUI = Omit<Service, 'icon'> & {
@@ -108,12 +168,67 @@ export default function HomePage() {
   const [addedItem, setAddedItem] = useState<number | null>(null);
   const [showScrollTop, setShowScrollTop] = useState(false);
   const [visibleCards, setVisibleCards] = useState<Set<number>>(new Set());
+  const [activePromo, setActivePromo] = useState(0);
+  const [offers, setOffers] = useState<Offer[]>([]);
+  const [offersLoading, setOffersLoading] = useState(true);
+  const [offersError, setOffersError] = useState<string | null>(null);
   const cardRefs = useRef<Map<number, HTMLDivElement>>(new Map());
   const categoriesScrollRef = useRef<HTMLDivElement>(null);
   const observerRef = useRef<IntersectionObserver | null>(null);
+  const promoCardRefs = useRef<(HTMLDivElement | null)[]>([]);
 
   // Fetch services using Redux
   const { data: servicesData, isLoading: loading, error: servicesError } = useGetServicesQuery();
+
+  useEffect(() => {
+    const timer = window.setInterval(() => {
+      setActivePromo((current) => (current + 1) % promoSlides.length);
+    }, 5000);
+    return () => window.clearInterval(timer);
+  }, []);
+
+  useEffect(() => {
+    promoCardRefs.current[activePromo]?.scrollIntoView({
+      behavior: "smooth",
+      block: "nearest",
+      inline: "center",
+    });
+  }, [activePromo]);
+
+  useEffect(() => {
+    let isMounted = true;
+
+    async function fetchOffers() {
+      try {
+        const response: unknown = await client.get("/offers");
+        const items = Array.isArray(response)
+          ? response
+          : response && typeof response === "object" && "results" in response && Array.isArray(response.results)
+            ? response.results
+            : [];
+        const now = Date.now();
+        const currentOffers = items.filter(isOffer).filter((offer) => {
+          const startsAt = offer.valid_from ? new Date(offer.valid_from).getTime() : 0;
+          const endsAt = offer.valid_until ? new Date(offer.valid_until).getTime() : Infinity;
+          return offer.is_active && startsAt <= now && endsAt >= now;
+        });
+
+        if (isMounted) setOffers(currentOffers.slice(0, 3));
+      } catch (error) {
+        console.error("Error fetching homepage offers:", error);
+        if (isMounted) {
+          setOffersError(error instanceof Error ? error.message : "Unable to load current offers.");
+        }
+      } finally {
+        if (isMounted) setOffersLoading(false);
+      }
+    }
+
+    fetchOffers();
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
   // Transform services with images and icons (safely handle undefined/null data)
   const services: ServiceWithUI[] = (Array.isArray(servicesData) ? servicesData : []).map((s): ServiceWithUI => ({
@@ -267,6 +382,155 @@ export default function HomePage() {
             />
           </div>
         </div>
+
+        <section aria-label="Discover Wild Wash" className="mb-8">
+          <div className="hidden md:block">
+            <div className={`relative overflow-hidden rounded-3xl bg-gradient-to-r ${promoSlides[activePromo].style} px-8 py-9 text-white shadow-lg md:px-12 md:py-11`}>
+              <div className="max-w-2xl">
+                <p className="mb-3 text-xs font-bold uppercase tracking-[0.2em] text-white/75">
+                  {promoSlides[activePromo].eyebrow}
+                </p>
+                <h2 className="text-3xl font-bold tracking-tight lg:text-4xl">
+                  {promoSlides[activePromo].title}
+                </h2>
+                <p className="mt-3 max-w-xl text-sm leading-6 text-white/85 md:text-base">
+                  {promoSlides[activePromo].description}
+                </p>
+                <Link
+                  href={promoSlides[activePromo].href}
+                  className="mt-6 inline-flex items-center gap-2 rounded-full bg-white px-5 py-3 text-sm font-semibold text-slate-900 transition hover:bg-white/90 focus:outline-none focus-visible:ring-2 focus-visible:ring-white"
+                >
+                  {promoSlides[activePromo].action}
+                  <ArrowRightIcon className="h-4 w-4" />
+                </Link>
+              </div>
+              <div className="absolute bottom-6 right-8 flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setActivePromo((activePromo + promoSlides.length - 1) % promoSlides.length)}
+                  aria-label="Previous promotion"
+                  className="rounded-full border border-white/40 p-2 text-white transition hover:bg-white/15 focus:outline-none focus-visible:ring-2 focus-visible:ring-white"
+                >
+                  <ChevronLeftIcon className="h-5 w-5" />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setActivePromo((activePromo + 1) % promoSlides.length)}
+                  aria-label="Next promotion"
+                  className="rounded-full border border-white/40 p-2 text-white transition hover:bg-white/15 focus:outline-none focus-visible:ring-2 focus-visible:ring-white"
+                >
+                  <ChevronRightIcon className="h-5 w-5" />
+                </button>
+                <span className="ml-1 text-xs font-medium text-white/80">
+                  {activePromo + 1} / {promoSlides.length}
+                </span>
+              </div>
+            </div>
+          </div>
+
+          <div className="scrollbar-hide -mx-4 flex snap-x snap-mandatory gap-3 overflow-x-auto px-4 pb-2 md:hidden">
+            {promoSlides.map((slide, index) => (
+              <article
+                key={slide.title}
+                ref={(element) => {
+                  promoCardRefs.current[index] = element;
+                }}
+                className={`w-[86%] max-w-sm shrink-0 snap-center rounded-2xl bg-gradient-to-br ${slide.style} p-5 text-white shadow-md`}
+              >
+                <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-white/75">
+                  {slide.eyebrow}
+                </p>
+                <h2 className="mt-2 text-xl font-bold leading-tight">{slide.title}</h2>
+                <p className="mt-2 min-h-10 text-sm leading-5 text-white/85">{slide.description}</p>
+                <Link
+                  href={slide.href}
+                  className="mt-4 inline-flex items-center gap-1 rounded-full bg-white px-4 py-2 text-xs font-semibold text-slate-900 focus:outline-none focus-visible:ring-2 focus-visible:ring-white"
+                >
+                  {slide.action}
+                  <ArrowRightIcon className="h-3.5 w-3.5" />
+                </Link>
+              </article>
+            ))}
+          </div>
+
+          <div className="mt-2 flex justify-center gap-1.5 md:hidden" aria-label="Promotion slides">
+            {promoSlides.map((slide, index) => (
+              <button
+                key={slide.title}
+                type="button"
+                onClick={() => setActivePromo(index)}
+                aria-label={`Show promotion ${index + 1}`}
+                aria-current={activePromo === index}
+                className={`h-1.5 rounded-full transition-all ${activePromo === index ? "w-6 bg-red-600" : "w-1.5 bg-slate-300 dark:bg-slate-700"}`}
+              />
+            ))}
+          </div>
+        </section>
+
+        <section aria-labelledby="homepage-offers-title" className="mb-8">
+          <div className="mb-3 flex items-end justify-between gap-3">
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-wider text-red-600">Save on your next order</p>
+              <h2 id="homepage-offers-title" className="mt-1 text-lg font-bold">Current offers</h2>
+            </div>
+            <Link href="/offers" className="inline-flex shrink-0 items-center gap-1 text-sm font-semibold text-red-600 hover:text-red-700">
+              All offers <ArrowRightIcon className="h-4 w-4" />
+            </Link>
+          </div>
+          {offersLoading ? (
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3" aria-label="Loading offers">
+              {[0, 1, 2].map((item) => (
+                <div key={item} className="h-28 animate-pulse rounded-2xl bg-slate-100 dark:bg-slate-900" />
+              ))}
+            </div>
+          ) : offersError ? (
+            <p className="rounded-xl bg-red-50 px-4 py-3 text-sm text-red-700 dark:bg-red-950/30 dark:text-red-300">
+              Current offers couldn’t be loaded. <Link href="/offers" className="font-semibold underline">View offers</Link>
+            </p>
+          ) : offers.length > 0 ? (
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+              {offers.map((offer) => (
+                <Link
+                  key={offer.id}
+                  href="/offers"
+                  className="group rounded-2xl border border-red-100 bg-gradient-to-br from-red-50 to-white p-4 transition hover:-translate-y-0.5 hover:shadow-md dark:border-red-950 dark:from-red-950/40 dark:to-slate-950"
+                >
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <p className="font-semibold text-slate-900 dark:text-slate-100">{offer.title}</p>
+                      <p className="mt-1 line-clamp-2 text-sm text-slate-600 dark:text-slate-400">{offer.description}</p>
+                    </div>
+                    <span className="shrink-0 rounded-full bg-red-600 px-2.5 py-1 text-xs font-bold text-white">
+                      {offer.discount_percent > 0 ? `${offer.discount_percent}% OFF` : `KSh ${offer.discount_amount} OFF`}
+                    </span>
+                  </div>
+                  <span className="mt-3 inline-flex items-center gap-1 text-xs font-semibold text-red-600 group-hover:gap-2">
+                    See offer <ArrowRightIcon className="h-3.5 w-3.5" />
+                  </span>
+                </Link>
+              ))}
+            </div>
+          ) : (
+            <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-4 text-sm text-slate-600 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-400">
+              No current offers right now. Check back soon or <Link href="/offers" className="font-semibold text-red-600">browse all offers</Link>.
+            </div>
+          )}
+        </section>
+
+        <section aria-label="What you can do with Wild Wash" className="mb-8 grid grid-cols-3 gap-2 rounded-2xl border border-slate-200 bg-slate-50 p-3 dark:border-slate-800 dark:bg-slate-900/60 sm:gap-4 sm:p-4">
+          <div className="flex flex-col items-center gap-2 text-center sm:flex-row sm:text-left">
+            <span className="rounded-xl bg-white p-2 text-red-600 shadow-sm dark:bg-slate-950"><TruckIcon className="h-5 w-5" /></span>
+            <span className="text-[11px] font-semibold leading-tight sm:text-sm">Book services online</span>
+          </div>
+          <div className="flex flex-col items-center gap-2 text-center sm:flex-row sm:text-left">
+            <span className="rounded-xl bg-white p-2 text-red-600 shadow-sm dark:bg-slate-950"><TagIcon className="h-5 w-5" /></span>
+            <span className="text-[11px] font-semibold leading-tight sm:text-sm">Discover live offers</span>
+          </div>
+          <div className="flex flex-col items-center gap-2 text-center sm:flex-row sm:text-left">
+            <span className="rounded-xl bg-white p-2 text-red-600 shadow-sm dark:bg-slate-950"><CreditCardIcon className="h-5 w-5" /></span>
+            <span className="text-[11px] font-semibold leading-tight sm:text-sm">Simple online checkout</span>
+          </div>
+        </section>
 
         {/* Categories - Sticky with blur */}
         <div
