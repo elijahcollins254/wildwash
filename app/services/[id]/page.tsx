@@ -1,13 +1,10 @@
 'use client';
 
-import React, { useRef, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import {
   ArrowLeftIcon,
-  CheckBadgeIcon,
-  ChevronLeftIcon,
-  ChevronRightIcon,
   SparklesIcon,
   ShoppingCartIcon,
 } from "@heroicons/react/24/outline";
@@ -82,6 +79,7 @@ export default function ServiceDetailPage() {
 
   const [addedToCart, setAddedToCart] = useState(false);
   const [addedRelatedId, setAddedRelatedId] = useState<number | null>(null);
+  const [pauseRelatedAutoscroll, setPauseRelatedAutoscroll] = useState(false);
   const relatedCarouselRef = useRef<HTMLDivElement>(null);
 
   // Fetch service using Redux
@@ -104,6 +102,37 @@ export default function ServiceDetailPage() {
       ...item,
       image_url: item.image_url || `/images/${getImageForService(item.name)}`,
     }));
+
+  useEffect(() => {
+    const carousel = relatedCarouselRef.current;
+    if (!carousel || relatedServices.length === 0 || pauseRelatedAutoscroll) return;
+
+    const interval = window.setInterval(() => {
+      const isDesktop = window.matchMedia("(min-width: 1024px)").matches;
+      const firstCard = carousel.firstElementChild;
+      const secondCard = firstCard?.nextElementSibling;
+      if (!(firstCard instanceof HTMLElement) || !(secondCard instanceof HTMLElement)) return;
+
+      const step = isDesktop
+        ? secondCard.offsetTop - firstCard.offsetTop
+        : secondCard.offsetLeft - firstCard.offsetLeft;
+      const currentPosition = isDesktop ? carousel.scrollTop : carousel.scrollLeft;
+      const loopBoundary = isDesktop ? carousel.scrollHeight / 2 : carousel.scrollWidth / 2;
+
+      if (currentPosition + step >= loopBoundary) {
+        if (isDesktop) carousel.scrollTop = 0;
+        else carousel.scrollLeft = 0;
+      } else {
+        carousel.scrollBy({
+          left: isDesktop ? 0 : step,
+          top: isDesktop ? step : 0,
+          behavior: "smooth",
+        });
+      }
+    }, 3200);
+
+    return () => window.clearInterval(interval);
+  }, [relatedServices.length, pauseRelatedAutoscroll]);
 
   const handleAddToCart = () => {
     if (!displayService) return;
@@ -191,7 +220,7 @@ export default function ServiceDetailPage() {
 
   return (
     <div className="min-h-screen bg-white dark:bg-black text-slate-900 dark:text-slate-50">
-      <div className="max-w-2xl mx-auto px-5 pt-6 pb-24">
+      <div className="max-w-7xl mx-auto px-5 pt-6 pb-24">
         {/* Back button */}
         <button
           onClick={() => router.back()}
@@ -201,102 +230,78 @@ export default function ServiceDetailPage() {
           Back
         </button>
 
-        {/* Service image/icon */}
-        <div className="w-full h-[500px] bg-gradient-to-br from-slate-100 to-slate-50 dark:from-slate-800 dark:to-slate-950 rounded-2xl flex items-center justify-center mb-6 border border-slate-200 dark:border-slate-800 overflow-hidden">
-          {displayService?.image_url ? (
-            <img
-              src={displayService.image_url}
-              alt={displayService.name}
-              className="w-full h-full object-cover"
-            />
-          ) : (
-            <div className="flex flex-col items-center">
-              <SparklesIcon className="w-24 h-24 text-slate-400 dark:text-slate-600 mb-3" />
-              <span className="text-slate-500 dark:text-slate-500 text-sm font-500">
-                {displayService?.category || "Service"}
-              </span>
-            </div>
-          )}
-        </div>
-
-        {/* Service details */}
-        <div className="mb-6">
-          <div className="flex items-start justify-between gap-4">
-            <div className="flex-1">
-              <h1 className="text-2xl font-700 text-slate-900 dark:text-slate-50 mb-2">
-                {displayService?.name}
-              </h1>
-              {displayService?.category && (
-                <span className="inline-block px-3 py-1 text-xs font-500 rounded-full bg-slate-100 dark:bg-slate-900 text-slate-700 dark:text-slate-300">
-                  {displayService.category}
-                </span>
+        <div className="grid gap-8 lg:grid-cols-[minmax(0,2fr)_minmax(300px,1fr)]">
+          <div className="min-w-0">
+            {/* Service image/icon */}
+            <div className="w-full h-[500px] bg-gradient-to-br from-slate-100 to-slate-50 dark:from-slate-800 dark:to-slate-950 rounded-2xl flex items-center justify-center mb-6 border border-slate-200 dark:border-slate-800 overflow-hidden">
+              {displayService?.image_url ? (
+                <img
+                  src={displayService.image_url}
+                  alt={displayService.name}
+                  className="w-full h-full object-cover"
+                />
+              ) : (
+                <div className="flex flex-col items-center">
+                  <SparklesIcon className="w-24 h-24 text-slate-400 dark:text-slate-600 mb-3" />
+                  <span className="text-slate-500 dark:text-slate-500 text-sm font-500">
+                    {displayService?.category || "Service"}
+                  </span>
+                </div>
               )}
             </div>
-            <div className="text-2xl font-700 text-red-600 dark:text-red-500 whitespace-nowrap">
-              KSh {Number(displayService?.price || 0).toLocaleString()}
+
+            {/* Service details */}
+            <div className="mb-6">
+              <div className="flex items-start justify-between gap-4">
+                <div className="flex-1">
+                  <h1 className="text-2xl font-700 text-slate-900 dark:text-slate-50 mb-2">
+                    {displayService?.name}
+                  </h1>
+                  {displayService?.category && (
+                    <span className="inline-block px-3 py-1 text-xs font-500 rounded-full bg-slate-100 dark:bg-slate-900 text-slate-700 dark:text-slate-300">
+                      {displayService.category}
+                    </span>
+                  )}
+                </div>
+                <div className="text-2xl font-700 text-red-600 dark:text-red-500 whitespace-nowrap">
+                  KSh {Number(displayService?.price || 0).toLocaleString()}
+                </div>
+              </div>
+
+              {displayService?.description && (
+                <div className="mt-4">
+                  <p className="text-sm text-slate-600 dark:text-slate-400 leading-relaxed">
+                    {displayService.description}
+                  </p>
+                </div>
+              )}
             </div>
+
+            {/* Add to cart button */}
+            <button
+              onClick={handleAddToCart}
+              className={`w-full py-4 px-6 rounded-full font-600 text-base transition-all flex items-center justify-center gap-2 ${
+                addedToCart
+                  ? "bg-green-500 text-white"
+                  : "bg-red-600 text-white hover:bg-red-700 active:scale-[0.98]"
+              }`}
+            >
+              <ShoppingCartIcon className="w-5 h-5" />
+              {addedToCart ? "Added to cart" : "Add to cart"}
+            </button>
+
+            {/* Back to services link */}
+            <button
+              onClick={() => router.push("/")}
+              className="w-full mt-3 py-3 px-6 rounded-full font-500 text-base text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-900 transition-colors border border-slate-200 dark:border-slate-800"
+            >
+              Continue shopping
+            </button>
           </div>
 
-          {displayService?.description && (
-            <div className="mt-4">
-              <p className="text-sm text-slate-600 dark:text-slate-400 leading-relaxed">
-                {displayService.description}
-              </p>
-            </div>
-          )}
-
-          {/* Features */}
-          <div className="mb-6">
-            <h2 className="text-base font-600 text-slate-900 dark:text-slate-100 mb-3">
-              What's included
-            </h2>
-            <div className="space-y-2">
-              <div className="flex items-center gap-2">
-                <CheckBadgeIcon className="w-4 h-4 text-red-600 dark:text-red-500 flex-shrink-0" />
-                <span className="text-sm text-slate-700 dark:text-slate-300">
-                  Professional service
-                </span>
-              </div>
-              <div className="flex items-center gap-2">
-                <CheckBadgeIcon className="w-4 h-4 text-red-600 dark:text-red-500 flex-shrink-0" />
-                <span className="text-sm text-slate-700 dark:text-slate-300">
-                  Quality guaranteed
-                </span>
-              </div>
-              <div className="flex items-center gap-2">
-                <CheckBadgeIcon className="w-4 h-4 text-red-600 dark:text-red-500 flex-shrink-0" />
-                <span className="text-sm text-slate-700 dark:text-slate-300">
-                  Fast delivery
-                </span>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Add to cart button */}
-        <button
-          onClick={handleAddToCart}
-          className={`w-full py-4 px-6 rounded-full font-600 text-base transition-all flex items-center justify-center gap-2 ${
-            addedToCart
-              ? "bg-green-500 text-white"
-              : "bg-red-600 text-white hover:bg-red-700 active:scale-[0.98]"
-          }`}
-        >
-          <ShoppingCartIcon className="w-5 h-5" />
-          {addedToCart ? "Added to cart" : "Add to cart"}
-        </button>
-
-        {/* Back to services link */}
-        <button
-          onClick={() => router.push("/")}
-          className="w-full mt-3 py-3 px-6 rounded-full font-500 text-base text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-900 transition-colors border border-slate-200 dark:border-slate-800"
-        >
-          Continue shopping
-        </button>
-
-        {relatedServices.length > 0 && (
-          <section aria-labelledby="related-services-title" className="mt-12">
-            <div className="mb-4 flex items-end justify-between gap-3">
+          {relatedServices.length > 0 && (
+            <aside aria-labelledby="related-services-title" className="min-w-0 lg:sticky lg:top-6 lg:self-start">
+              <div className="mb-4">
               <div>
                 <p className="text-xs font-semibold uppercase tracking-wider text-red-600">
                   More to explore
@@ -305,37 +310,25 @@ export default function ServiceDetailPage() {
                   Related services
                 </h2>
               </div>
-              <div className="flex gap-2">
-                <button
-                  type="button"
-                  aria-label="Scroll related services left"
-                  onClick={() => relatedCarouselRef.current?.scrollBy({ left: -280, behavior: "smooth" })}
-                  className="rounded-full border border-slate-200 p-2 text-slate-700 transition hover:border-red-600 hover:text-red-600 dark:border-slate-800 dark:text-slate-300"
-                >
-                  <ChevronLeftIcon className="h-5 w-5" />
-                </button>
-                <button
-                  type="button"
-                  aria-label="Scroll related services right"
-                  onClick={() => relatedCarouselRef.current?.scrollBy({ left: 280, behavior: "smooth" })}
-                  className="rounded-full border border-slate-200 p-2 text-slate-700 transition hover:border-red-600 hover:text-red-600 dark:border-slate-800 dark:text-slate-300"
-                >
-                  <ChevronRightIcon className="h-5 w-5" />
-                </button>
               </div>
-            </div>
 
-            <div
-              ref={relatedCarouselRef}
-              className="scrollbar-hide -mx-5 flex snap-x snap-mandatory gap-4 overflow-x-auto px-5 pb-3"
-            >
-              {relatedServices.map((relatedService) => (
+              <div
+                ref={relatedCarouselRef}
+                onMouseEnter={() => setPauseRelatedAutoscroll(true)}
+                onMouseLeave={() => setPauseRelatedAutoscroll(false)}
+                onFocusCapture={() => setPauseRelatedAutoscroll(true)}
+                onBlurCapture={() => setPauseRelatedAutoscroll(false)}
+                onTouchStart={() => setPauseRelatedAutoscroll(true)}
+                onTouchEnd={() => setPauseRelatedAutoscroll(false)}
+                className="scrollbar-hide -mx-5 flex snap-x snap-mandatory gap-4 overflow-x-auto px-5 pb-3 lg:mx-0 lg:max-h-[calc(100vh-7rem)] lg:snap-y lg:flex-col lg:overflow-y-auto lg:overflow-x-hidden lg:px-0"
+              >
+              {[...relatedServices, ...relatedServices].map((relatedService, index) => (
                 <article
-                  key={relatedService.id}
-                  className="w-[78%] max-w-[260px] shrink-0 snap-start overflow-hidden rounded-2xl border border-slate-200 bg-slate-50 transition hover:-translate-y-1 hover:border-red-600/20 hover:shadow-xl hover:shadow-red-600/5 dark:border-slate-800 dark:bg-slate-900/50"
+                  key={`${relatedService.id}-${index}`}
+                  className="w-[78%] max-w-[260px] shrink-0 snap-start overflow-hidden rounded-2xl border border-slate-200 bg-slate-50 transition hover:-translate-y-1 hover:border-red-600/20 hover:shadow-xl hover:shadow-red-600/5 dark:border-slate-800 dark:bg-slate-900/50 lg:flex lg:w-full lg:max-w-none lg:items-start lg:gap-3 lg:rounded-xl lg:p-2 lg:hover:translate-y-0"
                 >
-                  <Link href={`/services/${relatedService.id}`} className="group block">
-                    <div className="h-40 overflow-hidden border-b border-slate-200 bg-gradient-to-br from-slate-100 to-slate-50 dark:border-slate-800 dark:from-slate-800 dark:to-slate-950">
+                  <Link href={`/services/${relatedService.id}`} className="group block lg:flex lg:min-w-0 lg:flex-1 lg:items-center lg:gap-3">
+                    <div className="h-40 overflow-hidden border-b border-slate-200 bg-gradient-to-br from-slate-100 to-slate-50 dark:border-slate-800 dark:from-slate-800 dark:to-slate-950 lg:h-24 lg:w-40 lg:shrink-0 lg:rounded-lg lg:border-0">
                       {relatedService.image_url ? (
                         <img
                           src={relatedService.image_url}
@@ -348,7 +341,7 @@ export default function ServiceDetailPage() {
                         </div>
                       )}
                     </div>
-                    <div className="p-4">
+                    <div className="p-4 lg:min-w-0 lg:flex-1 lg:p-0">
                       <h3 className="line-clamp-2 text-base font-semibold text-slate-900 dark:text-slate-100">
                         {relatedService.name}
                       </h3>
@@ -362,7 +355,7 @@ export default function ServiceDetailPage() {
                       </p>
                     </div>
                   </Link>
-                  <div className="px-4 pb-4">
+                  <div className="px-4 pb-4 lg:w-28 lg:shrink-0 lg:px-0 lg:py-0">
                     <button
                       type="button"
                       onClick={() => handleAddRelatedToCart(relatedService)}
@@ -377,9 +370,10 @@ export default function ServiceDetailPage() {
                   </div>
                 </article>
               ))}
-            </div>
-          </section>
-        )}
+              </div>
+            </aside>
+          )}
+        </div>
       </div>
     </div>
   );
