@@ -42,7 +42,9 @@ type Offer = {
   valid_until: string | null;
 };
 
-const isOffer = (value: unknown): value is Offer => {
+const isOffer = (
+  value: unknown,
+): value is Omit<Offer, "discount_amount"> & { discount_amount: number | string } => {
   if (!value || typeof value !== "object") return false;
   const offer = value as Record<string, unknown>;
   return (
@@ -50,7 +52,10 @@ const isOffer = (value: unknown): value is Offer => {
     typeof offer.title === "string" &&
     typeof offer.description === "string" &&
     typeof offer.discount_percent === "number" &&
-    typeof offer.discount_amount === "number" &&
+    (typeof offer.discount_amount === "number" ||
+      (typeof offer.discount_amount === "string" &&
+        offer.discount_amount.trim() !== "" &&
+        Number.isFinite(Number(offer.discount_amount)))) &&
     typeof offer.is_active === "boolean" &&
     (typeof offer.valid_from === "string" || offer.valid_from === undefined) &&
     (typeof offer.valid_until === "string" || offer.valid_until === null)
@@ -175,6 +180,7 @@ export default function HomePage() {
   const cardRefs = useRef<Map<number, HTMLDivElement>>(new Map());
   const categoriesScrollRef = useRef<HTMLDivElement>(null);
   const observerRef = useRef<IntersectionObserver | null>(null);
+  const promoCarouselRef = useRef<HTMLDivElement>(null);
   const promoCardRefs = useRef<(HTMLElement | null)[]>([]);
 
   // Fetch services using Redux
@@ -188,11 +194,19 @@ export default function HomePage() {
   }, []);
 
   useEffect(() => {
-    promoCardRefs.current[activePromo]?.scrollIntoView({
-      behavior: "smooth",
-      block: "nearest",
-      inline: "center",
-    });
+    const carousel = promoCarouselRef.current;
+    const card = promoCardRefs.current[activePromo];
+    if (!carousel || !card || carousel.clientWidth === 0) return;
+
+    const carouselRect = carousel.getBoundingClientRect();
+    const cardRect = card.getBoundingClientRect();
+    const left =
+      carousel.scrollLeft +
+      cardRect.left -
+      carouselRect.left -
+      (carousel.clientWidth - card.clientWidth) / 2;
+
+    carousel.scrollTo({ left, behavior: "smooth" });
   }, [activePromo]);
 
   useEffect(() => {
@@ -211,7 +225,10 @@ export default function HomePage() {
           const startsAt = offer.valid_from ? new Date(offer.valid_from).getTime() : 0;
           const endsAt = offer.valid_until ? new Date(offer.valid_until).getTime() : Infinity;
           return offer.is_active && startsAt <= now && endsAt >= now;
-        });
+        }).map((offer): Offer => ({
+          ...offer,
+          discount_amount: Number(offer.discount_amount),
+        }));
 
         if (isMounted) setOffers(currentOffers.slice(0, 3));
       } catch (error) {
@@ -428,7 +445,7 @@ export default function HomePage() {
             </div>
           </div>
 
-          <div className="scrollbar-hide -mx-4 flex snap-x snap-mandatory gap-3 overflow-x-auto px-4 pb-2 md:hidden">
+          <div ref={promoCarouselRef} className="scrollbar-hide -mx-4 flex snap-x snap-mandatory gap-3 overflow-x-auto px-4 pb-2 md:hidden">
             {promoSlides.map((slide, index) => (
               <article
                 key={slide.title}

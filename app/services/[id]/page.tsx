@@ -1,16 +1,19 @@
 'use client';
 
-import React, { useState } from "react";
+import React, { useRef, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
+import Link from "next/link";
 import {
   ArrowLeftIcon,
   CheckBadgeIcon,
+  ChevronLeftIcon,
+  ChevronRightIcon,
   SparklesIcon,
   ShoppingCartIcon,
 } from "@heroicons/react/24/outline";
 import { useAppDispatch } from "@/redux/hooks";
 import { addToCart } from "@/redux/features/cartSlice";
-import { useGetServiceDetailQuery } from "@/redux/services/apiSlice";
+import { useGetServiceDetailQuery, useGetServicesQuery } from "@/redux/services/apiSlice";
 import type { Service } from "@/redux/services/apiSlice";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_BASE ?? "";
@@ -78,15 +81,29 @@ export default function ServiceDetailPage() {
   const serviceId = Number(params.id);
 
   const [addedToCart, setAddedToCart] = useState(false);
+  const [addedRelatedId, setAddedRelatedId] = useState<number | null>(null);
+  const relatedCarouselRef = useRef<HTMLDivElement>(null);
 
   // Fetch service using Redux
   const { data: service, isLoading: loading, error: serviceError } = useGetServiceDetailQuery(serviceId);
+  const { data: services = [] } = useGetServicesQuery();
 
   // Transform service with image
   const displayService = service ? {
     ...service,
     image_url: service.image_url || (getImageForService(service.name) ? `/images/${getImageForService(service.name)}` : null),
   } : null;
+
+  const otherServices = services.filter((item) => item.id !== serviceId);
+  const sameCategoryServices = displayService
+    ? otherServices.filter((item) => item.category === displayService.category)
+    : [];
+  const relatedServices = (sameCategoryServices.length > 0 ? sameCategoryServices : otherServices)
+    .slice(0, 8)
+    .map((item) => ({
+      ...item,
+      image_url: item.image_url || `/images/${getImageForService(item.name)}`,
+    }));
 
   const handleAddToCart = () => {
     if (!displayService) return;
@@ -103,6 +120,21 @@ export default function ServiceDetailPage() {
     
     setAddedToCart(true);
     setTimeout(() => setAddedToCart(false), 800);
+  };
+
+  const handleAddRelatedToCart = (relatedService: Service) => {
+    dispatch(
+      addToCart({
+        id: relatedService.id,
+        name: relatedService.name,
+        price: String(relatedService.price),
+        category: relatedService.category || "other",
+        description: relatedService.description || "",
+      })
+    );
+
+    setAddedRelatedId(relatedService.id);
+    setTimeout(() => setAddedRelatedId(null), 800);
   };
 
   if (loading) {
@@ -261,6 +293,93 @@ export default function ServiceDetailPage() {
         >
           Continue shopping
         </button>
+
+        {relatedServices.length > 0 && (
+          <section aria-labelledby="related-services-title" className="mt-12">
+            <div className="mb-4 flex items-end justify-between gap-3">
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-wider text-red-600">
+                  More to explore
+                </p>
+                <h2 id="related-services-title" className="mt-1 text-xl font-bold">
+                  Related services
+                </h2>
+              </div>
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  aria-label="Scroll related services left"
+                  onClick={() => relatedCarouselRef.current?.scrollBy({ left: -280, behavior: "smooth" })}
+                  className="rounded-full border border-slate-200 p-2 text-slate-700 transition hover:border-red-600 hover:text-red-600 dark:border-slate-800 dark:text-slate-300"
+                >
+                  <ChevronLeftIcon className="h-5 w-5" />
+                </button>
+                <button
+                  type="button"
+                  aria-label="Scroll related services right"
+                  onClick={() => relatedCarouselRef.current?.scrollBy({ left: 280, behavior: "smooth" })}
+                  className="rounded-full border border-slate-200 p-2 text-slate-700 transition hover:border-red-600 hover:text-red-600 dark:border-slate-800 dark:text-slate-300"
+                >
+                  <ChevronRightIcon className="h-5 w-5" />
+                </button>
+              </div>
+            </div>
+
+            <div
+              ref={relatedCarouselRef}
+              className="scrollbar-hide -mx-5 flex snap-x snap-mandatory gap-4 overflow-x-auto px-5 pb-3"
+            >
+              {relatedServices.map((relatedService) => (
+                <article
+                  key={relatedService.id}
+                  className="w-[78%] max-w-[260px] shrink-0 snap-start overflow-hidden rounded-2xl border border-slate-200 bg-slate-50 transition hover:-translate-y-1 hover:border-red-600/20 hover:shadow-xl hover:shadow-red-600/5 dark:border-slate-800 dark:bg-slate-900/50"
+                >
+                  <Link href={`/services/${relatedService.id}`} className="group block">
+                    <div className="h-40 overflow-hidden border-b border-slate-200 bg-gradient-to-br from-slate-100 to-slate-50 dark:border-slate-800 dark:from-slate-800 dark:to-slate-950">
+                      {relatedService.image_url ? (
+                        <img
+                          src={relatedService.image_url}
+                          alt={relatedService.name}
+                          className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-110"
+                        />
+                      ) : (
+                        <div className="flex h-full items-center justify-center">
+                          <SparklesIcon className="h-14 w-14 text-slate-400 dark:text-slate-600" />
+                        </div>
+                      )}
+                    </div>
+                    <div className="p-4">
+                      <h3 className="line-clamp-2 text-base font-semibold text-slate-900 dark:text-slate-100">
+                        {relatedService.name}
+                      </h3>
+                      {relatedService.description && (
+                        <p className="mt-1 line-clamp-2 text-xs text-slate-600 dark:text-slate-500">
+                          {relatedService.description}
+                        </p>
+                      )}
+                      <p className="mt-3 text-lg font-bold text-slate-900 dark:text-slate-100">
+                        KSh {Number(relatedService.price).toLocaleString()}
+                      </p>
+                    </div>
+                  </Link>
+                  <div className="px-4 pb-4">
+                    <button
+                      type="button"
+                      onClick={() => handleAddRelatedToCart(relatedService)}
+                      className={`w-full rounded-xl py-2.5 text-sm font-medium transition ${
+                        addedRelatedId === relatedService.id
+                          ? "bg-green-500 text-white"
+                          : "bg-red-600 text-white hover:bg-red-700"
+                      }`}
+                    >
+                      {addedRelatedId === relatedService.id ? "Added to cart" : "Add to cart"}
+                    </button>
+                  </div>
+                </article>
+              ))}
+            </div>
+          </section>
+        )}
       </div>
     </div>
   );
