@@ -169,6 +169,7 @@ export default function HomePage() {
   const isLoading = useSelector((state: RootState) => state.auth.isLoading);
   const user = useSelector((state: RootState) => state.auth.user);
   const [searchTerm, setSearchTerm] = useState("");
+  const [showSearchSuggestions, setShowSearchSuggestions] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [addedItem, setAddedItem] = useState<number | null>(null);
   const [showScrollTop, setShowScrollTop] = useState(false);
@@ -332,6 +333,18 @@ export default function HomePage() {
     const matchesCategory = !selectedCategory || service.category === selectedCategory;
     return matchesSearch && matchesCategory;
   });
+  const searchSuggestions = searchTerm.trim()
+    ? services
+        .filter((service) => {
+          const query = searchTerm.trim().toLowerCase();
+          return (
+            service.name.toLowerCase().includes(query) ||
+            service.category?.toLowerCase().includes(query) ||
+            service.description?.toLowerCase().includes(query)
+          );
+        })
+        .slice(0, 5)
+    : [];
 
   const categories = ["laundry", "duvet-cleaning", "carpet-cleaning", "house-cleaning", "fumigation", "sofa-cleaning", "moving-services", "storage-services", "tv-mounting-hot-shower-installation", "subscriptions", "repairs"];
   const categoryLabels: Record<string, string> = {
@@ -395,8 +408,59 @@ export default function HomePage() {
               placeholder="Search services"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
+              onFocus={() => setShowSearchSuggestions(true)}
+              onBlur={() => window.setTimeout(() => setShowSearchSuggestions(false), 150)}
+              onKeyDown={(event) => {
+                if (event.key === "Escape") setShowSearchSuggestions(false);
+                if (event.key === "Enter" && searchSuggestions[0]) {
+                  setShowSearchSuggestions(false);
+                  router.push(`/services/${searchSuggestions[0].id}`);
+                }
+              }}
+              role="combobox"
+              aria-autocomplete="list"
+              aria-expanded={showSearchSuggestions && searchTerm.trim().length > 0}
+              aria-controls="service-search-suggestions"
               className="w-full pl-12 pr-4 py-3 text-base border border-slate-200 dark:border-slate-800 rounded-full bg-white dark:bg-slate-950 focus:outline-none focus:ring-2 focus:ring-red-600/50 focus:border-transparent transition-all duration-300 hover:shadow-md"
             />
+            {showSearchSuggestions && searchTerm.trim().length > 0 && (
+              <div
+                id="service-search-suggestions"
+                role="listbox"
+                className="absolute left-0 right-0 top-full z-50 mt-2 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-xl dark:border-slate-800 dark:bg-slate-950"
+              >
+                {searchSuggestions.length > 0 ? (
+                  searchSuggestions.map((service) => (
+                    <button
+                      key={service.id}
+                      type="button"
+                      role="option"
+                      aria-selected={false}
+                      onMouseDown={(event) => event.preventDefault()}
+                      onClick={() => {
+                        setShowSearchSuggestions(false);
+                        router.push(`/services/${service.id}`);
+                      }}
+                      className="flex w-full items-center justify-between gap-3 border-b border-slate-100 px-4 py-3 text-left last:border-b-0 hover:bg-slate-50 focus:bg-slate-50 focus:outline-none dark:border-slate-800 dark:hover:bg-slate-900 dark:focus:bg-slate-900"
+                    >
+                      <span className="min-w-0">
+                        <span className="block truncate text-sm font-semibold text-slate-900 dark:text-slate-100">
+                          {service.name}
+                        </span>
+                        <span className="mt-0.5 block truncate text-xs capitalize text-slate-500 dark:text-slate-400">
+                          {service.category?.replaceAll("-", " ") || "Service"}
+                        </span>
+                      </span>
+                      <ArrowRightIcon className="h-4 w-4 shrink-0 text-slate-400" />
+                    </button>
+                  ))
+                ) : (
+                  <p className="px-4 py-3 text-sm text-slate-500 dark:text-slate-400">
+                    No matching services found.
+                  </p>
+                )}
+              </div>
+            )}
           </div>
         </div>
 
