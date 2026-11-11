@@ -21,7 +21,6 @@ import {
   CreditCardIcon,
   TagIcon,
   TruckIcon,
-  DevicePhoneMobileIcon,
 } from "@heroicons/react/24/outline";
 import { FaGooglePlay } from "react-icons/fa";
 import { useAppDispatch } from "@/redux/hooks";
@@ -479,14 +478,6 @@ export default function HomePage() {
           <div className="hidden md:block">
             <div className={`relative overflow-hidden rounded-3xl bg-gradient-to-r ${promoSlides[activePromo].style} px-8 py-9 text-white shadow-lg md:px-12 md:py-11`}>
               <div className="max-w-2xl">
-                {promoSlides[activePromo].external && (
-                  <div className="mb-5 inline-flex items-center gap-3 rounded-2xl border border-white/20 bg-white/10 p-3">
-                    <DevicePhoneMobileIcon className="h-10 w-10 text-white" />
-                    <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-white text-emerald-600 shadow-sm">
-                      <FaGooglePlay className="h-5 w-5" aria-label="Google Play" />
-                    </span>
-                  </div>
-                )}
                 <p className="mb-3 text-xs font-bold uppercase tracking-[0.2em] text-white/75">
                   {promoSlides[activePromo].eyebrow}
                 </p>
@@ -550,14 +541,6 @@ export default function HomePage() {
                 }}
                 className={`w-[86%] max-w-sm shrink-0 snap-center rounded-2xl bg-gradient-to-br ${slide.style} p-5 text-white shadow-md`}
               >
-                {slide.external && (
-                  <div className="mb-4 flex items-center gap-3">
-                    <DevicePhoneMobileIcon className="h-9 w-9 text-white" />
-                    <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-white text-emerald-600 shadow-sm">
-                      <FaGooglePlay className="h-5 w-5" aria-label="Google Play" />
-                    </span>
-                  </div>
-                )}
                 <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-white/75">
                   {slide.eyebrow}
                 </p>
