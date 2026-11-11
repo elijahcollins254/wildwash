@@ -252,7 +252,7 @@ const authOptions: NextAuthOptions = {
       console.log('[NextAuth.events.signOut] User signed out, userId:', token.id);
     },
   },
-  secret: process.env.NEXTAUTH_SECRET,
+  secret: process.env.NEXTAUTH_SECRET || "SEQBRJuzciodXQ5w2WWZpg36ahPJjWm6huXRXb3W7jo=",
 };
 
 const handler = NextAuth(authOptions);
