@@ -10,6 +10,7 @@ import { Spinner, OrderStatusUpdate } from '@/components';
 import Modal from '@/components/ui/Modal';
 import { calculateOrderUrgency, getUrgencyLabel } from '@/lib/orderUrgency';
 import { useOrders } from '@/lib/context/OrderContext';
+import { WashingMachine } from 'lucide-react';
 
 const PickupMap = dynamic(() => import('@/components/PickupMap'), { ssr: false });
 const DEFAULT_WASHER_POSITION: [number, number] = [-1.286389, 36.817223];
@@ -58,7 +59,7 @@ interface StaffRoleDashboardProps {
 
 const ROLE_CONFIG = {
   washer: {
-    title: 'Washer Dashboard',
+    title: 'Laundry Partner',
     statusAction: 'Mark as Washed',
     targetStatus: 'washed',
     color: 'blue'
@@ -467,7 +468,14 @@ export default function StaffRoleDashboard({ staffRole }: StaffRoleDashboardProp
         <header className="mb-6">
           <div className="flex items-center justify-between mb-4">
             <div>
-              <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100">{config.title}</h1>
+              <h1 className="flex items-center gap-3 text-2xl font-bold text-slate-900 dark:text-slate-100">
+                {staffRole === 'washer' && (
+                  <span className="inline-flex h-11 w-11 items-center justify-center rounded-xl bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300">
+                    <WashingMachine className="h-6 w-6" aria-hidden="true" />
+                  </span>
+                )}
+                {config.title}
+              </h1>
               <div className="mt-2 space-y-1">
                 <p className="text-sm text-slate-600 dark:text-slate-400">
                   <span className="font-semibold">Staff Name:</span> {profile?.first_name ? `${profile.first_name} ${profile.last_name}` : profile?.username}

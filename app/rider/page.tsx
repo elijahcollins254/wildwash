@@ -456,6 +456,12 @@ export default function RiderMapPage(): React.ReactElement {
       <div className="min-h-screen bg-gradient-to-b from-white via-[#f8fafc] to-[#eef2ff] dark:from-[#071025] dark:via-[#041022] dark:to-[#011018] text-slate-900 dark:text-slate-100 py-12">
         <div className="max-w-6xl mx-auto px-4">
           <div className="grid grid-cols-1 gap-6">
+            <h1 className="flex items-center gap-3 text-3xl font-bold">
+              <span className="inline-flex h-12 w-12 items-center justify-center rounded-xl bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300">
+                <FiTruck className="h-6 w-6" aria-hidden="true" />
+              </span>
+              Riders &amp; Movers
+            </h1>
             <nav className="flex flex-wrap gap-2" aria-label="Rider dashboard">
               {([
                 { id: 'orders', label: 'Orders', icon: Package },

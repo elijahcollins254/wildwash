@@ -21,6 +21,7 @@ import {
   CreditCardIcon,
   TagIcon,
   TruckIcon,
+  DevicePhoneMobileIcon,
 } from "@heroicons/react/24/outline";
 import { useAppDispatch } from "@/redux/hooks";
 import { addToCart } from "@/redux/features/cartSlice";
@@ -693,6 +694,28 @@ export default function HomePage() {
           </div>
         ) : (
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 md:gap-6">
+            <a
+              href="https://play.google.com/store/apps/details?id=com.kibeezy.ww&pli=1"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="group block h-full"
+            >
+              <div className="flex h-full flex-col overflow-hidden rounded-2xl border border-red-800/20 bg-gradient-to-br from-red-700 via-red-600 to-rose-500 text-white shadow-sm transition-all duration-300 hover:-translate-y-1 hover:shadow-xl hover:shadow-red-600/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-600 focus-visible:ring-offset-2">
+                <div className="flex h-40 items-center justify-center border-b border-white/15 bg-white/10">
+                  <DevicePhoneMobileIcon className="h-16 w-16 text-white transition-transform duration-300 group-hover:scale-110" />
+                </div>
+                <div className="flex flex-1 flex-col p-4">
+                  <h3 className="mb-1 text-base font-semibold">Get the Wild Wash app</h3>
+                  <p className="mb-4 text-xs text-white/85">
+                    Book laundry and home-care services on your Android phone.
+                  </p>
+                  <span className="mt-auto inline-flex w-full items-center justify-center gap-2 rounded-xl bg-white py-2.5 text-sm font-semibold text-red-700 transition-colors group-hover:bg-red-50">
+                    Download on Google Play
+                    <ArrowRightIcon className="h-4 w-4" />
+                  </span>
+                </div>
+              </div>
+            </a>
             {filteredServices.map((service) => (
               <div
                 key={service.id}

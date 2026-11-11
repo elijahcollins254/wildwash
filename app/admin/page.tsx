@@ -62,6 +62,7 @@ type Order = {
   price?: string | number;
   status?: string;
   rider?: string | null;
+  washer?: Record<string, any> | null;
   raw?: RawOrder;
 };
 
@@ -86,6 +87,8 @@ type User = {
   first_name?: string;
   last_name?: string;
   role?: string;
+  staff_type?: string;
+  service_location?: number | null;
   location?: string;
   is_staff?: boolean;
   is_superuser?: boolean;
@@ -306,7 +309,7 @@ export default function AdminPage(): React.ReactElement {
       // Optimize: Request only necessary fields to reduce payload size and parsing time
       // Using page_size instead of limit (Django's PageNumberPagination)
       const data = await client.get(
-        `/orders/?page_size=${limit}&fields=id,code,created_at,price,total_price,status,rider,pickup_rider,delivery_rider,user,service_location,order_items`
+        `/orders/?page_size=${limit}&fields=id,code,created_at,price,total_price,status,rider,pickup_rider,delivery_rider,washer,user,service_location,order_items`
       );
       const list: any[] = Array.isArray(data?.results) ? data.results : [];
       const count = data?.count || 0;
@@ -370,7 +373,7 @@ export default function AdminPage(): React.ReactElement {
     try {
       setOrdersPageLoading(true);
       const data = await client.get(
-        `/orders/?page=${page}&page_size=${pageSize}&fields=id,code,created_at,price,total_price,status,rider,pickup_rider,delivery_rider,user,service_location,order_items`
+        `/orders/?page=${page}&page_size=${pageSize}&fields=id,code,created_at,price,total_price,status,rider,pickup_rider,delivery_rider,washer,user,service_location,order_items`
       );
       const list: any[] = Array.isArray(data?.results) ? data.results : [];
       const count = data?.count || 0;
@@ -569,6 +572,24 @@ export default function AdminPage(): React.ReactElement {
       setUserActionError(err?.message ?? 'Failed to assign rider');
       setTimeout(() => setUserActionError(null), 3000);
     }
+  }, [dispatch]);
+
+  const handleWasherAssignment = useCallback(async (orderId: number, washerId: number) => {
+    const response = await client.post('/orders/assign-washer/', {
+      order_id: orderId,
+      washer_id: washerId,
+    });
+    const washer = response?.washer;
+    setAllOrders((current) => current.map((order) => (
+      order.id === orderId
+        ? { ...order, washer, raw: { ...order.raw, washer } }
+        : order
+    )));
+    setUserActionSuccess(response?.sms_sent
+      ? 'Washer assigned successfully. SMS notification sent.'
+      : `Washer assigned successfully. ${response?.sms_message || 'SMS notification could not be confirmed.'}`);
+    dispatch(fetchOrders());
+    setTimeout(() => setUserActionSuccess(null), 3000);
   }, [dispatch]);
 
   const loadRiderWallets = useCallback(async () => {
@@ -1118,6 +1139,7 @@ export default function AdminPage(): React.ReactElement {
                     <th className="text-left py-3 px-4 font-medium">Location</th>
                     <th className="text-left py-3 px-4 font-medium">Laundry</th>
                     <th className="text-left py-3 px-4 font-medium">Rider</th>
+                    <th className="text-left py-3 px-4 font-medium">Washer</th>
                     <th className="text-right py-3 px-4 font-medium">Price (KSh)</th>
                     <th className="text-right py-3 px-4 font-medium">Date</th>
                     <th className="text-left py-3 px-4 font-medium">Actions</th>
@@ -1166,6 +1188,21 @@ export default function AdminPage(): React.ReactElement {
                           <span className="text-slate-500">—</span>
                         )}
                       </td>
+                      <td className="py-3 px-4">
+                        {o.raw?.washer ? (
+                          <span className="font-medium text-slate-900 dark:text-slate-100">
+                            {`${o.raw.washer.first_name || ''} ${o.raw.washer.last_name || ''}`.trim() || o.raw.washer.username}
+                          </span>
+                        ) : o.status === 'in_progress' ? (
+                          <InlineAssignWasherButton
+                            order={o}
+                            users={users}
+                            onAssign={handleWasherAssignment}
+                          />
+                        ) : (
+                          <span className="text-slate-500">—</span>
+                        )}
+                      </td>
                       <td className="py-3 px-4 text-right font-medium">
                         {isNaN(Number(o.price)) || o.price === null || o.price === undefined 
                           ? '—' 
@@ -1197,7 +1234,7 @@ export default function AdminPage(): React.ReactElement {
                   ))}
                   {filteredOrders.length === 0 && (
                     <tr>
-                      <td colSpan={10} className="py-8 text-center text-slate-500">
+                      <td colSpan={11} className="py-8 text-center text-slate-500">
                         <div className="flex flex-col items-center gap-2">
                           <FiInbox size={24} />
                           <span>No orders found</span>
@@ -2482,6 +2519,83 @@ function AssignRiderButton({ order, users, onAssign }: { order: Order; users: Us
   );
 }
 
+function InlineAssignWasherButton({
+  order,
+  users,
+  onAssign,
+}: {
+  order: Order;
+  users: User[];
+  onAssign: (orderId: number, washerId: number) => Promise<void>;
+}) {
+  const [selectedWasher, setSelectedWasher] = useState('');
+  const [isAssigning, setIsAssigning] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const availableWashers = users.filter((user) => (
+    (user.role === 'washer' || user.staff_type === 'washer')
+    && user.is_active !== false
+    && user.id != null
+    && Number(user.service_location) === Number(order.raw?.service_location?.id ?? order.raw?.service_location)
+  ));
+  const hasServiceLocation = order.raw?.service_location?.id != null || order.raw?.service_location != null;
+
+  const handleConfirm = async () => {
+    if (!selectedWasher || order.id == null) return;
+
+    setIsAssigning(true);
+    setError(null);
+    try {
+      await onAssign(order.id, Number(selectedWasher));
+      setSelectedWasher('');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to assign washer');
+    } finally {
+      setIsAssigning(false);
+    }
+  };
+
+  if (availableWashers.length === 0) {
+    return (
+      <span className="text-slate-400 text-sm italic">
+        {hasServiceLocation ? 'No active washers at this location' : 'Assign a laundry location first'}
+      </span>
+    );
+  }
+
+  return (
+    <div className="flex flex-col items-start gap-1">
+      <div className="flex items-center gap-1.5">
+        <select
+          aria-label={`Assign washer to order ${order.code ?? ''}`}
+          value={selectedWasher}
+          onChange={(event) => setSelectedWasher(event.target.value)}
+          disabled={isAssigning}
+          className="max-w-40 rounded border border-slate-300 bg-white px-2 py-1.5 text-sm font-medium text-slate-900 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100"
+        >
+          <option value="">Select washer...</option>
+          {availableWashers.map((washer) => (
+            <option key={washer.id} value={washer.id}>
+              {washer.first_name && washer.last_name
+                ? `${washer.first_name} ${washer.last_name}`
+                : washer.username}
+            </option>
+          ))}
+        </select>
+        <button
+          type="button"
+          onClick={() => void handleConfirm()}
+          disabled={!selectedWasher || isAssigning}
+          className="rounded bg-blue-600 px-2 py-1.5 text-sm font-medium text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
+        >
+          {isAssigning ? '...' : 'Assign'}
+        </button>
+      </div>
+      {error && <span role="alert" className="max-w-48 text-xs text-red-600">{error}</span>}
+    </div>
+  );
+}
+
 // Inline variant for Rider column - shows dropdown directly in table cell
 function InlineAssignRiderButton({ order, users, onAssign }: { order: Order; users: User[]; onAssign: (orderId: number, riderId: number, status?: string) => void }) {
   const [selectedRider, setSelectedRider] = useState<string>('');
@@ -2737,4 +2851,3 @@ function LaundryAssignmentButton({
     </>
   );
 }
-
