@@ -21,7 +21,9 @@ import {
   CreditCardIcon,
   TagIcon,
   TruckIcon,
+  DevicePhoneMobileIcon,
 } from "@heroicons/react/24/outline";
+import { FaGooglePlay } from "react-icons/fa";
 import { useAppDispatch } from "@/redux/hooks";
 import { addToCart } from "@/redux/features/cartSlice";
 import { useGetServicesQuery } from "@/redux/services/apiSlice";
@@ -67,7 +69,7 @@ const promoSlides = [
     eyebrow: "Wild Wash on Android",
     title: "Get the Wild Wash app.",
     description: "Book laundry and home-care services wherever you are.",
-    action: "Download on Google Play",
+    action: "Install Now",
     href: "https://play.google.com/store/apps/details?id=com.kibeezy.ww&pli=1",
     external: true,
     style: "from-red-800 via-red-700 to-orange-600",
@@ -477,6 +479,14 @@ export default function HomePage() {
           <div className="hidden md:block">
             <div className={`relative overflow-hidden rounded-3xl bg-gradient-to-r ${promoSlides[activePromo].style} px-8 py-9 text-white shadow-lg md:px-12 md:py-11`}>
               <div className="max-w-2xl">
+                {promoSlides[activePromo].external && (
+                  <div className="mb-5 inline-flex items-center gap-3 rounded-2xl border border-white/20 bg-white/10 p-3">
+                    <DevicePhoneMobileIcon className="h-10 w-10 text-white" />
+                    <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-white text-emerald-600 shadow-sm">
+                      <FaGooglePlay className="h-5 w-5" aria-label="Google Play" />
+                    </span>
+                  </div>
+                )}
                 <p className="mb-3 text-xs font-bold uppercase tracking-[0.2em] text-white/75">
                   {promoSlides[activePromo].eyebrow}
                 </p>
@@ -491,10 +501,11 @@ export default function HomePage() {
                     href={promoSlides[activePromo].href}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="mt-6 inline-flex items-center gap-2 rounded-full bg-white px-5 py-3 text-sm font-semibold text-slate-900 transition hover:bg-white/90 focus:outline-none focus-visible:ring-2 focus-visible:ring-white"
+                    className="mt-6 inline-flex items-center gap-2 rounded-full bg-white px-6 py-3.5 text-sm font-extrabold text-red-700 shadow-xl shadow-black/20 ring-2 ring-white/40 transition hover:-translate-y-1 hover:scale-105 hover:bg-amber-100 hover:shadow-2xl focus:outline-none focus-visible:ring-4 focus-visible:ring-white"
                   >
+                    <FaGooglePlay className="h-4 w-4 text-emerald-600" aria-hidden="true" />
                     {promoSlides[activePromo].action}
-                    <ArrowRightIcon className="h-4 w-4" />
+                    <ArrowRightIcon className="h-4 w-4" aria-hidden="true" />
                   </a>
                 ) : (
                   <Link
@@ -539,6 +550,14 @@ export default function HomePage() {
                 }}
                 className={`w-[86%] max-w-sm shrink-0 snap-center rounded-2xl bg-gradient-to-br ${slide.style} p-5 text-white shadow-md`}
               >
+                {slide.external && (
+                  <div className="mb-4 flex items-center gap-3">
+                    <DevicePhoneMobileIcon className="h-9 w-9 text-white" />
+                    <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-white text-emerald-600 shadow-sm">
+                      <FaGooglePlay className="h-5 w-5" aria-label="Google Play" />
+                    </span>
+                  </div>
+                )}
                 <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-white/75">
                   {slide.eyebrow}
                 </p>
@@ -549,10 +568,11 @@ export default function HomePage() {
                     href={slide.href}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="mt-4 inline-flex items-center gap-1 rounded-full bg-white px-4 py-2 text-xs font-semibold text-slate-900 focus:outline-none focus-visible:ring-2 focus-visible:ring-white"
+                    className="mt-4 inline-flex items-center gap-2 rounded-full bg-white px-5 py-2.5 text-sm font-extrabold text-red-700 shadow-lg shadow-black/20 ring-2 ring-white/40 transition hover:-translate-y-1 hover:scale-105 hover:bg-amber-100 hover:shadow-xl focus:outline-none focus-visible:ring-4 focus-visible:ring-white"
                   >
+                    <FaGooglePlay className="h-4 w-4 text-emerald-600" aria-hidden="true" />
                     {slide.action}
-                    <ArrowRightIcon className="h-3.5 w-3.5" />
+                    <ArrowRightIcon className="h-3.5 w-3.5" aria-hidden="true" />
                   </a>
                 ) : (
                   <Link
