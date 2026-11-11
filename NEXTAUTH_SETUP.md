@@ -110,7 +110,7 @@ Create a `.env.local` file in the Next.js project root:
 
 ```env
 # NextAuth Configuration
-NEXTAUTH_URL=http://localhost:3000
+NEXTAUTH_URL=https://www.wildwash.co.ke
 NEXTAUTH_SECRET=generate_with_openssl_rand_base64_32
 
 # Google OAuth Credentials (from Google Cloud Console)
@@ -125,6 +125,17 @@ NEXT_PUBLIC_API_BASE=http://localhost:8000/api
 
 ```bash
 openssl rand -base64 32
+```
+
+For local development, set `NEXTAUTH_URL=http://localhost:3000`. In AWS Amplify,
+configure `NEXTAUTH_URL` as `https://www.wildwash.co.ke` and set a non-empty,
+stable `NEXTAUTH_SECRET` in the app's environment variables. Do not commit the
+secret.
+
+For Google OAuth, add this authorized redirect URI in Google Cloud Console:
+
+```text
+https://www.wildwash.co.ke/api/auth/callback/google
 ```
 
 ## How It Works

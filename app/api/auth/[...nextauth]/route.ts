@@ -230,6 +230,7 @@ const authOptions: NextAuthOptions = {
   },
   pages: {
     signIn: '/login',
+    error: '/auth/error',
   },
   session: {
     strategy: 'jwt',
@@ -255,4 +256,14 @@ const authOptions: NextAuthOptions = {
 };
 
 const handler = NextAuth(authOptions);
-export { handler as GET, handler as POST };
+
+async function authHandler(...args: Parameters<typeof handler>) {
+  try {
+    return await handler(...args);
+  } catch (error) {
+    console.error('[NextAuth] Handler error:', error);
+    throw error;
+  }
+}
+
+export { authHandler as GET, authHandler as POST };
