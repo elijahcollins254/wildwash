@@ -3,6 +3,15 @@ import GoogleProvider from "next-auth/providers/google";
 import CredentialsProvider from "next-auth/providers/credentials";
 import type { NextAuthOptions } from "next-auth";
 
+const productionAuthUrl = 'https://www.wildwash.co.ke';
+const configuredAuthUrl = process.env.NEXTAUTH_URL;
+if (
+  process.env.NODE_ENV === 'production' &&
+  (!configuredAuthUrl || /^https?:\/\/(localhost|127\.0\.0\.1)(?::|\/|$)/i.test(configuredAuthUrl))
+) {
+  process.env.NEXTAUTH_URL = productionAuthUrl;
+}
+
 const API_BASE = process.env.NEXT_PUBLIC_API_BASE || '';
 
 const authOptions: NextAuthOptions = {

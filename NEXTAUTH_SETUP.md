@@ -130,7 +130,8 @@ openssl rand -base64 32
 For local development, set `NEXTAUTH_URL=http://localhost:3000`. In AWS Amplify,
 configure `NEXTAUTH_URL` as `https://www.wildwash.co.ke` and set a non-empty,
 stable `NEXTAUTH_SECRET` in the app's environment variables. Do not commit the
-secret.
+secret. The NextAuth route also falls back to `https://www.wildwash.co.ke` in
+production if `NEXTAUTH_URL` is unset or points to localhost.
 
 For Google OAuth, add this authorized redirect URI in Google Cloud Console:
 
