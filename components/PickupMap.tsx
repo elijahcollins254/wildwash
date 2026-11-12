@@ -1,13 +1,8 @@
 'use client';
 
-import { useEffect, useRef, useState } from "react";
-
-declare global {
-  interface Window {
-    google?: any;
-    __wildwashGoogleMapsReady?: () => void;
-  }
-}
+import { useEffect, useRef } from 'react';
+import { divIcon, type Marker as LeafletMarker } from 'leaflet';
+import { MapContainer, Marker, TileLayer, useMap, useMapEvents } from 'react-leaflet';
 
 type PickupMapProps = {
   position: [number, number];
@@ -15,105 +10,57 @@ type PickupMapProps = {
   onChange: (position: [number, number]) => void;
 };
 
-const GOOGLE_MAPS_API_KEY = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
-let googleMapsLoadPromise: Promise<void> | null = null;
+const pickupIcon = divIcon({
+  className: '',
+  html: '<div style="width:18px;height:18px;border:3px solid white;border-radius:50%;background:#dc2626;box-shadow:0 1px 5px #0008"></div>',
+  iconSize: [18, 18],
+  iconAnchor: [9, 9],
+});
 
-function loadGoogleMaps(apiKey: string): Promise<void> {
-  if (typeof window.google?.maps?.Map === "function") return Promise.resolve();
-  if (googleMapsLoadPromise) return googleMapsLoadPromise;
-
-  googleMapsLoadPromise = new Promise<void>((resolve, reject) => {
-    const script = document.createElement("script");
-    window.__wildwashGoogleMapsReady = () => {
-      delete window.__wildwashGoogleMapsReady;
-      if (typeof window.google?.maps?.Map === "function") {
-        resolve();
-      } else {
-        reject(new Error("Google Maps loaded without the Maps JavaScript API."));
-      }
-    };
-    script.src = `https://maps.googleapis.com/maps/api/js?key=${encodeURIComponent(apiKey)}&loading=async&callback=__wildwashGoogleMapsReady`;
-    script.async = true;
-    script.dataset.googleMaps = "true";
-    script.onerror = () => {
-      delete window.__wildwashGoogleMapsReady;
-      reject(new Error("Unable to load Google Maps."));
-    };
-    document.head.appendChild(script);
-  }).catch((error: unknown) => {
-    googleMapsLoadPromise = null;
-    throw error;
+function MapClickHandler({ onChange }: { onChange: PickupMapProps['onChange'] }) {
+  useMapEvents({
+    click: ({ latlng }) => onChange([latlng.lat, latlng.lng]),
   });
+  return null;
+}
 
-  return googleMapsLoadPromise;
+function CenterOnPosition({ position, hasPin }: Pick<PickupMapProps, 'position' | 'hasPin'>) {
+  const map = useMap();
+
+  useEffect(() => {
+    map.setView(position, hasPin ? 16 : map.getZoom());
+  }, [map, position, hasPin]);
+
+  return null;
 }
 
 export default function PickupMap({ position, hasPin, onChange }: PickupMapProps) {
-  const mapElement = useRef<HTMLDivElement>(null);
-  const map = useRef<any>(null);
-  const marker = useRef<any>(null);
-  const [mapReady, setMapReady] = useState(false);
-  const [loadError, setLoadError] = useState<string | null>(null);
+  const marker = useRef<LeafletMarker | null>(null);
 
-  useEffect(() => {
-    if (!GOOGLE_MAPS_API_KEY) {
-      setLoadError("Google Maps is not configured.");
-      return;
-    }
-
-    let cancelled = false;
-
-    const initializeMap = () => {
-      if (cancelled || !mapElement.current || typeof window.google?.maps?.Map !== "function") return;
-      map.current = new window.google.maps.Map(mapElement.current, {
-        center: { lat: position[0], lng: position[1] },
-        zoom: hasPin ? 16 : 12,
-        mapTypeControl: false,
-        streetViewControl: false,
-        fullscreenControl: false,
-      });
-      map.current.addListener("click", (event: any) => {
-        if (event.latLng) onChange([event.latLng.lat(), event.latLng.lng()]);
-      });
-      setMapReady(true);
-    };
-
-    loadGoogleMaps(GOOGLE_MAPS_API_KEY).then(initializeMap).catch((error: unknown) => {
-      if (!cancelled) setLoadError(error instanceof Error ? error.message : "Unable to load Google Maps.");
-    });
-
-    return () => {
-      cancelled = true;
-      map.current?.setMap?.(null);
-      map.current = null;
-      marker.current?.setMap(null);
-      marker.current = null;
-    };
-  }, []);
-
-  useEffect(() => {
-    if (!mapReady || !map.current || typeof window.google?.maps?.Marker !== "function") return;
-    const location = { lat: position[0], lng: position[1] };
-    map.current.setCenter(location);
-    if (hasPin) {
-      if (!marker.current) {
-        marker.current = new window.google.maps.Marker({ map: map.current, position: location, draggable: true });
-        marker.current.addListener("dragend", () => {
-          const markerPosition = marker.current.getPosition();
-          onChange([markerPosition.lat(), markerPosition.lng()]);
-        });
-      } else {
-        marker.current.setPosition(location);
-      }
-    } else if (marker.current) {
-      marker.current.setMap(null);
-      marker.current = null;
-    }
-  }, [position, hasPin, onChange, mapReady]);
-
-  if (loadError) {
-    return <div className="flex h-64 w-full items-center justify-center bg-slate-100 p-4 text-center text-sm text-red-600">{loadError}</div>;
-  }
-
-  return <div ref={mapElement} className="h-64 w-full bg-slate-100" />;
+  return (
+    <div role="application" aria-label="Pickup location map">
+      <MapContainer center={position} zoom={hasPin ? 16 : 12} scrollWheelZoom style={{ height: 256, width: '100%' }}>
+        <TileLayer
+          attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+          url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+        />
+        <MapClickHandler onChange={onChange} />
+        <CenterOnPosition position={position} hasPin={hasPin} />
+        {hasPin ? (
+          <Marker
+            ref={marker}
+            position={position}
+            icon={pickupIcon}
+            draggable
+            eventHandlers={{
+              dragend: () => {
+                const nextPosition = marker.current?.getLatLng();
+                if (nextPosition) onChange([nextPosition.lat, nextPosition.lng]);
+              },
+            }}
+          />
+        ) : null}
+      </MapContainer>
+    </div>
+  );
 }
