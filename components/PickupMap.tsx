@@ -105,7 +105,7 @@ export default function PickupMap({ position, hasPin, onChange }: PickupMapProps
         fullscreenControl: false,
       });
       clickListener = map.current.addListener('click', (event) => {
-        if (event.latLng) onChangeRef.current([event.latLng.lat, event.latLng.lng]);
+        if (event.latLng) onChangeRef.current([event.latLng.lat(), event.latLng.lng()]);
       });
       setMapReady(true);
     }).catch((error: unknown) => {
@@ -146,7 +146,7 @@ export default function PickupMap({ position, hasPin, onChange }: PickupMapProps
       });
       markerListener.current = marker.current.addListener('dragend', () => {
         const markerPosition = marker.current?.getPosition();
-        if (markerPosition) onChangeRef.current([markerPosition.lat, markerPosition.lng]);
+        if (markerPosition) onChangeRef.current([markerPosition.lat(), markerPosition.lng()]);
       });
     } else {
       marker.current.setPosition(location);
