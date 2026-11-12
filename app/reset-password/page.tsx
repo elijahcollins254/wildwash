@@ -36,7 +36,7 @@ export default function ResetPasswordPage() {
     const cleaned = value.replace(/\D/g, "");
     if (!value) return "Phone number is required";
     if (cleaned.length < 10) return "Phone number must be at least 10 digits";
-    if (!/^(?:254|0)7\d{8}$/.test(cleaned)) return "Please enter a valid Kenya phone number";
+    if (!/^(?:254|0)(?:7|1)\d{8}$/.test(cleaned)) return "Please enter a valid Kenya phone number";
     return "";
   };
 
@@ -213,7 +213,7 @@ export default function ResetPasswordPage() {
                   setPhone(e.target.value);
                   setPhoneError("");
                 }}
-                placeholder="07123456789"
+                placeholder="0712345678 or 0116629591"
                 className={`w-full px-4 py-3 rounded-lg border ${
                   phoneError ? "border-red-500" : "border-slate-200 dark:border-slate-800"
                 } bg-white dark:bg-slate-950 focus:outline-none focus:ring-1 focus:ring-red-600 transition-ring`}
