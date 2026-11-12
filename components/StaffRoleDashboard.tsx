@@ -5,6 +5,7 @@ import dynamic from 'next/dynamic';
 import { useRouter } from "next/navigation";
 import Link from 'next/link';
 import { client } from '@/lib/api/client';
+import { roundPickupPosition } from '@/lib/coordinates';
 import { getStoredAuthState, isValidAuthState } from '@/lib/auth';
 import { Spinner, OrderStatusUpdate } from '@/components';
 import Modal from '@/components/ui/Modal';
@@ -363,6 +364,7 @@ export default function StaffRoleDashboard({ staffRole }: StaffRoleDashboardProp
     setProfileError('');
     setProfileMessage('');
     try {
+      const roundedWasherPosition = washerPosition ? roundPickupPosition(washerPosition) : null;
       const updatedProfile = await client.patch('/users/me/', {
         first_name: washerProfileForm.first_name.trim(),
         last_name: washerProfileForm.last_name.trim(),
@@ -370,8 +372,8 @@ export default function StaffRoleDashboard({ staffRole }: StaffRoleDashboardProp
         email: washerProfileForm.email.trim(),
         pickup_address: washerProfileForm.pickup_address.trim(),
         machine_count: machineCount,
-        pickup_latitude: washerPosition?.[0] ?? null,
-        pickup_longitude: washerPosition?.[1] ?? null,
+        pickup_latitude: roundedWasherPosition?.[0] ?? null,
+        pickup_longitude: roundedWasherPosition?.[1] ?? null,
       });
       setProfile(updatedProfile);
       setProfileMessage('Washer profile saved.');

@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { getStoredAuthState } from "@/lib/auth";
 import { useAppSelector } from "@/redux/hooks";
 import { selectCartItems } from "@/redux/features/cartSlice";
+import { roundPickupPosition } from "@/lib/coordinates";
 
 function getCookie(name: string) {
   if (typeof document === "undefined") return null;
@@ -277,6 +278,7 @@ export default function Page() {
       }
 
       const csrf = getCookie("csrftoken");
+      const roundedPickupPosition = pickupPosition ? roundPickupPosition(pickupPosition) : null;
       
       // Build update payload with non-empty fields only
       const profileUpdate: Record<string, any> = {};
@@ -291,9 +293,8 @@ export default function Page() {
         profileUpdate.pickup_address = pickupBuilding;
       }
 
-      if (pickupPosition) {
-        profileUpdate.pickup_latitude = pickupPosition[0];
-        profileUpdate.pickup_longitude = pickupPosition[1];
+      if (roundedPickupPosition) {
+        [profileUpdate.pickup_latitude, profileUpdate.pickup_longitude] = roundedPickupPosition;
       }
       
       // Save dropoff address as the location if it's different from pickup
@@ -347,13 +348,14 @@ export default function Page() {
       return;
     }
 
+    const roundedPickupPosition = pickupPosition ? roundPickupPosition(pickupPosition) : null;
     const payload = {
         services: cartServiceIds,
         service_quantities: cartItems.map(item => ({ service_id: item.id, quantity: item.quantity || 1 })),
         pickup_address: pickupBuilding + (pickupContact ? ` (contact: ${pickupContact})` : ""),
-        ...(pickupPosition ? {
-          pickup_latitude: pickupPosition[0],
-          pickup_longitude: pickupPosition[1],
+        ...(roundedPickupPosition ? {
+          pickup_latitude: roundedPickupPosition[0],
+          pickup_longitude: roundedPickupPosition[1],
         } : {}),
         dropoff_address: sameAsPickup ? pickupBuilding : dropoffAddress,
         urgency: calculatePriceMultiplier(effectiveDeliveryHours) === 2.0 ? 3 : calculatePriceMultiplier(effectiveDeliveryHours) === 1.3 ? 2 : 1, // Convert hours to urgency level
@@ -466,16 +468,6 @@ export default function Page() {
                   <div className="flex items-center justify-between mb-1">
                     <label className="block text-xs text-slate-500">Pin exact pickup location</label>
                     <div className="flex items-center gap-3">
-                      <button
-                        type="button"
-                        onClick={() => navigator.geolocation?.getCurrentPosition(
-                          ({ coords }) => setPickupPosition([coords.latitude, coords.longitude]),
-                          () => setMessage("Unable to access your location. You can tap the map to place the pin.")
-                        )}
-                        className="text-xs font-medium text-red-600 hover:text-red-500"
-                      >
-                        Use my location
-                      </button>
                       {pickupPosition && (
                         <button
                           type="button"

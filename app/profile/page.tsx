@@ -9,6 +9,7 @@ import { logout, setAuth } from "@/redux/features/authSlice";
 import RouteGuard from "@/components/RouteGuard";
 import type { RootState } from "@/redux/store";
 import { client } from "@/lib/api/client";
+import { roundPickupPosition } from "@/lib/coordinates";
 import { Spinner } from "@/components";
 
 type UserProfile = {
@@ -239,10 +240,11 @@ export default function ProfilePage() {
     setError(null);
 
     try {
+      const roundedPickupPosition = pickupPosition ? roundPickupPosition(pickupPosition) : null;
       const data = await client.patch('/users/me/', {
         ...formData,
-        pickup_latitude: pickupPosition?.[0] ?? null,
-        pickup_longitude: pickupPosition?.[1] ?? null,
+        pickup_latitude: roundedPickupPosition?.[0] ?? null,
+        pickup_longitude: roundedPickupPosition?.[1] ?? null,
       });
       setProfile(data);
       setEditMode(false);
