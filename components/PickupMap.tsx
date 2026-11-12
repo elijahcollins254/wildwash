@@ -38,6 +38,9 @@ type PickupMapProps = {
   position: [number, number];
   hasPin: boolean;
   onChange: (position: [number, number]) => void;
+  interactive?: boolean;
+  showCurrentLocation?: boolean;
+  markerTitle?: string;
 };
 
 const GOOGLE_MAPS_API_KEY = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
@@ -69,7 +72,14 @@ function loadGoogleMaps(): Promise<void> {
   return googleMapsLoadPromise;
 }
 
-export default function PickupMap({ position, hasPin, onChange }: PickupMapProps) {
+export default function PickupMap({
+  position,
+  hasPin,
+  onChange,
+  interactive = true,
+  showCurrentLocation = true,
+  markerTitle = 'Pickup location',
+}: PickupMapProps) {
   const mapElement = useRef<HTMLDivElement>(null);
   const map = useRef<GoogleMap | null>(null);
   const marker = useRef<GoogleMarker | null>(null);
@@ -77,6 +87,7 @@ export default function PickupMap({ position, hasPin, onChange }: PickupMapProps
   const onChangeRef = useRef(onChange);
   const positionRef = useRef(position);
   const hasPinRef = useRef(hasPin);
+  const interactiveRef = useRef(interactive);
   const [mapReady, setMapReady] = useState(false);
   const [loadingLocation, setLoadingLocation] = useState(false);
   const [locationError, setLocationError] = useState('');
@@ -88,7 +99,8 @@ export default function PickupMap({ position, hasPin, onChange }: PickupMapProps
     onChangeRef.current = onChange;
     positionRef.current = position;
     hasPinRef.current = hasPin;
-  }, [onChange, position, hasPin]);
+    interactiveRef.current = interactive;
+  }, [onChange, position, hasPin, interactive]);
 
   useEffect(() => {
     if (!GOOGLE_MAPS_API_KEY) return;
@@ -104,9 +116,11 @@ export default function PickupMap({ position, hasPin, onChange }: PickupMapProps
         streetViewControl: false,
         fullscreenControl: false,
       });
-      clickListener = map.current.addListener('click', (event) => {
-        if (event.latLng) onChangeRef.current([event.latLng.lat(), event.latLng.lng()]);
-      });
+      if (interactiveRef.current) {
+        clickListener = map.current.addListener('click', (event) => {
+          if (event.latLng) onChangeRef.current([event.latLng.lat(), event.latLng.lng()]);
+        });
+      }
       setMapReady(true);
     }).catch((error: unknown) => {
       if (active) setLoadError(error instanceof Error ? error.message : 'Unable to load Google Maps.');
@@ -141,17 +155,19 @@ export default function PickupMap({ position, hasPin, onChange }: PickupMapProps
       marker.current = new window.google.maps.Marker({
         map: map.current,
         position: location,
-        draggable: true,
-        title: 'Pickup location',
+        title: markerTitle,
+        draggable: interactive,
       });
-      markerListener.current = marker.current.addListener('dragend', () => {
-        const markerPosition = marker.current?.getPosition();
-        if (markerPosition) onChangeRef.current([markerPosition.lat(), markerPosition.lng()]);
-      });
+      if (interactive) {
+        markerListener.current = marker.current.addListener('dragend', () => {
+          const markerPosition = marker.current?.getPosition();
+          if (markerPosition) onChangeRef.current([markerPosition.lat(), markerPosition.lng()]);
+        });
+      }
     } else {
       marker.current.setPosition(location);
     }
-  }, [position, hasPin, mapReady]);
+  }, [position, hasPin, mapReady, interactive, markerTitle]);
 
   const useCurrentLocation = () => {
     setLocationError('');
@@ -181,22 +197,24 @@ export default function PickupMap({ position, hasPin, onChange }: PickupMapProps
 
   return (
     <div>
-      <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
-        <button
-          type="button"
-          onClick={useCurrentLocation}
-          disabled={loadingLocation}
-          className="text-xs font-medium text-red-600 hover:text-red-500 disabled:cursor-wait disabled:opacity-60"
-        >
-          {loadingLocation ? 'Finding your location…' : 'Use my location'}
-        </button>
-        {hasPin ? (
-          <span className="text-xs text-slate-500">
-            {position[0].toFixed(6)}, {position[1].toFixed(6)}
-          </span>
-        ) : null}
-      </div>
-      {locationError ? <p role="alert" className="mb-2 text-xs text-red-600">{locationError}</p> : null}
+      {showCurrentLocation ? (
+        <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+          <button
+            type="button"
+            onClick={useCurrentLocation}
+            disabled={loadingLocation}
+            className="text-xs font-medium text-red-600 hover:text-red-500 disabled:cursor-wait disabled:opacity-60"
+          >
+            {loadingLocation ? 'Finding your location…' : 'Use my location'}
+          </button>
+          {hasPin ? (
+            <span className="text-xs text-slate-500">
+              {position[0].toFixed(6)}, {position[1].toFixed(6)}
+            </span>
+          ) : null}
+        </div>
+      ) : null}
+      {showCurrentLocation && locationError ? <p role="alert" className="mb-2 text-xs text-red-600">{locationError}</p> : null}
       {loadError ? (
         <div className="flex h-64 w-full items-center justify-center bg-slate-100 p-4 text-center text-sm text-red-600">
           {loadError}

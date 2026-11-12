@@ -4,11 +4,14 @@ import React, { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { client } from "@/lib/api/client";
+import dynamic from "next/dynamic";
 import { getLatestActualPrice, getActualPriceStaffInfo, formatActualPrice } from "@/lib/utils/orderPricing";
 import RouteGuard from "@/components/RouteGuard";
 import OrderStaffDetailsViewer from "@/components/OrderStaffDetailsViewer";
 import Modal from "@/components/ui/Modal";
-import { Eye, ArrowLeft, Loader2, AlertCircle, Send, RefreshCw, CheckCircle } from "lucide-react";
+import { Eye, ArrowLeft, Loader2, AlertCircle, Send, RefreshCw, CheckCircle, Map as MapIcon, X } from "lucide-react";
+
+const PickupMap = dynamic(() => import("@/components/PickupMap"), { ssr: false });
 
 interface OrderDetail {
   id?: number;
@@ -24,6 +27,9 @@ interface OrderDetail {
   weight_kg?: number;
   package?: string;
   pickup_address?: string;
+  pickup_location?: { lat: number | null; lng: number | null } | null;
+  pickup_latitude?: number | string | null;
+  pickup_longitude?: number | string | null;
   dropoff_address?: string;
   estimated_delivery?: string;
   is_paid?: boolean;
@@ -47,6 +53,7 @@ export default function RiderOrderDetailPage() {
   const [modalTitle, setModalTitle] = useState('');
   const [modalMessage, setModalMessage] = useState('');
   const [modalType, setModalType] = useState<'success' | 'error' | 'info' | 'warning'>('info');
+  const [showOrderMap, setShowOrderMap] = useState(false);
 
   const API_BASE = process.env.NEXT_PUBLIC_API_BASE || '';
 
@@ -224,6 +231,25 @@ export default function RiderOrderDetailPage() {
       setCompletingOrder(false);
     }
   };
+
+  const rawPickupLatitude = order.pickup_location?.lat ?? order.pickup_latitude ?? order.raw?.pickup_latitude;
+  const rawPickupLongitude = order.pickup_location?.lng ?? order.pickup_longitude ?? order.raw?.pickup_longitude;
+  const pickupLatitude = Number(rawPickupLatitude);
+  const pickupLongitude = Number(rawPickupLongitude);
+  const hasPickupCoordinates = rawPickupLatitude != null
+    && rawPickupLongitude != null
+    && Number.isFinite(pickupLatitude)
+    && Number.isFinite(pickupLongitude)
+    && pickupLatitude >= -90
+    && pickupLatitude <= 90
+    && pickupLongitude >= -180
+    && pickupLongitude <= 180
+    && (order.pickup_location != null || order.pickup_latitude != null || order.pickup_longitude != null
+      || order.raw?.pickup_latitude != null || order.raw?.pickup_longitude != null);
+  const pickupPosition: [number, number] = [pickupLatitude, pickupLongitude];
+  const googleMapsSearchUrl = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(
+    hasPickupCoordinates ? `${pickupLatitude},${pickupLongitude}` : order.pickup_address || '',
+  )}`;
 
   return (
     <RouteGuard requireRider>
@@ -471,6 +497,64 @@ export default function RiderOrderDetailPage() {
           )}
         </div>
       </div>
+      {showOrderMap ? (
+        <section
+          id="order-pickup-map"
+          aria-label="Order pickup location map"
+          className="fixed inset-x-4 bottom-20 z-40 mx-auto max-w-3xl overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl dark:border-slate-700 dark:bg-slate-900"
+        >
+          <div className="flex items-center justify-between gap-3 border-b border-slate-200 px-4 py-3 dark:border-slate-700">
+            <div className="min-w-0">
+              <h2 className="font-semibold text-slate-900 dark:text-white">Pickup location</h2>
+              <p className="truncate text-xs text-slate-500 dark:text-slate-400">{order.pickup_address || 'Address unavailable'}</p>
+            </div>
+            <div className="flex shrink-0 items-center gap-3">
+              {hasPickupCoordinates || order.pickup_address ? (
+                <a
+                  href={googleMapsSearchUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="text-sm font-semibold text-teal-700 hover:text-teal-800 dark:text-teal-400"
+                >
+                  Directions
+                </a>
+              ) : null}
+              <button
+                type="button"
+                onClick={() => setShowOrderMap(false)}
+                aria-label="Close map"
+                className="rounded-full p-2 text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+          </div>
+          {hasPickupCoordinates ? (
+            <PickupMap
+              position={pickupPosition}
+              hasPin
+              interactive={false}
+              showCurrentLocation={false}
+              markerTitle={`Order ${order.code || ''} pickup location`}
+              onChange={() => undefined}
+            />
+          ) : (
+            <div className="flex min-h-40 items-center justify-center bg-slate-50 p-6 text-center text-sm text-slate-600 dark:bg-slate-800 dark:text-slate-300">
+              This order has no saved pickup coordinates. You can still open the pickup address in Google Maps.
+            </div>
+          )}
+        </section>
+      ) : null}
+      <button
+        type="button"
+        aria-expanded={showOrderMap}
+        aria-controls="order-pickup-map"
+        onClick={() => setShowOrderMap((visible) => !visible)}
+        className="fixed bottom-6 left-1/2 z-50 flex -translate-x-1/2 items-center gap-2 rounded-full border border-slate-200 bg-slate-900 px-5 py-3 text-sm font-semibold text-white shadow-xl transition hover:scale-[1.02] hover:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:ring-offset-2 dark:border-slate-700"
+      >
+        {showOrderMap ? <X className="h-4 w-4" /> : <MapIcon className="h-4 w-4" />}
+        {showOrderMap ? 'Hide map' : 'Show map'}
+      </button>
     </RouteGuard>
   );
 }
