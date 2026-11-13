@@ -236,8 +236,8 @@ export default function RiderOrderDetailPage() {
     }
   };
 
-  const rawPickupLatitude = order.pickup_location?.lat ?? order.pickup_latitude ?? order.raw?.pickup_latitude;
-  const rawPickupLongitude = order.pickup_location?.lng ?? order.pickup_longitude ?? order.raw?.pickup_longitude;
+  const rawPickupLatitude = order.pickup_location?.lat ?? order.pickup_latitude ?? order.raw?.pickup_latitude ?? order.user?.pickup_latitude ?? order.raw?.user?.pickup_latitude;
+  const rawPickupLongitude = order.pickup_location?.lng ?? order.pickup_longitude ?? order.raw?.pickup_longitude ?? order.user?.pickup_longitude ?? order.raw?.user?.pickup_longitude;
   const pickupLatitude = Number(rawPickupLatitude);
   const pickupLongitude = Number(rawPickupLongitude);
   const hasPickupCoordinates = rawPickupLatitude != null
@@ -249,7 +249,9 @@ export default function RiderOrderDetailPage() {
     && pickupLongitude >= -180
     && pickupLongitude <= 180
     && (order.pickup_location != null || order.pickup_latitude != null || order.pickup_longitude != null
-      || order.raw?.pickup_latitude != null || order.raw?.pickup_longitude != null);
+      || order.raw?.pickup_latitude != null || order.raw?.pickup_longitude != null
+      || order.user?.pickup_latitude != null || order.user?.pickup_longitude != null
+      || order.raw?.user?.pickup_latitude != null || order.raw?.user?.pickup_longitude != null);
   const pickupPosition: [number, number] = [pickupLatitude, pickupLongitude];
   const googleMapsSearchUrl = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(
     hasPickupCoordinates ? `${pickupLatitude},${pickupLongitude}` : order.pickup_address || '',

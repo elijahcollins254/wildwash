@@ -262,8 +262,18 @@ class OrderPollingService {
           price: o.price,
           created_at: o.created_at,
           estimated_delivery: o.estimated_delivery,
-          user: o.user,
-          pickup_location: o.pickup_location,
+          user: {
+            ...o.user,
+            pickup_latitude: o.user?.pickup_latitude ?? o.pickup_latitude ?? null,
+            pickup_longitude: o.user?.pickup_longitude ?? o.pickup_longitude ?? null,
+          },
+          pickup_location: o.pickup_location ?? (
+            o.pickup_latitude != null && o.pickup_longitude != null
+              ? { lat: Number(o.pickup_latitude), lng: Number(o.pickup_longitude) }
+              : null
+          ),
+          pickup_latitude: o.pickup_latitude ?? o.user?.pickup_latitude ?? null,
+          pickup_longitude: o.pickup_longitude ?? o.user?.pickup_longitude ?? null,
           dropoff_location: o.dropoff_location,
           pickup_rider: o.pickup_rider,
           delivery_rider: o.delivery_rider,
