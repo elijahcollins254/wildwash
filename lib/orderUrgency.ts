@@ -114,16 +114,16 @@ export function sortByUrgency(orders: any[]): any[] {
 /**
  * Get urgency level label and color for display
  */
-export function getUrgencyLabel(score: number): { label: string; color: string; bgColor: string } {
+export function getUrgencyLabel(score: number): { label: string; color: string; bgColor: string; rowBgColor: string } {
   if (score >= 150) {
-    return { label: 'Critical', color: 'text-red-700', bgColor: 'bg-red-100 dark:bg-red-900/20' };
+    return { label: 'Critical', color: 'text-red-900 dark:text-red-100', bgColor: 'bg-red-200 dark:bg-red-900/70', rowBgColor: 'bg-red-50 dark:bg-red-950/30' };
   } else if (score >= 100) {
-    return { label: 'High', color: 'text-orange-700', bgColor: 'bg-orange-100 dark:bg-orange-900/20' };
+    return { label: 'High', color: 'text-orange-900 dark:text-orange-100', bgColor: 'bg-orange-200 dark:bg-orange-900/70', rowBgColor: 'bg-orange-50 dark:bg-orange-950/30' };
   } else if (score >= 60) {
-    return { label: 'Medium', color: 'text-yellow-700', bgColor: 'bg-yellow-100 dark:bg-yellow-900/20' };
+    return { label: 'Medium', color: 'text-yellow-900 dark:text-yellow-100', bgColor: 'bg-yellow-200 dark:bg-yellow-900/70', rowBgColor: 'bg-yellow-50 dark:bg-yellow-950/30' };
   } else if (score >= 30) {
-    return { label: 'Low', color: 'text-blue-700', bgColor: 'bg-blue-100 dark:bg-blue-900/20' };
+    return { label: 'Low', color: 'text-blue-900 dark:text-blue-100', bgColor: 'bg-blue-200 dark:bg-blue-900/70', rowBgColor: 'bg-blue-50 dark:bg-blue-950/30' };
   } else {
-    return { label: 'Info', color: 'text-slate-700', bgColor: 'bg-slate-100 dark:bg-slate-700' };
+    return { label: 'Info', color: 'text-slate-900 dark:text-slate-100', bgColor: 'bg-slate-200 dark:bg-slate-700', rowBgColor: 'bg-slate-50 dark:bg-slate-800/60' };
   }
 }

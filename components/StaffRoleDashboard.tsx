@@ -641,7 +641,7 @@ export default function StaffRoleDashboard({ staffRole }: StaffRoleDashboardProp
                   const urgency = calculateOrderUrgency(o);
                   const label = getUrgencyLabel(urgency.score);
                   return (
-                    <tr key={o.id ?? o.code} className="border-b border-slate-100 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700/50">
+                    <tr key={o.id ?? o.code} className={`border-b border-slate-100 dark:border-slate-800 ${label.rowBgColor} hover:brightness-95 dark:hover:brightness-125`}>
                       <td className="py-2 px-3 font-mono text-left">
                         <Link href={`/staff/order/${o.code}`} className="text-indigo-600 dark:text-indigo-400 hover:underline">
                           {o.code}
@@ -700,7 +700,7 @@ export default function StaffRoleDashboard({ staffRole }: StaffRoleDashboardProp
                         </span>
                       </td>
                       <td className="py-2 px-3 text-center">
-                        <div className={`px-2 py-1 rounded-full text-xs font-semibold ${label.bgColor} text-white inline-block`}>
+                        <div className={`inline-block rounded-full border border-current/20 px-2 py-1 text-xs font-semibold ${label.bgColor} ${label.color}`}>
                           {label.label} ({urgency.score})
                         </div>
                       </td>
