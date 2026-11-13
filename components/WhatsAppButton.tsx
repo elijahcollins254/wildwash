@@ -1,8 +1,10 @@
 "use client";
 import { useEffect, useState } from "react";
+import { usePathname } from "next/navigation";
 import { FaWhatsapp } from "react-icons/fa";
 
 export default function WhatsAppButton() {
+  const pathname = usePathname();
   const whatsappNumber = "+254705415948";
   const whatsappText = "Hi%20Wild%20Wash!%20I%20need%20help%20with%20my%20order.";
   const href = `https://api.whatsapp.com/send?phone=${encodeURIComponent(whatsappNumber)}&text=${whatsappText}`;
@@ -38,7 +40,7 @@ export default function WhatsAppButton() {
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
-  if (hidden) return null;
+  if (hidden || pathname === "/chat") return null;
 
   return (
     <a
@@ -49,7 +51,7 @@ export default function WhatsAppButton() {
     className="fixed z-[9999] flex items-center gap-3 rounded-full bg-emerald-500 hover:brightness-95 shadow-lg px-3 py-2 transition-transform active:scale-95 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-300"
     // use the safe-area CSS so the button doesn't sit under home indicators / notches
     style={{
-        bottom: `calc(env(safe-area-inset-bottom, 0px) + ${isDesktop ? 16 : 88}px)`,
+        bottom: `calc(env(safe-area-inset-bottom, 0px) + ${isDesktop ? 84 : 156}px)`,
         right: "calc(env(safe-area-inset-right, 0px) + 16px)",
     }}
     >

@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
-import { NavBar, Footer, WhatsAppButton, BottomNav } from '@/components'
+import { NavBar, Footer, WhatsAppButton, HelpButton, BottomNav } from '@/components'
 import { Providers } from './providers';
 import AuthInitializer from '@/components/AuthInitializer';
 import { Analytics } from "@vercel/analytics/next"
@@ -38,7 +38,8 @@ export default function RootLayout({
             {children}
           </main>
           <BottomNav />
-          <WhatsAppButton />         
+          <WhatsAppButton />
+          <HelpButton />
           <Footer />
           <Analytics />
         </Providers>
