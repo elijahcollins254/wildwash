@@ -194,23 +194,7 @@ export default function SignupPage() {
     console.log('[GoogleSignUp] Starting Google sign-up...');
     
     try {
-      // Use unified auth for Google signup
-      const result = await googleLogin(dispatch);
-      
-      if (!result.success) {
-        console.error('[GoogleSignUp] Google signup failed:', result.error);
-        // Don't show error to user - just log to console
-        setLoading(false);
-        return;
-      }
-      
-      console.log('[GoogleSignUp] Google signup successful, redirecting to:', result.redirectUrl);
-      // Loading stays true while redirecting
-      if (result.redirectUrl) {
-        router.push(result.redirectUrl);
-      } else {
-        router.push('/');
-      }
+      await googleLogin('/login');
     } catch (err) {
       console.error('[GoogleSignUp] Unexpected error:', err);
       setLoading(false);

@@ -128,23 +128,7 @@ export default function LoginPage() {
     console.log('[GoogleSignIn] Starting Google sign-in...');
     
     try {
-      // Use unified auth for Google too
-      const result = await googleLogin(dispatch);
-      
-      if (!result.success) {
-        console.error('[GoogleSignIn] Google login failed:', result.error);
-        // Don't show error to user - just log to console
-        setLoading(false);
-        return;
-      }
-      
-      console.log('[GoogleSignIn] Google login successful, redirecting to:', result.redirectUrl);
-      // Loading stays true while redirecting
-      if (result.redirectUrl) {
-        router.push(getRequestedRedirect(result.redirectUrl));
-      } else {
-        router.push(getRequestedRedirect('/'));
-      }
+      await googleLogin(getRequestedRedirect('/login'));
     } catch (err) {
       console.error('[GoogleSignIn] Unexpected error:', err);
       setLoading(false);

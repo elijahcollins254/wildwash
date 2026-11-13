@@ -129,97 +129,12 @@ export const phonePasswordLogin = async (
 };
 
 /**
- * Login with Google OAuth using NextAuth
- * Already fast - we just ensure Redux is updated
+ * Start Google OAuth with a browser redirect. OAuth providers cannot complete
+ * the consent flow through the fetch-based redirect:false path.
  */
-export const googleLogin = async (
-  dispatch: AppDispatch
-): Promise<UnifiedAuthResult> => {
-  try {
-    console.log('[UnifiedAuth] Initiating Google login');
-
-    const result = await signIn('google', { redirect: false });
-
-    if (result?.error) {
-      console.error('[UnifiedAuth] Google login error:', result.error);
-      return {
-        success: false,
-        error: result.error,
-      };
-    }
-
-    if (!result?.ok) {
-      return {
-        success: false,
-        error: 'Google login failed',
-      };
-    }
-
-    // Get session after Google signin
-    const session = await getSession();
-    if (!session?.user) {
-      return {
-        success: false,
-        error: 'Session not established',
-      };
-    }
-
-    const user = session.user as any;
-    console.log('[UnifiedAuth] Google login successful, userId:', user.id);
-
-    // Update Redux from session
-    const userData = {
-      id: user.id,
-      email: user.email,
-      username: user.name,
-      phone: user.phone,
-      role: user.role,
-      is_staff: user.is_staff,
-      is_superuser: user.is_superuser,
-      staff_type: user.staff_type,
-      profile_complete: user.profile_complete,
-    };
-
-    dispatch(setAuth({
-      user: userData,
-      token: user.token,
-    }));
-
-    // Check if profile needs to be completed (for Google OAuth users)
-    if (!user.profile_complete && user.role === 'customer') {
-      console.log('[UnifiedAuth] Redirecting to profile setup - profile not complete');
-      return {
-        success: true,
-        redirectUrl: '/profile/setup',
-      };
-    }
-
-    const role = user.role;
-    let redirectUrl = '/';
-
-    if (userData.is_superuser || role === 'admin') {
-      redirectUrl = '/admin';
-    } else if (role === 'washer') {
-      redirectUrl = '/staff/washer';
-    } else if (role === 'folder') {
-      redirectUrl = '/staff/folder';
-    } else if (role === 'rider') {
-      redirectUrl = '/rider';
-    } else if (userData.is_staff || role === 'staff') {
-      redirectUrl = '/staff';
-    }
-
-    return {
-      success: true,
-      redirectUrl,
-    };
-  } catch (error: any) {
-    console.error('[UnifiedAuth] Google login error:', error);
-    return {
-      success: false,
-      error: error?.message || 'Google login failed',
-    };
-  }
+export const googleLogin = async (callbackUrl = '/login'): Promise<void> => {
+  console.log('[UnifiedAuth] Redirecting to Google login');
+  await signIn('google', { callbackUrl });
 };
 
 /**
