@@ -70,9 +70,13 @@ export default function RiderOrderDetailPage() {
         setLoading(true);
         setError(null);
         
-        const response = await client.get(`/orders/?code=${params.code}`);
+        const response = await client.get(
+          `/orders/rider/?code=${encodeURIComponent(params.code)}`
+        );
         // Response is either an array or paginated object with results
-        const orderData = Array.isArray(response) ? response[0] : response?.results?.[0];
+        const orderData = Array.isArray(response)
+          ? response.find((item) => item.code === params.code)
+          : response?.results?.find((item: OrderDetail) => item.code === params.code);
         
         if (!orderData) {
           setError('Order not found');
