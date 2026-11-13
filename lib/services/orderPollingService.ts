@@ -13,7 +13,12 @@ interface Order {
   [key: string]: any;
 }
 
-type PollingCallback = (orders: Order[]) => void;
+interface PollingLoadState {
+  loaded: boolean;
+  error: string | null;
+}
+
+type PollingCallback = (orders: Order[], state: PollingLoadState) => void;
 
 class OrderPollingService {
   private static instance: OrderPollingService;
@@ -34,6 +39,8 @@ class OrderPollingService {
   private pendingRequest: Promise<void> | null = null;
   private isPageVisible: boolean = true;
   private currentToken: string | null = null;
+  private hasLoaded: boolean = false;
+  private lastError: string | null = null;
 
   private constructor() {}
 
@@ -56,7 +63,19 @@ class OrderPollingService {
       return;
     }
 
-    this.baseInterval = Math.max(30000, intervalMs); // Minimum 30 seconds
+    if (this.pollingInterval) {
+      clearInterval(this.pollingInterval);
+      this.pollingInterval = null;
+    }
+
+    if (this.currentToken !== token) {
+      this.cachedOrders = [];
+      this.hasLoaded = false;
+      this.lastError = null;
+      this.lastOrderIds.clear();
+    }
+
+    this.baseInterval = Math.max(15000, intervalMs);
     this.currentInterval = this.baseInterval;
     this.currentToken = token;
     this.errorCount = 0;
@@ -121,6 +140,23 @@ class OrderPollingService {
    */
   getCachedOrders(): Order[] {
     return [...this.cachedOrders];
+  }
+
+  getLoadState(): PollingLoadState {
+    return { loaded: this.hasLoaded, error: this.lastError };
+  }
+
+  private publishOrders(orders: Order[]): void {
+    this.cachedOrders = orders;
+    this.hasLoaded = true;
+    this.lastError = null;
+    this.subscribers.forEach(callback => {
+      try {
+        callback(orders, this.getLoadState());
+      } catch (err) {
+        console.error('Error in order polling subscriber:', err);
+      }
+    });
   }
 
   /**
@@ -194,13 +230,8 @@ class OrderPollingService {
    */
   private async fetchOrders(token: string): Promise<void> {
     try {
-      let allOrders: Order[] = [];
-      let page = 1;
-      let hasMore = true;
-
-      // Fetch all pages of orders
-      while (hasMore) {
-        const res = await fetch(`${this.apiBase}/orders/rider/?page=${page}`, {
+      const fetchPage = async (page: number) => {
+        const res = await fetch(`${this.apiBase}/orders/rider/?compact=1&page_size=100&page=${page}`, {
           method: 'GET',
           headers: {
             'Accept': 'application/json',
@@ -212,20 +243,10 @@ class OrderPollingService {
           throw new Error(`Orders fetch failed: ${res.status} ${res.statusText}`);
         }
 
-        const data = await res.json().catch(() => null);
-        const list: any[] = Array.isArray(data) 
-          ? data 
-          : Array.isArray(data?.results) 
-          ? data.results 
-          : [];
+        return res.json();
+      };
 
-        if (list.length === 0) {
-          hasMore = false;
-          break;
-        }
-
-        // Process orders from this page
-        const pageOrders: Order[] = list.map((o: any) => ({
+      const toOrders = (list: any[]): Order[] => list.map((o: any) => ({
           id: o.id,
           code: o.code,
           service: {
@@ -244,49 +265,92 @@ class OrderPollingService {
           user: o.user,
           pickup_location: o.pickup_location,
           dropoff_location: o.dropoff_location,
+          pickup_rider: o.pickup_rider,
+          delivery_rider: o.delivery_rider,
+          rider: o.rider,
+          actual_price: o.actual_price,
+          delivered_at: o.delivered_at,
+          picked_at: o.picked_at,
+          ready_at: o.ready_at,
+          quantity: o.quantity,
+          description: o.description,
         }));
 
-        allOrders = [...allOrders, ...pageOrders];
-        page++;
-
-        // Check if there's a next page
-        if (!data?.next) {
-          hasMore = false;
-        }
-      }
-
-      const orders = allOrders;
+      const firstPage = await fetchPage(1);
+      const firstResults: any[] = Array.isArray(firstPage)
+        ? firstPage
+        : Array.isArray(firstPage?.results)
+          ? firstPage.results
+          : [];
+      let orders = toOrders(firstResults);
+      this.publishOrders(orders);
 
       // Check for new orders (notify on status changes to 'ready' or 'requested')
-      const newOrders = orders.filter(o => {
+      const getNewOrders = (pageOrders: Order[]) => pageOrders.filter(o => {
         const isNew = !this.lastOrderIds.has(o.id);
         const isReadyForDelivery = o.status === 'ready';
         const isRequested = o.status === 'requested';
         return isNew && (isRequested || isReadyForDelivery);
       });
 
-      // Notify about new orders
-      if (newOrders.length > 0) {
-        this.notifyNewOrders(newOrders);
+      const firstPageNewOrders = getNewOrders(orders);
+      if (firstPageNewOrders.length > 0) {
+        this.notifyNewOrders(firstPageNewOrders);
       }
-
-      // Update lastOrderIds with all current order IDs
       orders.forEach(o => this.lastOrderIds.add(o.id));
 
-      // Update cache
-      this.cachedOrders = orders;
+      if (!Array.isArray(firstPage) && firstPage?.next) {
+        const remainingPages = firstPage.count
+          ? Math.ceil(firstPage.count / 100)
+          : null;
 
-      // Notify all subscribers
-      this.subscribers.forEach(callback => {
-        try {
-          callback(orders);
-        } catch (err) {
-          console.error('Error in order polling subscriber:', err);
+        if (remainingPages) {
+          const pageBatchSize = 4;
+          for (let firstPageNumber = 2; firstPageNumber <= remainingPages; firstPageNumber += pageBatchSize) {
+            const pageNumbers = Array.from(
+              { length: Math.min(pageBatchSize, remainingPages - firstPageNumber + 1) },
+              (_, index) => firstPageNumber + index
+            );
+            const pages = await Promise.all(pageNumbers.map(fetchPage));
+            const laterOrders = pages.flatMap((page) =>
+              toOrders(Array.isArray(page?.results) ? page.results : [])
+            );
+            const newOrders = getNewOrders(laterOrders);
+            if (newOrders.length > 0) this.notifyNewOrders(newOrders);
+            if (laterOrders.length > 0) {
+              orders = [...orders, ...laterOrders];
+              orders.forEach(o => this.lastOrderIds.add(o.id));
+              this.publishOrders(orders);
+            }
+          }
+        } else {
+          let nextPage = firstPage;
+          let pageNumber = 2;
+          while (nextPage?.next) {
+            nextPage = await fetchPage(pageNumber++);
+            const laterOrders = toOrders(Array.isArray(nextPage?.results) ? nextPage.results : []);
+            if (laterOrders.length === 0) break;
+            const newOrders = getNewOrders(laterOrders);
+            if (newOrders.length > 0) this.notifyNewOrders(newOrders);
+            orders = [...orders, ...laterOrders];
+            orders.forEach(o => this.lastOrderIds.add(o.id));
+            this.publishOrders(orders);
+          }
         }
-      });
+      }
 
     } catch (err) {
       console.error('Background order fetch error:', err);
+      this.lastError = err instanceof Error ? err.message : 'Unable to load orders.';
+      this.hasLoaded = true;
+      this.subscribers.forEach(callback => {
+        try {
+          callback(this.cachedOrders, this.getLoadState());
+        } catch (subscriberError) {
+          console.error('Error in order polling subscriber:', subscriberError);
+        }
+      });
+      throw err;
     }
   }
 

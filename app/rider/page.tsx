@@ -77,8 +77,6 @@ type RiderWallet = {
 
 /* --- Component --- */
 export default function RiderMapPage(): React.ReactElement {
-  const [loadingOrders, setLoadingOrders] = useState(true);
-  const [orderLoadError, setOrderLoadError] = useState<string | null>(null);
   const [currentTab, setCurrentTab] = useState<'my_pickups' | 'in_progress' | 'ready_delivery' | 'completed'>('my_pickups');
   const [dashboardTab, setDashboardTab] = useState<'orders' | 'payments' | 'profile'>('orders');
   const [wallet, setWallet] = useState<RiderWallet | null>(null);
@@ -127,7 +125,11 @@ export default function RiderMapPage(): React.ReactElement {
   const currentUserId = authState.user?.id || authState.userId || authState.id || null;
   
   // Use background polling for orders - smart updates without page reload
-  const orders = useBackgroundOrderPolling(token, true, 60000); // 60 second default interval
+  const {
+    orders,
+    loading: loadingOrders,
+    error: orderLoadError,
+  } = useBackgroundOrderPolling(token, true, 15000);
 
   const refreshWallet = async () => {
     setWalletLoading(true);
@@ -184,22 +186,6 @@ export default function RiderMapPage(): React.ReactElement {
     }
   };
   
-  // Debug: Log currentUserId and first order's pickup_rider for comparison
-  useEffect(() => {
-    if (orders && orders.length > 0 && currentUserId) {
-      console.log('[RiderPage] currentUserId:', currentUserId, 'type:', typeof currentUserId);
-      console.log('[RiderPage] First order pickup_rider:', orders[0]?.pickup_rider?.id, 'type:', typeof orders[0]?.pickup_rider?.id);
-      console.log('[RiderPage] Auth state:', authState);
-    }
-  }, [orders, currentUserId, authState]);
-
-  // Update loading state when orders arrive and capture errors
-  useEffect(() => {
-    if (orders && orders.length > 0 && loadingOrders) {
-      setLoadingOrders(false);
-    }
-  }, [orders, loadingOrders]);
-
   // Cleanup confirmation timeout on unmount
   useEffect(() => {
     return () => {

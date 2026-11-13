@@ -18,12 +18,22 @@ interface Order {
   [key: string]: any;
 }
 
+interface OrderPollingState {
+  orders: Order[];
+  loading: boolean;
+  error: string | null;
+}
+
 export function useBackgroundOrderPolling(
   token: string | null,
   enabled: boolean = true,
   pollIntervalMs: number = 60000
-): Order[] {
-  const [orders, setOrders] = useState<Order[]>([]);
+): OrderPollingState {
+  const [state, setState] = useState<OrderPollingState>({
+    orders: [],
+    loading: true,
+    error: null,
+  });
   const serviceRef = useRef(OrderPollingService.getInstance());
   const unsubscribeRef = useRef<(() => void) | null>(null);
 
@@ -35,25 +45,32 @@ export function useBackgroundOrderPolling(
         unsubscribeRef.current = null;
       }
       serviceRef.current.stopPolling();
+      setState({ orders: [], loading: false, error: null });
       return;
     }
 
     // Get service instance
     const service = serviceRef.current;
 
-    // Start polling
-    service.startPolling(token, pollIntervalMs);
-
     // Subscribe to updates
-    unsubscribeRef.current = service.subscribe((newOrders) => {
-      setOrders(newOrders);
+    unsubscribeRef.current = service.subscribe((newOrders, loadState) => {
+      setState({
+        orders: newOrders,
+        loading: !loadState.loaded,
+        error: loadState.error,
+      });
     });
 
-    // Set initial cached orders
+    // Subscribe before polling so the initial response is not missed.
+    service.startPolling(token, pollIntervalMs);
+
     const cachedOrders = service.getCachedOrders();
-    if (cachedOrders.length > 0) {
-      setOrders(cachedOrders);
-    }
+    const loadState = service.getLoadState();
+    setState({
+      orders: cachedOrders,
+      loading: !loadState.loaded,
+      error: loadState.error,
+    });
 
     // Cleanup on unmount
     return () => {
@@ -64,7 +81,7 @@ export function useBackgroundOrderPolling(
     };
   }, [token, enabled, pollIntervalMs]);
 
-  return orders;
+  return state;
 }
 
 /**
