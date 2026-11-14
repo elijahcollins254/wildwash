@@ -5,6 +5,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { ChatBubbleLeftRightIcon } from "@heroicons/react/24/outline";
 import { client } from "@/lib/api/client";
+import { listenForSupportMessages } from "@/lib/api/supportEvents";
 import { useSelector } from "react-redux";
 import type { RootState } from "@/redux/store";
 
@@ -22,36 +23,47 @@ export default function HelpButton() {
     }
 
     let active = true;
-    let fetching = false;
+    let controller: AbortController | null = null;
 
-    const loadUnreadCount = async () => {
-      if (fetching) return;
-      fetching = true;
+    const connectToUnreadEvents = async () => {
       try {
         const result = await client.get("/chat/unread-count/");
         if (
           !result ||
           typeof result !== "object" ||
           !("unread_count" in result) ||
-          typeof result.unread_count !== "number"
+          typeof result.unread_count !== "number" ||
+          !("last_message_id" in result) ||
+          typeof result.last_message_id !== "number"
         ) {
-          throw new Error("The support unread count response was invalid.");
+          throw new Error("The support unread messages response was invalid.");
         }
-        if (active) setUnreadCount(result.unread_count);
+        if (!active) return;
+        setUnreadCount(result.unread_count);
+        controller = new AbortController();
+        void listenForSupportMessages(
+          result.last_message_id,
+          controller.signal,
+          () => {
+            if (active) setUnreadCount((count) => count + 1);
+          },
+          (error) => {
+            if (active) {
+              console.error("Live support notifications disconnected:", error);
+            }
+          },
+        );
       } catch (error) {
         if (active) {
-          console.error("Unable to load unread support messages:", error);
+          console.error("Unable to connect to support notifications:", error);
         }
-      } finally {
-        fetching = false;
       }
     };
 
-    void loadUnreadCount();
-    const poll = window.setInterval(() => void loadUnreadCount(), 5000);
+    void connectToUnreadEvents();
     return () => {
       active = false;
-      window.clearInterval(poll);
+      controller?.abort();
     };
   }, [isAuthenticated, isLoading, pathname]);
 

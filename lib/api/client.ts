@@ -2,27 +2,27 @@ import { AUTH_STORAGE_KEY } from '../auth';
 
 const API_BASE = process.env.NEXT_PUBLIC_API_BASE || '';
 
-async function fetchWithAuth(url: string, options: RequestInit = {}) {
-  let token = null;
+export function getApiAuthToken(): string | null {
   if (typeof window !== 'undefined') {
-    // Primary source: new unified auth state used across the app
     const authState = localStorage.getItem(AUTH_STORAGE_KEY);
     if (authState) {
       try {
         const parsed = JSON.parse(authState);
-        // support several possible token property names from different flows
-        token = parsed?.token ?? parsed?.access ?? parsed?.key ?? null;
+        const token = parsed?.token ?? parsed?.access ?? parsed?.key;
+        if (typeof token === 'string' && token) return token;
       } catch (e) {
         console.error('Error parsing auth state:', e);
       }
     }
 
-    // Fallbacks for older code paths that write different localStorage keys
-    if (!token) {
-      token = localStorage.getItem('access_token') || localStorage.getItem('token') || null;
-    }
+    return localStorage.getItem('access_token') || localStorage.getItem('token') || null;
   }
-  
+
+  return null;
+}
+
+async function fetchWithAuth(url: string, options: RequestInit = {}) {
+  const token = getApiAuthToken();
   const headers = {
     'Content-Type': 'application/json',
     // If token exists, attach DRF Token auth header. If it looks like a Bearer token,

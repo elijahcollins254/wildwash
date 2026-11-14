@@ -6,14 +6,11 @@ import Link from "next/link";
 import { useSelector } from "react-redux";
 import { ArrowLeftIcon, PaperAirplaneIcon } from "@heroicons/react/24/outline";
 import { client } from "@/lib/api/client";
+import {
+  listenForSupportMessages,
+  type SupportMessage,
+} from "@/lib/api/supportEvents";
 import type { RootState } from "@/redux/store";
-
-type SupportMessage = {
-  id: number;
-  body: string;
-  is_from_support: boolean;
-  created_at: string;
-};
 
 export default function ChatPage() {
   const { isAuthenticated, isLoading } = useSelector(
@@ -30,17 +27,56 @@ export default function ChatPage() {
     if (isLoading || !isAuthenticated) return;
 
     let active = true;
-    let fetching = false;
+    const controller = new AbortController();
 
-    const loadMessages = async () => {
-      if (fetching) return;
-      fetching = true;
+    const connectToChat = async () => {
+      setLoadingMessages(true);
       try {
         const result = await client.get("/chat/");
-        if (active) {
-          setMessages(Array.isArray(result) ? result : []);
-          setError(null);
+        if (!Array.isArray(result)) {
+          throw new Error("The support messages response was invalid.");
         }
+
+        const initialMessages = result as SupportMessage[];
+        if (!active) return;
+        setMessages(initialMessages);
+        setError(null);
+
+        const lastMessageId = initialMessages.reduce(
+          (latestId, message) => Math.max(latestId, message.id),
+          0,
+        );
+        void listenForSupportMessages(
+          lastMessageId,
+          controller.signal,
+          (message) => {
+            if (!active) return;
+            setMessages((current) =>
+              current.some((existing) => existing.id === message.id)
+                ? current
+                : [...current, message],
+            );
+            void client
+              .post("/chat/read/", { through_id: message.id })
+              .catch((readError) => {
+                if (active) {
+                  setError(
+                    readError instanceof Error
+                      ? readError.message
+                      : "Unable to update support message status.",
+                  );
+                }
+              });
+          },
+          (streamError) => {
+            if (active) {
+              setError(`Live updates disconnected. Reconnecting… ${streamError.message}`);
+            }
+          },
+          () => {
+            if (active) setError(null);
+          },
+        );
       } catch (loadError) {
         if (active) {
           setError(
@@ -50,16 +86,14 @@ export default function ChatPage() {
           );
         }
       } finally {
-        fetching = false;
         if (active) setLoadingMessages(false);
       }
     };
 
-    void loadMessages();
-    const poll = window.setInterval(() => void loadMessages(), 4000);
+    void connectToChat();
     return () => {
       active = false;
-      window.clearInterval(poll);
+      controller.abort();
     };
   }, [isAuthenticated, isLoading]);
 
