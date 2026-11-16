@@ -5,7 +5,7 @@ import { CreditCard, Package, UserRound, Wallet } from "lucide-react";
 import Link from "next/link";
 import RouteGuard from "@/components/RouteGuard";
 import Modal from "@/components/ui/Modal";
-import { useBackgroundOrderPolling } from "@/lib/hooks/useBackgroundOrderPolling";
+import { useRiderOrderUpdates } from "@/lib/hooks/useRiderOrderUpdates";
 import { FiArrowRight, FiCheck, FiX, FiBox, FiClock, FiTruck } from "react-icons/fi";
 import { AiOutlineLoading3Quarters } from "react-icons/ai";
 import { client } from "@/lib/api/client";
@@ -124,12 +124,12 @@ export default function RiderMapPage(): React.ReactElement {
   // Try multiple possible auth state structures
   const currentUserId = authState.user?.id || authState.userId || authState.id || null;
   
-  // Use background polling for orders - smart updates without page reload
+  // Use server-sent events for live order updates.
   const {
     orders,
     loading: loadingOrders,
     error: orderLoadError,
-  } = useBackgroundOrderPolling(token, true, 15000);
+  } = useRiderOrderUpdates(token);
 
   const refreshWallet = async () => {
     setWalletLoading(true);
@@ -196,8 +196,7 @@ export default function RiderMapPage(): React.ReactElement {
   }, []);
 
   /* --- Data fetchers --- */
-  // Orders are fetched automatically via background polling service
-  // No manual refresh needed - polling handles it intelligently
+  // SSE refreshes the orders list when the backend reports a change.
 
   const handleOpenDetailsForm = (order: Order) => {
     setDetailsOrderId(order.id);
@@ -263,7 +262,7 @@ export default function RiderMapPage(): React.ReactElement {
         throw new Error(errorData.error || `Failed to update order: ${res.status}`);
       }
 
-      // Close form and let background polling refresh
+      // Closing the form leaves the SSE subscription active.
       handleCloseDetailsForm();
       setCurrentTab('in_progress');
     } catch (err: any) {
@@ -318,7 +317,7 @@ export default function RiderMapPage(): React.ReactElement {
       }
 
       // Refresh the orders list and switch to picked page
-      // Background polling will pick up the change
+      // SSE will deliver the order update.
       setCurrentTab('in_progress'); // Switch to in_progress page after completion
     } catch (err: any) {
       console.error('Failed to complete pickup:', err);
@@ -375,7 +374,7 @@ export default function RiderMapPage(): React.ReactElement {
     }
   };
 
-  // Display orders from background polling
+  // Display orders received from the initial load and SSE refreshes.
   const displayOrders = orders;
 
   // Filter orders by selected tab

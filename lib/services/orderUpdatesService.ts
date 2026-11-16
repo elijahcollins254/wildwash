@@ -1,7 +1,7 @@
 /**
- * Background Order Polling Service
+ * Rider Order Updates Service
  * 
- * Periodically fetches orders from the backend and caches them
+ * Fetches rider orders on demand and caches them
  * without triggering component re-renders or page reloads.
  * This runs as a separate service that components can subscribe to.
  */
@@ -18,25 +18,19 @@ interface PollingLoadState {
   error: string | null;
 }
 
-type PollingCallback = (orders: Order[], state: PollingLoadState) => void;
+type OrderUpdateCallback = (orders: Order[], state: PollingLoadState) => void;
 
-class OrderPollingService {
-  private static instance: OrderPollingService;
-  private pollingInterval: NodeJS.Timeout | null = null;
-  private pollDuration: number = 60000; // 1 minute default
-  private subscribers: Set<PollingCallback> = new Set();
+class OrderUpdatesService {
+  private static instance: OrderUpdatesService;
+  private subscribers: Set<OrderUpdateCallback> = new Set();
   private cachedOrders: Order[] = [];
-  private isPolling: boolean = false;
+  private isActive: boolean = false;
   private apiBase: string = process.env.NEXT_PUBLIC_API_BASE || '';
   private lastOrderIds: Set<number> = new Set(); // Track seen order IDs
   
-  // Smart polling features
-  private errorCount: number = 0;
-  private maxErrorCount: number = 5;
-  private baseInterval: number = 60000; // 1 minute
-  private currentInterval: number = this.baseInterval;
-  private lastPollTime: number = 0;
+  // Request coordination
   private pendingRequest: Promise<void> | null = null;
+  private refreshRequested = false;
   private isPageVisible: boolean = true;
   private currentToken: string | null = null;
   private hasLoaded: boolean = false;
@@ -47,25 +41,19 @@ class OrderPollingService {
   /**
    * Get singleton instance
    */
-  static getInstance(): OrderPollingService {
-    if (!OrderPollingService.instance) {
-      OrderPollingService.instance = new OrderPollingService();
+  static getInstance(): OrderUpdatesService {
+    if (!OrderUpdatesService.instance) {
+      OrderUpdatesService.instance = new OrderUpdatesService();
     }
-    return OrderPollingService.instance;
+    return OrderUpdatesService.instance;
   }
 
   /**
-   * Start background polling with smart interval management
+   * Start background order updates.
    */
-  startPolling(token: string, intervalMs: number = 60000): void {
-    if (this.isPolling && this.currentToken === token) {
-      console.log('Order polling already active');
+  startUpdates(token: string): void {
+    if (this.isActive && this.currentToken === token) {
       return;
-    }
-
-    if (this.pollingInterval) {
-      clearInterval(this.pollingInterval);
-      this.pollingInterval = null;
     }
 
     if (this.currentToken !== token) {
@@ -75,58 +63,34 @@ class OrderPollingService {
       this.lastOrderIds.clear();
     }
 
-    this.baseInterval = Math.max(15000, intervalMs);
-    this.currentInterval = this.baseInterval;
     this.currentToken = token;
-    this.errorCount = 0;
-    this.isPolling = true;
+    this.isActive = true;
 
-    console.log(`Starting order polling with base interval ${this.baseInterval}ms`);
-
-    // Set up page visibility listener
     this.setupVisibilityListener();
 
-    // Poll immediately on start
-    this.executePoll(token).catch(err => 
-      console.error('Initial order poll failed:', err)
+    this.executeFetch(token).catch(err =>
+      console.error('Initial order fetch failed:', err)
     );
-
-    // Set up interval
-    this.pollingInterval = setInterval(() => {
-      if (this.isPageVisible && this.isPolling) {
-        this.executePoll(token).catch(err =>
-          console.error('Order polling error:', err)
-        );
-      }
-    }, this.currentInterval);
   }
 
   /**
-   * Stop background polling and cleanup
+   * Stop live order updates and cleanup
    */
-  stopPolling(): void {
-    if (this.pollingInterval) {
-      clearInterval(this.pollingInterval);
-      this.pollingInterval = null;
-    }
-    this.isPolling = false;
+  stopUpdates(): void {
+    this.isActive = false;
     this.currentToken = null;
-    this.errorCount = 0;
-    this.currentInterval = this.baseInterval;
     
     // Remove visibility listener
     if (typeof document !== 'undefined') {
-      document.removeEventListener('visibilitychange', () => {});
+      document.removeEventListener('visibilitychange', this.handleVisibilityChange);
     }
-    
-    console.log('Order polling stopped');
   }
 
   /**
    * Subscribe to order updates
    * Callback is called whenever new orders are fetched
    */
-  subscribe(callback: PollingCallback): () => void {
+  subscribe(callback: OrderUpdateCallback): () => void {
     this.subscribers.add(callback);
 
     // Return unsubscribe function
@@ -154,78 +118,59 @@ class OrderPollingService {
       try {
         callback(orders, this.getLoadState());
       } catch (err) {
-        console.error('Error in order polling subscriber:', err);
+        console.error('Error in order update subscriber:', err);
       }
     });
   }
 
   /**
-   * Execute poll with deduplication and error handling
+   * Fetch orders with request deduplication.
    */
-  private async executePoll(token: string): Promise<void> {
-    // Prevent duplicate concurrent requests
+  private async executeFetch(token: string): Promise<void> {
     if (this.pendingRequest) {
+      this.refreshRequested = true;
       return;
     }
 
-    // Prevent polling too frequently
-    const now = Date.now();
-    if (now - this.lastPollTime < 5000) {
-      return;
-    }
-
-    this.lastPollTime = now;
     this.pendingRequest = this.fetchOrders(token);
 
     try {
       await this.pendingRequest;
-      // Reset interval on successful poll
-      this.errorCount = 0;
-      this.currentInterval = this.baseInterval;
     } catch (err) {
-      // Exponential backoff on error
-      this.errorCount++;
-      const backoffMultiplier = Math.pow(1.5, Math.min(this.errorCount, this.maxErrorCount));
-      this.currentInterval = Math.min(
-        this.baseInterval * backoffMultiplier,
-        this.baseInterval * 5 // Max 5x base interval
-      );
-      console.warn(`Poll error #${this.errorCount}, backing off to ${this.currentInterval}ms`);
+      throw err;
     } finally {
       this.pendingRequest = null;
+      if (this.refreshRequested && this.isActive && this.currentToken === token) {
+        this.refreshRequested = false;
+        void this.executeFetch(token).catch(err =>
+          console.error('Queued order refresh failed:', err)
+        );
+      }
     }
   }
 
   /**
-   * Setup page visibility listener to pause polling when tab is hidden
+   * Refresh orders when a hidden tab becomes visible again.
    */
+  private readonly handleVisibilityChange = () => {
+    this.isPageVisible = !document.hidden;
+    if (this.isPageVisible && this.isActive && this.currentToken) {
+      this.executeFetch(this.currentToken).catch(err =>
+        console.error('Order refresh on visibility change failed:', err)
+      );
+    }
+  };
+
   private setupVisibilityListener(): void {
     if (typeof document === 'undefined') return;
 
-    const handleVisibilityChange = () => {
-      this.isPageVisible = !document.hidden;
-      console.log(`Page visibility changed: ${this.isPageVisible ? 'visible' : 'hidden'}`);
-
-      // If page becomes visible, poll immediately
-      if (this.isPageVisible && this.isPolling && this.currentToken) {
-        console.log('Page became visible, polling immediately');
-        this.executePoll(this.currentToken).catch(err =>
-          console.error('Immediate poll on visibility change failed:', err)
-        );
-      }
-    };
-
-    // Only add listener once
-    if (!this.isPageVisible) {
-      // Already listening
-      return;
-    }
-
-    document.addEventListener('visibilitychange', handleVisibilityChange);
+    document.removeEventListener('visibilitychange', this.handleVisibilityChange);
+    this.isPageVisible = !document.hidden;
+    document.addEventListener('visibilitychange', this.handleVisibilityChange);
   }
 
   /**
-   * Fetch orders from backend and notify subscribers
+   * Fetch orders from the backend and notify subscribers
    * Handles pagination to fetch ALL orders for the rider
    */
   private async fetchOrders(token: string): Promise<void> {
@@ -350,14 +295,14 @@ class OrderPollingService {
       }
 
     } catch (err) {
-      console.error('Background order fetch error:', err);
+      console.error('Rider order fetch error:', err);
       this.lastError = err instanceof Error ? err.message : 'Unable to load orders.';
       this.hasLoaded = true;
       this.subscribers.forEach(callback => {
         try {
           callback(this.cachedOrders, this.getLoadState());
         } catch (subscriberError) {
-          console.error('Error in order polling subscriber:', subscriberError);
+          console.error('Error in order update subscriber:', subscriberError);
         }
       });
       throw err;
@@ -420,4 +365,4 @@ class OrderPollingService {
   }
 }
 
-export default OrderPollingService;
+export default OrderUpdatesService;

@@ -11,6 +11,7 @@ import { Spinner, OrderStatusUpdate } from '@/components';
 import Modal from '@/components/ui/Modal';
 import { calculateOrderUrgency, getUrgencyLabel } from '@/lib/orderUrgency';
 import { useOrders } from '@/lib/context/OrderContext';
+import { useOrderEvents } from '@/lib/hooks/useOrderEvents';
 import { WashingMachine } from 'lucide-react';
 
 const PickupMap = dynamic(() => import('@/components/PickupMap'), { ssr: false });
@@ -159,6 +160,13 @@ export default function StaffRoleDashboard({ staffRole }: StaffRoleDashboardProp
   const [modalTitle, setModalTitle] = useState('');
   const [modalMessage, setModalMessage] = useState('');
   const [modalType, setModalType] = useState<'success' | 'error' | 'info' | 'warning'>('info');
+
+  useOrderEvents(
+    () => {
+      void refetchOrders();
+    },
+    activeDashboardTab === 'orders',
+  );
 
   const showModal = (title: string, message: string, type: 'success' | 'error' | 'info' | 'warning' = 'info') => {
     setModalTitle(title);

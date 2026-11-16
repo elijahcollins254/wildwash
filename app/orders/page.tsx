@@ -15,6 +15,7 @@ import {
   Wind,
   Droplets,
 } from "lucide-react";
+import { useOrderEvents } from "@/lib/hooks/useOrderEvents";
 import type { AppDispatch, RootState } from "@/redux/store";
 import {
   fetchOrders,
@@ -168,6 +169,10 @@ export default function OrdersPage(): React.JSX.Element {
     dispatch(fetchOrders());
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [dispatch, page, pageSize, statusFilter, query, fullState.refreshCounter]);
+
+  useOrderEvents(() => {
+    void dispatch(fetchOrders());
+  });
 
   // sync error message from state
   useEffect(() => {

@@ -4,6 +4,5 @@ export { default as WhatsAppButton } from './WhatsAppButton';
 export { default as HelpButton } from './HelpButton';
 export { default as BottomNav } from './BottomNav';
 export { default as BNPLManager } from './BNPLManager';
-export { default as GamesNavBar } from './GamesNavBar';
 export { default as Spinner } from './ui/Spinner';
 export { default as OrderStatusUpdate } from './ui/OrderStatusUpdate';

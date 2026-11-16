@@ -1,181 +1,63 @@
-# NextAuth.js + Django Google OAuth Integration Setup
+# Google sign-in setup
 
-## Frontend Setup Complete ✓
+The website's existing NextAuth Google sign-in remains unchanged. Android uses a
+separate OAuth broker (BFF) in Next.js: the app starts an authorization-code
+flow with PKCE, Google returns to the Next.js HTTPS callback, and Next.js
+exchanges the code using the Web OAuth client secret. Django verifies Google's
+ID token and returns the Wild Wash API token.
 
-NextAuth.js has been set up on the frontend. Now you need to configure Django to handle Google OAuth.
+## Environment variables
 
-## Django Backend Setup Required
+Configure these on the **Next.js server** (local `wildwash/.env` and the
+production hosting environment):
 
-### 1. Install Google Auth Packages
-
-```bash
-# In your Django environment
-pip install google-auth google-auth-oauthlib
+```dotenv
+GOOGLE_MOBILE_REDIRECT_URI=https://www.wildwash.co.ke/api/mobile-auth/google/callback
+EXPO_APP_REDIRECT_URI=ww://
 ```
 
-### 2. Create Google OAuth Endpoint
+The server also needs the existing `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`,
+`NEXTAUTH_SECRET`, and `NEXT_PUBLIC_API_BASE`. Use the same Google **Web
+application** client ID and secret already used by NextAuth. Keep the secret
+server-side; do not put it in Expo or Django. `NEXT_PUBLIC_API_BASE` is the
+Django API origin without a path prefix (for example,
+`https://api.wildwash.co.ke` in production); the API routes are mounted at the
+origin root.
 
-Add this endpoint to your Django API (`wild-wash-api/users/views.py` or a new OAuth views file):
+Configure Django (`wild-wash-api/.env` and the production API hosting
+environment) with:
 
-```python
-from rest_framework.decorators import api_view
-from rest_framework.response import Response
-from rest_framework import status
-from rest_framework.authtoken.models import Token
-from django.contrib.auth import get_user_model
-from google.auth.transport import requests
-from google.oauth2 import id_token
-
-User = get_user_model()
-
-@api_view(['POST'])
-def google_auth(request):
-    """
-    Authenticates user via Google OAuth
-    Expects: {
-        "email": "user@gmail.com",
-        "name": "User Name",
-        "google_id": "google_unique_id"
-    }
-    """
-    email = request.data.get('email')
-    name = request.data.get('name')
-    google_id = request.data.get('google_id')
-    
-    if not email or not google_id:
-        return Response({
-            'error': 'Email and google_id are required'
-        }, status=status.HTTP_400_BAD_REQUEST)
-    
-    try:
-        # Get or create user
-        user, created = User.objects.get_or_create(
-            email=email,
-            defaults={
-                'username': email.split('@')[0] + '_' + google_id[:8],
-                'first_name': name.split()[0] if name else '',
-                'last_name': ' '.join(name.split()[1:]) if name and len(name.split()) > 1 else '',
-            }
-        )
-        
-        # Create or get token
-        token, _ = Token.objects.get_or_create(user=user)
-        
-        return Response({
-            'token': token.key,
-            'user': {
-                'id': user.id,
-                'username': user.username,
-                'email': user.email,
-                'first_name': user.first_name,
-                'last_name': user.last_name,
-                'phone': getattr(user, 'phone', ''),
-                'role': getattr(user, 'role', 'user'),
-                'staff_type': getattr(user, 'staff_type', None),
-            }
-        }, status=status.HTTP_200_OK)
-        
-    except Exception as e:
-        return Response({
-            'error': str(e)
-        }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+```dotenv
+GOOGLE_OAUTH_CLIENT_IDS=your_google_web_client_id
 ```
 
-### 3. Add URL Route
+Use the Web client ID, not its secret. This allowlist is used by Django to
+verify the ID token before it issues a Wild Wash API token.
 
-Add to your `urls.py`:
+The Expo app uses the non-secret base URL `EXPO_PUBLIC_AUTH_BASE_URL` (already
+set in `ww/.env` and the EAS build profiles). Do not add Google client IDs or
+the client secret to `EXPO_PUBLIC_*` variables.
 
-```python
-from django.urls import path
-from .views import google_auth
+## Google Cloud Console
 
-urlpatterns = [
-    # ... existing paths ...
-    path('users/google-auth/', google_auth, name='google-auth'),
-]
-```
-
-### 4. Environment Variables
-
-No additional env variables needed on Django for basic OAuth. But if you want to verify tokens server-side:
-
-```python
-# settings.py
-GOOGLE_OAUTH_CLIENT_ID = 'your_google_client_id'  # Optional for verification
-```
-
-## Frontend Configuration
-
-Create a `.env.local` file in the Next.js project root:
-
-```env
-# NextAuth Configuration
-NEXTAUTH_URL=https://www.wildwash.co.ke
-NEXTAUTH_SECRET=generate_with_openssl_rand_base64_32
-
-# Google OAuth Credentials (from Google Cloud Console)
-GOOGLE_CLIENT_ID=your_google_client_id
-GOOGLE_CLIENT_SECRET=your_google_client_secret
-
-# API Base
-NEXT_PUBLIC_API_BASE=http://localhost:8000/api
-```
-
-### Generate NEXTAUTH_SECRET:
-
-```bash
-openssl rand -base64 32
-```
-
-For local development, set `NEXTAUTH_URL=http://localhost:3000`. In AWS Amplify,
-configure `NEXTAUTH_URL` as `https://www.wildwash.co.ke` and set a non-empty,
-stable `NEXTAUTH_SECRET` in the app's environment variables. Do not commit the
-secret. The NextAuth route also falls back to `https://www.wildwash.co.ke` in
-production if `NEXTAUTH_URL` is unset or points to localhost.
-
-For Google OAuth, add this authorized redirect URI in Google Cloud Console:
+For the same Web OAuth client, keep the website callback and add this
+authorized redirect URI:
 
 ```text
 https://www.wildwash.co.ke/api/auth/callback/google
+https://www.wildwash.co.ke/api/mobile-auth/google/callback
 ```
 
-## How It Works
+The first URI is NextAuth's website callback; the second is the Android BFF
+callback. `ww://` is only the app return URI and is not registered with Google.
 
-1. **Frontend**: User clicks "Sign in with Google"
-2. **NextAuth**: Handles OAuth flow with Google
-3. **Frontend→Backend**: Sends user email, name, and google_id to Django
-4. **Django**: Creates or fetches user, returns auth token
-5. **NextAuth**: Stores token in JWT session
-6. **Frontend**: Redirects based on user role
+## Test
 
-## Testing
-
-1. Start Django: `python manage.py runserver`
-2. Start Next.js: `npm run dev`
-3. Navigate to login page
-4. Click "Continue with Google"
-5. Complete Google OAuth flow
-6. Should redirect to home page (or role-based page)
-
-## Troubleshooting
-
-**"Google OAuth backend error"**
-- Check Django server is running
-- Verify `NEXT_PUBLIC_API_BASE` URL
-- Check Django endpoint returns proper JSON
-
-**"Session not persisting"**
-- Verify `NEXTAUTH_SECRET` is set
-- Check browser cookies are enabled
-- Verify JWT callbacks are working
-
-**"User created but role is wrong"**
-- Check if Django User model has role field
-- Update the response in `google_auth` endpoint to include role logic
-
-## Next Steps
-
-1. Test the flow locally
-2. Update user profile selection (location, preferences) after Google auth
-3. Consider adding phone number requirement for additional validation
-4. Add opt-in for SMS/WhatsApp notifications after signup
+1. Set the server and Django environment variables above in local and production
+   environments. Do not commit credentials.
+2. Register the BFF callback in Google Cloud Console.
+3. Use an installed app or Expo development build with the `ww` URL scheme;
+   Expo Go does not support this native OAuth return flow.
+4. Sign in from the Android app. Django's `/users/google-auth/mobile/` endpoint
+   verifies the ID token and returns the same token-and-user shape consumed by
+   the app. NextAuth's normal website sign-in continues through its own route.

@@ -2,6 +2,7 @@
 
 import React, { useEffect, useState, useRef } from 'react';
 import Link from 'next/link';
+import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import { useDispatch, useSelector } from 'react-redux';
 import { logout } from '@/redux/features/authSlice';
@@ -99,15 +100,19 @@ export default function NavBar() {
       <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-16">
           <div className="flex items-center gap-3">
-            <div className="w-12 h-12 rounded-2xl bg-red-500/95 flex items-center justify-center shadow-md shrink-0">
-              <Link
-                href="/"
-                aria-label="Go to Wild Wash home"
-                title="Wild Wash — Home"
-                className="w-12 h-12 rounded-2xl bg-red-500/95 flex items-center justify-center shadow-md shrink-0 focus:outline-none focus-visible:ring-2 focus-visible:ring-red-300">
-                <span className="font-bold text-white select-none">WW</span>
-              </Link>
-            </div>
+            <Link
+              href="/"
+              aria-label="Go to Wild Wash home"
+              title="Wild Wash — Home"
+              className="rounded-2xl shadow-md shrink-0 focus:outline-none focus-visible:ring-2 focus-visible:ring-red-300">
+              <Image
+                src="/favicon.png"
+                alt=""
+                width={48}
+                height={48}
+                className="h-12 w-12 rounded-2xl"
+              />
+            </Link>
             <div className="hidden sm:block">
               <h1 className="text-lg font-semibold leading-none">Wild Wash</h1>
               <p className="text-xs opacity-85 text-slate-700 dark:text-slate-300">
@@ -146,11 +151,6 @@ export default function NavBar() {
                 </Link>
               </>
             )}
-            {/* <Link
-              href="/casino"
-              className="text-xs px-2.5 xl:px-3 py-1.5 rounded-full bg-red-600 text-white hover:bg-red-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-red-300 font-medium transition-colors whitespace-nowrap">
-              Casino
-            </Link> */}
           </nav>
 
           <div className="hidden md:flex items-center gap-1 sm:gap-2">
@@ -400,15 +400,6 @@ export default function NavBar() {
                 <span className="text-xs font-medium text-center">Trade-In</span>
               </Link>
             )}
-
-            {/* Casino */}
-            <Link
-              href="/casino"
-              className="flex flex-col items-center justify-center p-4 rounded-xl bg-gradient-to-br from-amber-50 to-amber-100 dark:from-amber-900/30 dark:to-amber-800/30 hover:from-amber-100 hover:to-amber-200 dark:hover:from-amber-900/50 dark:hover:to-amber-800/50 transition-colors group"
-              onClick={() => setAppsOpen(false)}>
-              <FaSmile className="w-8 h-8 text-amber-600 dark:text-amber-400 mb-2 group-hover:scale-110 transition-transform" />
-              <span className="text-xs font-medium text-center">Casino</span>
-            </Link>
 
             {/* Admin Dashboard - only for admin users */}
             {userRole === 'admin' && (

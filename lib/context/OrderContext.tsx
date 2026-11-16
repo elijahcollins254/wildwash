@@ -4,7 +4,7 @@
  * Benefits:
  * - Single source of truth for orders across entire app
  * - Smart caching: orders cached and reused across page navigation
- * - Background polling: keeps data fresh without user interaction
+ * - SSE updates: refreshes staff order data when the backend changes an order
  * - Filters run on backend: status, rider, search parameters
  * - <5s initial load time with pagination
  */
@@ -75,16 +75,14 @@ export const OrderProvider: React.FC<OrderProviderProps> = ({ children }) => {
   const [riderFilter, setRiderFilter] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
   
-  // Refs for smart caching and polling
+  // Refs for smart caching and request coordination
   const cacheRef = useRef<{ orders: Order[]; count: number; timestamp: number; filters: any }>({
     orders: [],
     count: 0,
     timestamp: 0,
     filters: {}
   });
-  const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const debounceTimerRef = useRef<NodeJS.Timeout | null>(null);
-  const lastFetchTimeRef = useRef<number>(0);
   const currentPageRef = useRef(1);
   const requestIdRef = useRef(0);
   const filtersInitializedRef = useRef(false);
@@ -140,8 +138,6 @@ export const OrderProvider: React.FC<OrderProviderProps> = ({ children }) => {
       setOrders(currentOrders => append ? [...currentOrders, ...list] : [...list]);
       setTotalOrdersCount(count);
       currentPageRef.current = page;
-      lastFetchTimeRef.current = Date.now();
-      
       console.log('[OrderContext] Orders updated:', list.length, 'items');
 
     } catch (err: any) {
@@ -213,34 +209,11 @@ export const OrderProvider: React.FC<OrderProviderProps> = ({ children }) => {
     debouncedFetch();
   }, [statusFilter, riderFilter, searchQuery, debouncedFetch]);
 
-  // Background polling: refresh every 2 minutes
-  useEffect(() => {
-    const pollInterval = setInterval(() => {
-      const timeSinceLastFetch = Date.now() - lastFetchTimeRef.current;
-      // Only poll if it's been at least 30 seconds since last manual fetch
-      if (timeSinceLastFetch > 30000) {
-        console.log('[OrderContext] Background poll triggered');
-        fetchOrders(1, false);
-      }
-    }, 120000); // 2 minutes
-
-    pollingIntervalRef.current = pollInterval;
-
-    return () => {
-      if (pollingIntervalRef.current) {
-        clearInterval(pollingIntervalRef.current);
-      }
-    };
-  }, [fetchOrders]);
-
   // Cleanup
   useEffect(() => {
     return () => {
       if (debounceTimerRef.current) {
         clearTimeout(debounceTimerRef.current);
-      }
-      if (pollingIntervalRef.current) {
-        clearInterval(pollingIntervalRef.current);
       }
     };
   }, []);
