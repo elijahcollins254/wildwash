@@ -19,7 +19,6 @@ const authOptions: NextAuthOptions = {
     GoogleProvider({
       clientId: process.env.GOOGLE_CLIENT_ID || '',
       clientSecret: process.env.GOOGLE_CLIENT_SECRET || '',
-      allowDangerousEmailAccountLinking: true,
     }),
     CredentialsProvider({
       id: 'credentials-user',
@@ -167,30 +166,35 @@ const authOptions: NextAuthOptions = {
     }),
   ],
   callbacks: {
-    async signIn({ user, account, profile }) {
+    async signIn({ user, account }) {
       // Handle Google OAuth login
-      if (account?.provider === 'google' && profile) {
+      if (account?.provider === 'google') {
+        if (!account.id_token) {
+          console.error('[NextAuth.signIn] Google did not return an ID token');
+          return false;
+        }
+
         try {
-          console.log('[NextAuth.signIn] Google OAuth detected, email:', profile.email);
-          const res = await fetch(`${API_BASE}/users/google-auth/`, {
+          console.log('[NextAuth.signIn] Verifying Google ID token with the API');
+          const res = await fetch(`${API_BASE}/users/google-auth/mobile/`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
-              email: profile.email,
-              name: profile.name,
-              google_id: profile.sub,
+              id_token: account.id_token,
             }),
           });
 
           if (!res.ok) {
-            const errorData = await res.json();
-            console.error('[NextAuth.signIn] Google OAuth backend error:', errorData);
+            const errorData = await res.json().catch(() => null);
+            console.error('[NextAuth.signIn] Google API authentication failed:', {
+              status: res.status,
+              detail: errorData?.detail ?? 'No error detail returned',
+            });
             return false;
           }
 
           const data = await res.json();
-          console.log('[NextAuth.signIn] Google OAuth successful, userId:', data.user.id, 'token:', data.token.substring(0, 20) + '...');
-          
+          console.log('[NextAuth.signIn] Google OAuth successful, userId:', data.user.id);
           user.id = String(data.user.id);
           (user as any).phone = data.user.phone;
           (user as any).role = data.user.role;
@@ -198,6 +202,7 @@ const authOptions: NextAuthOptions = {
           (user as any).staff_type = data.user.staff_type;
           (user as any).is_staff = data.user.is_staff;
           (user as any).is_superuser = data.user.is_superuser;
+          (user as any).profile_complete = data.user.profile_complete;
           
           return true;
         } catch (error) {
@@ -219,6 +224,7 @@ const authOptions: NextAuthOptions = {
         (token as any).staff_type = (user as any).staff_type;
         (token as any).is_staff = (user as any).is_staff;
         (token as any).is_superuser = (user as any).is_superuser;
+        (token as any).profile_complete = (user as any).profile_complete;
         (token as any).iat = Math.floor(Date.now() / 1000);  // Token creation time
       }
       return token;
@@ -233,6 +239,7 @@ const authOptions: NextAuthOptions = {
         (session.user as any).staff_type = (token as any).staff_type;
         (session.user as any).is_staff = (token as any).is_staff;
         (session.user as any).is_superuser = (token as any).is_superuser;
+        (session.user as any).profile_complete = (token as any).profile_complete;
       }
       return session;
     },
@@ -261,7 +268,7 @@ const authOptions: NextAuthOptions = {
       console.log('[NextAuth.events.signOut] User signed out, userId:', token.id);
     },
   },
-  secret: process.env.NEXTAUTH_SECRET || "SEQBRJuzciodXQ5w2WWZpg36ahPJjWm6huXRXb3W7jo=",
+  secret: process.env.NEXTAUTH_SECRET,
 };
 
 const handler = NextAuth(authOptions);

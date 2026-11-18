@@ -178,6 +178,7 @@ export const syncSessionToRedux = async (dispatch: AppDispatch): Promise<boolean
       is_staff: user.is_staff,
       is_superuser: user.is_superuser,
       staff_type: user.staff_type,
+      profile_complete: user.profile_complete,
     };
 
     dispatch(setAuth({
