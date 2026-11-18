@@ -1,6 +1,10 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
+  turbopack: {
+    root: process.cwd(),
+  },
+
   // Optimize for development
   experimental: {
     optimizePackageImports: ["@heroicons/react", "lucide-react"],

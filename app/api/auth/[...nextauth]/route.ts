@@ -17,7 +17,10 @@ const API_BASE = process.env.NEXT_PUBLIC_API_BASE || '';
 const authOptions: NextAuthOptions = {
   providers: [
     GoogleProvider({
-      clientId: process.env.GOOGLE_CLIENT_ID || '',
+      clientId:
+        process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID ||
+        process.env.GOOGLE_CLIENT_ID ||
+        '',
       clientSecret: process.env.GOOGLE_CLIENT_SECRET || '',
     }),
     CredentialsProvider({

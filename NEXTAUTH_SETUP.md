@@ -39,6 +39,30 @@ The Expo app uses the non-secret base URL `EXPO_PUBLIC_AUTH_BASE_URL` (already
 set in `ww/.env` and the EAS build profiles). Do not add Google client IDs or
 the client secret to `EXPO_PUBLIC_*` variables.
 
+## AWS Amplify Hosting
+
+The frontend's `amplify.yml` runs `scripts/writeAmplifyEnv.mjs` before the build.
+It writes the Amplify branch's required variables to `.env.production` so
+Next.js server-side routes can read them. Set these variables in the Amplify
+environment for the deployed branch:
+
+- `NEXT_PUBLIC_API_BASE`
+- `NEXTAUTH_URL`
+- `GOOGLE_CLIENT_SECRET`
+- `NEXTAUTH_SECRET`
+- `GOOGLE_CLIENT_ID` or `NEXT_PUBLIC_GOOGLE_CLIENT_ID`
+
+The build maps the Google client ID to both names; the public name is available
+to browser code, while the existing server-side Google and mobile OAuth flows
+continue to use `GOOGLE_CLIENT_ID`. The Google client ID is public; never prefix
+the client secret or NextAuth secret with `NEXT_PUBLIC_`.
+
+The generated `.env.production` is git-ignored and is not committed. It contains
+the server secrets in the Amplify deployment artifact; restrict artifact access
+accordingly. AWS documents this SSR environment-variable pattern and its
+artifact-access warning in the
+[Amplify SSR environment variables guide](https://docs.aws.amazon.com/amplify/latest/userguide/ssr-environment-variables.html).
+
 ## Google Cloud Console
 
 For the same Web OAuth client, keep the website callback and add this
