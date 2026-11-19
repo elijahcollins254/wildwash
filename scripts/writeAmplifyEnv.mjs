@@ -10,6 +10,8 @@ const values = {
   GOOGLE_CLIENT_SECRET: process.env.GOOGLE_CLIENT_SECRET,
   NEXTAUTH_SECRET: process.env.NEXTAUTH_SECRET,
   NEXTAUTH_URL: process.env.NEXTAUTH_URL,
+  GOOGLE_MOBILE_REDIRECT_URI: process.env.GOOGLE_MOBILE_REDIRECT_URI,
+  EXPO_APP_REDIRECT_URI: process.env.EXPO_APP_REDIRECT_URI,
 };
 
 const missingVariables = Object.entries(values)

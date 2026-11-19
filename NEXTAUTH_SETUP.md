@@ -51,11 +51,16 @@ environment for the deployed branch:
 - `GOOGLE_CLIENT_SECRET`
 - `NEXTAUTH_SECRET`
 - `GOOGLE_CLIENT_ID` or `NEXT_PUBLIC_GOOGLE_CLIENT_ID`
+- `GOOGLE_MOBILE_REDIRECT_URI`
+- `EXPO_APP_REDIRECT_URI`
 
 The build maps the Google client ID to both names; the public name is available
 to browser code, while the existing server-side Google and mobile OAuth flows
 continue to use `GOOGLE_CLIENT_ID`. The Google client ID is public; never prefix
 the client secret or NextAuth secret with `NEXT_PUBLIC_`.
+Set `GOOGLE_MOBILE_REDIRECT_URI` to the production callback URL documented
+above and `EXPO_APP_REDIRECT_URI` to `ww://` in the Amplify environment for the
+deployed branch.
 
 The generated `.env.production` is git-ignored and is not committed. It contains
 the server secrets in the Amplify deployment artifact; restrict artifact access
