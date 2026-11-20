@@ -29,6 +29,7 @@ import { useGetServicesQuery } from "@/redux/services/apiSlice";
 import type { Service } from "@/redux/services/apiSlice";
 import type { RootState } from "@/redux/store";
 import { client } from "@/lib/api/client";
+import StableImage from "@/components/StableImage";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_BASE ?? "";
 
@@ -634,21 +635,6 @@ export default function HomePage() {
           )}
         </section>
 
-        <section aria-label="What you can do with Wild Wash" className="mb-8 grid grid-cols-3 gap-2 rounded-2xl border border-slate-200 bg-slate-50 p-3 dark:border-slate-800 dark:bg-slate-900/60 sm:gap-4 sm:p-4">
-          <div className="flex flex-col items-center gap-2 text-center sm:flex-row sm:text-left">
-            <span className="rounded-xl bg-white p-2 text-red-600 shadow-sm dark:bg-slate-950"><TruckIcon className="h-5 w-5" /></span>
-            <span className="text-[11px] font-semibold leading-tight sm:text-sm">Book services online</span>
-          </div>
-          <div className="flex flex-col items-center gap-2 text-center sm:flex-row sm:text-left">
-            <span className="rounded-xl bg-white p-2 text-red-600 shadow-sm dark:bg-slate-950"><TagIcon className="h-5 w-5" /></span>
-            <span className="text-[11px] font-semibold leading-tight sm:text-sm">Discover live offers</span>
-          </div>
-          <div className="flex flex-col items-center gap-2 text-center sm:flex-row sm:text-left">
-            <span className="rounded-xl bg-white p-2 text-red-600 shadow-sm dark:bg-slate-950"><CreditCardIcon className="h-5 w-5" /></span>
-            <span className="text-[11px] font-semibold leading-tight sm:text-sm">Simple online checkout</span>
-          </div>
-        </section>
-
         {/* Categories - Sticky with blur */}
         <div
           id="categories-container"
@@ -748,7 +734,7 @@ export default function HomePage() {
                     {/* Image/Icon area */}
                     <div className="relative h-40 bg-gradient-to-br from-slate-100 to-slate-50 dark:from-slate-800 dark:to-slate-950 flex items-center justify-center border-b border-slate-200 dark:border-slate-800 rounded-t-2xl overflow-hidden">
                       {service.image_url ? (
-                        <img
+                        <StableImage
                           src={service.image_url}
                           alt={service.name}
                           className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"

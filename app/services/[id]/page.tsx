@@ -12,6 +12,7 @@ import { useAppDispatch } from "@/redux/hooks";
 import { addToCart } from "@/redux/features/cartSlice";
 import { useGetServiceDetailQuery, useGetServicesQuery } from "@/redux/services/apiSlice";
 import type { Service } from "@/redux/services/apiSlice";
+import StableImage from "@/components/StableImage";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_BASE ?? "";
 
@@ -235,10 +236,11 @@ export default function ServiceDetailPage() {
             {/* Service image/icon */}
             <div className="w-full h-[500px] bg-gradient-to-br from-slate-100 to-slate-50 dark:from-slate-800 dark:to-slate-950 rounded-2xl flex items-center justify-center mb-6 border border-slate-200 dark:border-slate-800 overflow-hidden">
               {displayService?.image_url ? (
-                <img
+                <StableImage
                   src={displayService.image_url}
                   alt={displayService.name}
                   className="w-full h-full object-cover"
+                  loading="eager"
                 />
               ) : (
                 <div className="flex flex-col items-center">
@@ -330,7 +332,7 @@ export default function ServiceDetailPage() {
                   <Link href={`/services/${relatedService.id}`} className="group block lg:flex lg:min-w-0 lg:flex-1 lg:items-center lg:gap-3">
                     <div className="h-40 overflow-hidden border-b border-slate-200 bg-gradient-to-br from-slate-100 to-slate-50 dark:border-slate-800 dark:from-slate-800 dark:to-slate-950 lg:h-24 lg:w-40 lg:shrink-0 lg:rounded-lg lg:border-0">
                       {relatedService.image_url ? (
-                        <img
+                        <StableImage
                           src={relatedService.image_url}
                           alt={relatedService.name}
                           className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-110"

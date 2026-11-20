@@ -5,6 +5,7 @@ import { ChevronDownIcon, BellIcon } from "@heroicons/react/24/outline";
 import { Spinner } from "@/components";
 import { useGetServicesQuery } from "@/redux/services/apiSlice";
 import type { Service } from "@/redux/services/apiSlice";
+import StableImage from "@/components/StableImage";
 
 // Map service names to image files with intelligent fallback
 const serviceImageMap: Record<string, string> = {
@@ -119,7 +120,7 @@ export default function ServicesPage() {
                         {/* Service image */}
                         {s.image_url && (
                           <div className="flex-shrink-0 w-16 h-16 rounded-lg overflow-hidden bg-slate-100 dark:bg-slate-900">
-                            <img
+                            <StableImage
                               src={s.image_url}
                               alt={s.name}
                               className="w-full h-full object-cover"
