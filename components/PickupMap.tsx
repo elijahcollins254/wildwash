@@ -184,7 +184,7 @@ export default function PickupMap({
       },
       (error) => {
         const message = error.code === error.PERMISSION_DENIED
-          ? 'Location permission was denied. Allow location access in your browser settings and try again.'
+          ? "Location access is blocked for this site. Allow it in your browser's site settings, reload the page, and try again. Check your device's location settings too."
           : error.code === error.TIMEOUT
             ? 'Finding your location timed out. Please try again or tap the map to set the pin.'
             : 'Unable to access your location. You can tap the map to set the pin.';

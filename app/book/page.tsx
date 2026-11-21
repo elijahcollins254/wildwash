@@ -43,6 +43,7 @@ export default function Page() {
   const [summaryExpanded, setSummaryExpanded] = useState<boolean>(false);
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const [pickupPosition, setPickupPosition] = useState<[number, number] | null>(null);
+  const [bookingStep, setBookingStep] = useState(0);
 
   const cartItems = useAppSelector(selectCartItems);
   const cartServiceIds = useMemo(() => cartItems.map(item => item.id), [cartItems]);
@@ -412,6 +413,60 @@ export default function Page() {
               </div>
             </header>
 
+            <div className="mt-5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/40 p-3">
+              <div className="flex items-center justify-between text-xs font-bold text-slate-500 dark:text-slate-400">
+                <span>{["Cart", "Delivery", "Settings"][bookingStep]}</span>
+                <span>Step {bookingStep + 1} of 3</span>
+              </div>
+              <div className="mt-2 grid grid-cols-3 gap-2">
+                {[0, 1, 2].map((step) => (
+                  <div key={step} className={`h-1.5 rounded-full ${step <= bookingStep ? "bg-red-600" : "bg-slate-200 dark:bg-slate-700"}`} />
+                ))}
+              </div>
+            </div>
+
+            {bookingStep === 0 && (
+              <div className="mt-6 space-y-3">
+                <div className="text-sm font-semibold text-slate-700 dark:text-slate-200">Review your services</div>
+                {cartItems.map((item) => (
+                  <div key={item.id} className="flex items-center justify-between gap-3 rounded-xl border border-slate-200 dark:border-slate-700 p-3">
+                    <div>
+                      <div className="text-sm font-semibold text-slate-800 dark:text-slate-100">{item.name}</div>
+                      <div className="mt-1 text-xs text-slate-500">Qty: {item.quantity || 1}</div>
+                    </div>
+                    <div className="text-sm font-bold text-slate-800 dark:text-slate-100">KSh {(Number(item.price) * (item.quantity || 1)).toFixed(2)}</div>
+                  </div>
+                ))}
+                {cartItems.length === 0 && <p className="text-sm text-red-600">Your cart is empty.</p>}
+              </div>
+            )}
+
+            {bookingStep === 1 && (
+              <div className="mt-6 space-y-5">
+                <div className="text-sm font-semibold text-slate-700 dark:text-slate-200">Pickup &amp; dropoff</div>
+                <div id="error-pickupBuilding">
+                  <label htmlFor="pickup-building" className="block text-xs text-slate-500 mb-1">Pickup address</label>
+                  <input id="pickup-building" type="text" value={pickupBuilding} onChange={(e) => setPickupBuilding(e.target.value)} placeholder="Building, street and area" className="w-full rounded-lg border border-slate-200 dark:border-slate-600 p-3 text-sm bg-white dark:bg-slate-700" />
+                </div>
+                <div id="error-pickupContact">
+                  <label htmlFor="pickup-contact" className="block text-xs text-slate-500 mb-1">Contact phone</label>
+                  <input id="pickup-contact" type="tel" value={pickupContact} onChange={(e) => setPickupContact(e.target.value)} placeholder="0712345678" className="w-full rounded-lg border border-slate-200 dark:border-slate-600 p-3 text-sm bg-white dark:bg-slate-700" />
+                </div>
+                <div>
+                  <label className="block text-xs text-slate-500 mb-1">Pin exact pickup location</label>
+                  <div className="overflow-hidden rounded-lg border border-slate-200 dark:border-slate-600">
+                    <PickupMap position={pickupPosition || DEFAULT_PICKUP_POSITION} hasPin={pickupPosition !== null} onChange={setPickupPosition} />
+                  </div>
+                </div>
+                <label className="flex items-center gap-2">
+                  <input type="checkbox" checked={sameAsPickup} onChange={(e) => setSameAsPickup(e.target.checked)} />
+                  <span className="text-sm text-slate-700 dark:text-slate-300">Dropoff same as pickup</span>
+                </label>
+                {!sameAsPickup && <input type="text" value={dropoffAddress} onChange={(e) => setDropoffAddress(e.target.value)} placeholder="Dropoff address" className="w-full rounded-lg border border-slate-200 dark:border-slate-600 p-3 text-sm bg-white dark:bg-slate-700" />}
+              </div>
+            )}
+
+            {bookingStep === 2 ? (
             <div className="mt-6 space-y-6">
               <div className="space-y-3">
                 <div className="text-sm font-semibold text-slate-700">Pickup Address</div>
@@ -657,6 +712,7 @@ export default function Page() {
                 )}
               </div>
             </div>
+            ) : null}
           </section>
           <aside className="w-full md:w-1/3 bg-gradient-to-b from-slate-50 to-white dark:from-slate-800 dark:to-slate-900 p-6 md:p-8 border-l border-slate-100 dark:border-slate-700">
             <div className="sticky top-6">
@@ -751,27 +807,36 @@ export default function Page() {
 
         <footer className="border-t border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 p-6 sticky bottom-0">
           <div className="flex items-center justify-between gap-4 max-w-4xl mx-auto">
+            {bookingStep > 0 && (
+              <button
+                type="button"
+                onClick={() => setBookingStep((current) => current - 1)}
+                className="px-4 py-2 text-sm text-slate-600 dark:text-slate-400"
+              >
+                Back
+              </button>
+            )}
             <button 
+              type="button"
               onClick={() => {
-                setPickupBuilding("");
-                setPickupContact("");
-                setDropoffAddress("");
-                setSameAsPickup(false);
-                setDeliveryHours(72);
-                setPickupPosition(null);
-                setFieldErrors({}); // Clear validation errors
-                resetMessage();
-              }} 
-              className="px-4 py-2 text-sm text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200"
-            >
-              Clear All
-            </button>
-            <button 
-              onClick={handleBookPickup} 
-              disabled={sending} 
+                if (bookingStep < 2) {
+                  if (bookingStep === 1 && (!pickupBuilding.trim() || pickupContact.replace(/\D/g, "").length < 10 || (!sameAsPickup && !dropoffAddress.trim()))) {
+                    setFieldErrors({
+                      ...(pickupBuilding.trim() ? {} : { pickupBuilding: "Pickup address is required" }),
+                      ...(pickupContact.replace(/\D/g, "").length >= 10 ? {} : { pickupContact: "Enter at least 10 digits" }),
+                      ...(!sameAsPickup && !dropoffAddress.trim() ? { dropoffAddress: "Dropoff address is required" } : {}),
+                    });
+                    return;
+                  }
+                  setBookingStep((current) => current + 1);
+                  return;
+                }
+                void handleBookPickup();
+              }}
+              disabled={sending}
               className="flex-1 max-w-md rounded-lg bg-red-600 text-white py-3 text-sm font-medium disabled:opacity-50 hover:bg-red-700 dark:hover:bg-red-500"
             >
-              {sending ? "Processing..." : "Book Pick Up"}
+              {sending ? "Processing..." : bookingStep === 2 ? "Book Pick Up" : "Continue"}
             </button>
           </div>
         </footer>
