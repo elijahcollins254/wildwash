@@ -182,10 +182,12 @@ export default function HomePage() {
   const [searchTerm, setSearchTerm] = useState("");
   const [showSearchSuggestions, setShowSearchSuggestions] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
+  const hasActiveFilters = Boolean(searchTerm.trim() || selectedCategory);
   const [addedItem, setAddedItem] = useState<number | null>(null);
   const [showScrollTop, setShowScrollTop] = useState(false);
   const [visibleCards, setVisibleCards] = useState<Set<number>>(new Set());
   const [activePromo, setActivePromo] = useState(0);
+  const [serviceColumns, setServiceColumns] = useState(2);
   const [offers, setOffers] = useState<Offer[]>([]);
   const [offersLoading, setOffersLoading] = useState(true);
   const [offersError, setOffersError] = useState<string | null>(null);
@@ -197,6 +199,16 @@ export default function HomePage() {
 
   // Fetch services using Redux
   const { data: servicesData, isLoading: loading, error: servicesError } = useGetServicesQuery();
+
+  useEffect(() => {
+    const updateColumns = () => {
+      setServiceColumns(window.innerWidth >= 1024 ? 4 : window.innerWidth >= 768 ? 3 : 2);
+    };
+
+    updateColumns();
+    window.addEventListener("resize", updateColumns);
+    return () => window.removeEventListener("resize", updateColumns);
+  }, []);
 
   useEffect(() => {
     const timer = window.setInterval(() => {
@@ -219,7 +231,7 @@ export default function HomePage() {
       (carousel.clientWidth - card.clientWidth) / 2;
 
     carousel.scrollTo({ left, behavior: "smooth" });
-  }, [activePromo]);
+  }, [activePromo, hasActiveFilters]);
 
   useEffect(() => {
     let isMounted = true;
@@ -372,6 +384,206 @@ export default function HomePage() {
     repairs: "Repairs",
   };
 
+  const renderServiceCard = (service: ServiceWithUI) => (
+    <div
+      key={service.id}
+      ref={(el) => {
+        if (el) cardRefs.current.set(service.id, el);
+        else cardRefs.current.delete(service.id);
+      }}
+      data-id={service.id}
+      className={`${visibleCards.has(service.id) ? "card-enter" : "opacity-0"}`}
+      style={{ animationDelay: `${(service.id % 10) * 0.05}s` }}
+    >
+      <Link href={`/services/${service.id}`} className="group block h-full">
+        <div className="bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 rounded-2xl overflow-hidden hover:shadow-xl hover:shadow-red-600/5 hover:border-red-600/20 dark:hover:border-red-600/20 transition-all duration-300 h-full flex flex-col cursor-pointer transform hover:-translate-y-1">
+          <div className="relative h-40 bg-gradient-to-br from-slate-100 to-slate-50 dark:from-slate-800 dark:to-slate-950 flex items-center justify-center border-b border-slate-200 dark:border-slate-800 rounded-t-2xl overflow-hidden">
+            {service.image_url ? (
+              <StableImage
+                src={service.image_url}
+                alt={service.name}
+                className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
+              />
+            ) : (
+              <div className="flex flex-col items-center">
+                {service.icon ? (
+                  <service.icon className="w-14 h-14 text-slate-400 dark:text-slate-600 mb-2 group-hover:text-red-500 transition-colors" />
+                ) : (
+                  <SparklesIcon className="w-14 h-14 text-slate-400 dark:text-slate-600 mb-2 group-hover:text-red-500 transition-colors" />
+                )}
+                <span className="text-xs text-slate-500 dark:text-slate-500 font-medium">
+                  {categoryLabels[service.category || ""] || service.category}
+                </span>
+              </div>
+            )}
+          </div>
+          <div className="p-4 flex-1 flex flex-col">
+            <h3 className="text-base font-semibold text-slate-900 dark:text-slate-100 mb-1 line-clamp-2">
+              {service.name}
+            </h3>
+            {service.description && (
+              <p className="text-xs text-slate-600 dark:text-slate-500 mb-3 line-clamp-2">
+                {service.description}
+              </p>
+            )}
+            <div className="flex items-baseline justify-between mb-3 mt-auto">
+              <div className="text-lg font-bold text-slate-900 dark:text-slate-100">
+                KSh {Number(service.price).toLocaleString()}
+              </div>
+            </div>
+            <button
+              onClick={(event) => {
+                event.preventDefault();
+                event.stopPropagation();
+                handleAddToCart(service);
+              }}
+              className={`w-full py-2.5 rounded-xl font-medium text-sm transition-all transform active:scale-95 ${
+                addedItem === service.id
+                  ? "bg-green-500 text-white"
+                  : "bg-red-600 text-white hover:bg-red-700 hover:shadow-md"
+              }`}
+            >
+              {addedItem === service.id ? (
+                <span className="flex items-center justify-center gap-1">
+                  <CheckBadgeIcon className="w-4 h-4" /> Added
+                </span>
+              ) : (
+                "Add to cart"
+              )}
+            </button>
+          </div>
+        </div>
+      </Link>
+    </div>
+  );
+
+  const promoAndOffers = (
+    <>
+      <section aria-label="Discover Wild Wash" className="col-span-full mb-2">
+        <div
+          ref={promoCarouselRef}
+          className="scrollbar-hide flex snap-x snap-mandatory gap-3 overflow-x-auto"
+          aria-roledescription="carousel"
+        >
+          {promoSlides.map((slide, index) => (
+            <article
+              key={slide.title}
+              ref={(element) => {
+                promoCardRefs.current[index] = element;
+              }}
+              className={`w-full shrink-0 snap-center rounded-2xl bg-gradient-to-br ${slide.style} p-6 text-white shadow-md sm:p-8`}
+              aria-label={`${index + 1} of ${promoSlides.length}`}
+            >
+              <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-white/75">
+                {slide.eyebrow}
+              </p>
+              <h2 className="mt-2 text-xl font-bold leading-tight sm:text-3xl">{slide.title}</h2>
+              <p className="mt-2 max-w-xl text-sm leading-5 text-white/85">{slide.description}</p>
+              {slide.external ? (
+                <a
+                  href={slide.href}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="mt-4 inline-flex items-center gap-2 rounded-full bg-white px-5 py-2.5 text-sm font-extrabold text-red-700"
+                >
+                  <FaGooglePlay className="h-4 w-4 text-emerald-600" aria-hidden="true" />
+                  {slide.action}
+                  <ArrowRightIcon className="h-4 w-4" aria-hidden="true" />
+                </a>
+              ) : (
+                <Link
+                  href={slide.href}
+                  className="mt-4 inline-flex items-center gap-2 rounded-full bg-white px-5 py-2.5 text-sm font-semibold text-slate-900"
+                >
+                  {slide.action}
+                  <ArrowRightIcon className="h-4 w-4" />
+                </Link>
+              )}
+            </article>
+          ))}
+        </div>
+        <div className="mt-3 flex items-center justify-center gap-2" aria-label="Promotion slides">
+          <button
+            type="button"
+            onClick={() => setActivePromo((activePromo + promoSlides.length - 1) % promoSlides.length)}
+            aria-label="Previous promotion"
+            className="rounded-full border border-slate-300 p-1.5 text-slate-600 dark:border-slate-700 dark:text-slate-300"
+          >
+            <ChevronLeftIcon className="h-4 w-4" />
+          </button>
+          {promoSlides.map((slide, index) => (
+            <button
+              key={slide.title}
+              type="button"
+              onClick={() => setActivePromo(index)}
+              aria-label={`Show promotion ${index + 1}`}
+              aria-current={activePromo === index}
+              className={`h-1.5 rounded-full transition-all ${activePromo === index ? "w-6 bg-red-600" : "w-1.5 bg-slate-300 dark:bg-slate-700"}`}
+            />
+          ))}
+          <button
+            type="button"
+            onClick={() => setActivePromo((activePromo + 1) % promoSlides.length)}
+            aria-label="Next promotion"
+            className="rounded-full border border-slate-300 p-1.5 text-slate-600 dark:border-slate-700 dark:text-slate-300"
+          >
+            <ChevronRightIcon className="h-4 w-4" />
+          </button>
+        </div>
+      </section>
+
+      <section aria-labelledby="homepage-offers-title" className="col-span-full mb-4">
+        <div className="mb-3 flex items-end justify-between gap-3">
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-wider text-red-600">Save on your next order</p>
+            <h2 id="homepage-offers-title" className="mt-1 text-lg font-bold">Current offers</h2>
+          </div>
+          <Link href="/offers" className="inline-flex shrink-0 items-center gap-1 text-sm font-semibold text-red-600 hover:text-red-700">
+            All offers <ArrowRightIcon className="h-4 w-4" />
+          </Link>
+        </div>
+        {offersLoading ? (
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3" aria-label="Loading offers">
+            {[0, 1, 2].map((item) => (
+              <div key={item} className="h-28 animate-pulse rounded-2xl bg-slate-100 dark:bg-slate-900" />
+            ))}
+          </div>
+        ) : offersError ? (
+          <p className="rounded-xl bg-red-50 px-4 py-3 text-sm text-red-700 dark:bg-red-950/30 dark:text-red-300">
+            Current offers couldn’t be loaded. <Link href="/offers" className="font-semibold underline">View offers</Link>
+          </p>
+        ) : offers.length > 0 ? (
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            {offers.map((offer) => (
+              <Link
+                key={offer.id}
+                href="/offers"
+                className="group rounded-2xl border border-red-100 bg-gradient-to-br from-red-50 to-white p-4 transition hover:-translate-y-0.5 hover:shadow-md dark:border-red-950 dark:from-red-950/40 dark:to-slate-950"
+              >
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <p className="font-semibold text-slate-900 dark:text-slate-100">{offer.title}</p>
+                    <p className="mt-1 line-clamp-2 text-sm text-slate-600 dark:text-slate-400">{offer.description}</p>
+                  </div>
+                  <span className="shrink-0 rounded-full bg-red-600 px-2.5 py-1 text-xs font-bold text-white">
+                    {offer.discount_percent > 0 ? `${offer.discount_percent}% OFF` : `KSh ${offer.discount_amount} OFF`}
+                  </span>
+                </div>
+                <span className="mt-3 inline-flex items-center gap-1 text-xs font-semibold text-red-600 group-hover:gap-2">
+                  See offer <ArrowRightIcon className="h-3.5 w-3.5" />
+                </span>
+              </Link>
+            ))}
+          </div>
+        ) : (
+          <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-4 text-sm text-slate-600 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-400">
+            No current offers right now. Check back soon or <Link href="/offers" className="font-semibold text-red-600">browse all offers</Link>.
+          </div>
+        )}
+      </section>
+    </>
+  );
+
   return (
     <div className="min-h-screen bg-white dark:bg-black text-slate-900 dark:text-slate-50">
       <style>{`
@@ -411,8 +623,8 @@ export default function HomePage() {
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 pb-24">
         {/* Search bar - Sticky with blur */}
-        <div className="sticky top-0 z-50 bg-white/80 dark:bg-black/80 backdrop-blur-md py-4 mb-6 -mx-4 sm:-mx-6 px-4 sm:px-6">
-          <div className="relative w-full max-w-md mx-auto">
+        <div className="sticky top-0 z-50 flex flex-col gap-3 bg-white/80 dark:bg-black/80 backdrop-blur-md py-3 mb-6 -mx-4 sm:-mx-6 px-4 sm:px-6 md:flex-row md:items-center">
+          <div className="relative w-full max-w-md shrink-0">
             <MagnifyingGlassIcon className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
             <input
               type="text"
@@ -473,197 +685,32 @@ export default function HomePage() {
               </div>
             )}
           </div>
-        </div>
-
-        <section aria-label="Discover Wild Wash" className="mb-8">
-          <div className="hidden md:block">
-            <div className={`relative overflow-hidden rounded-3xl bg-gradient-to-r ${promoSlides[activePromo].style} px-8 py-9 text-white shadow-lg md:px-12 md:py-11`}>
-              <div className="max-w-2xl">
-                <p className="mb-3 text-xs font-bold uppercase tracking-[0.2em] text-white/75">
-                  {promoSlides[activePromo].eyebrow}
-                </p>
-                <h2 className="text-3xl font-bold tracking-tight lg:text-4xl">
-                  {promoSlides[activePromo].title}
-                </h2>
-                <p className="mt-3 max-w-xl text-sm leading-6 text-white/85 md:text-base">
-                  {promoSlides[activePromo].description}
-                </p>
-                {promoSlides[activePromo].external ? (
-                  <a
-                    href={promoSlides[activePromo].href}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="mt-6 inline-flex items-center gap-2 rounded-full bg-white px-6 py-3.5 text-sm font-extrabold text-red-700 shadow-xl shadow-black/20 ring-2 ring-white/40 transition hover:-translate-y-1 hover:scale-105 hover:bg-amber-100 hover:shadow-2xl focus:outline-none focus-visible:ring-4 focus-visible:ring-white"
-                  >
-                    <FaGooglePlay className="h-4 w-4 text-emerald-600" aria-hidden="true" />
-                    {promoSlides[activePromo].action}
-                    <ArrowRightIcon className="h-4 w-4" aria-hidden="true" />
-                  </a>
-                ) : (
-                  <Link
-                    href={promoSlides[activePromo].href}
-                    className="mt-6 inline-flex items-center gap-2 rounded-full bg-white px-5 py-3 text-sm font-semibold text-slate-900 transition hover:bg-white/90 focus:outline-none focus-visible:ring-2 focus-visible:ring-white"
-                  >
-                    {promoSlides[activePromo].action}
-                    <ArrowRightIcon className="h-4 w-4" />
-                  </Link>
-                )}
-              </div>
-              <div className="absolute bottom-6 right-8 flex items-center gap-2">
-                <button
-                  type="button"
-                  onClick={() => setActivePromo((activePromo + promoSlides.length - 1) % promoSlides.length)}
-                  aria-label="Previous promotion"
-                  className="rounded-full border border-white/40 p-2 text-white transition hover:bg-white/15 focus:outline-none focus-visible:ring-2 focus-visible:ring-white"
-                >
-                  <ChevronLeftIcon className="h-5 w-5" />
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setActivePromo((activePromo + 1) % promoSlides.length)}
-                  aria-label="Next promotion"
-                  className="rounded-full border border-white/40 p-2 text-white transition hover:bg-white/15 focus:outline-none focus-visible:ring-2 focus-visible:ring-white"
-                >
-                  <ChevronRightIcon className="h-5 w-5" />
-                </button>
-                <span className="ml-1 text-xs font-medium text-white/80">
-                  {activePromo + 1} / {promoSlides.length}
-                </span>
-              </div>
-            </div>
-          </div>
-
-          <div ref={promoCarouselRef} className="scrollbar-hide -mx-4 flex snap-x snap-mandatory gap-3 overflow-x-auto px-4 pb-2 md:hidden">
-            {promoSlides.map((slide, index) => (
-              <article
-                key={slide.title}
-                ref={(element) => {
-                  promoCardRefs.current[index] = element;
-                }}
-                className={`w-[86%] max-w-sm shrink-0 snap-center rounded-2xl bg-gradient-to-br ${slide.style} p-5 text-white shadow-md`}
-              >
-                <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-white/75">
-                  {slide.eyebrow}
-                </p>
-                <h2 className="mt-2 text-xl font-bold leading-tight">{slide.title}</h2>
-                <p className="mt-2 min-h-10 text-sm leading-5 text-white/85">{slide.description}</p>
-                {slide.external ? (
-                  <a
-                    href={slide.href}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="mt-4 inline-flex items-center gap-2 rounded-full bg-white px-5 py-2.5 text-sm font-extrabold text-red-700 shadow-lg shadow-black/20 ring-2 ring-white/40 transition hover:-translate-y-1 hover:scale-105 hover:bg-amber-100 hover:shadow-xl focus:outline-none focus-visible:ring-4 focus-visible:ring-white"
-                  >
-                    <FaGooglePlay className="h-4 w-4 text-emerald-600" aria-hidden="true" />
-                    {slide.action}
-                    <ArrowRightIcon className="h-3.5 w-3.5" aria-hidden="true" />
-                  </a>
-                ) : (
-                  <Link
-                    href={slide.href}
-                    className="mt-4 inline-flex items-center gap-1 rounded-full bg-white px-4 py-2 text-xs font-semibold text-slate-900 focus:outline-none focus-visible:ring-2 focus-visible:ring-white"
-                  >
-                    {slide.action}
-                    <ArrowRightIcon className="h-3.5 w-3.5" />
-                  </Link>
-                )}
-              </article>
-            ))}
-          </div>
-
-          <div className="mt-2 flex justify-center gap-1.5 md:hidden" aria-label="Promotion slides">
-            {promoSlides.map((slide, index) => (
+          <div id="categories-container" className="min-w-0 flex-1">
+            <div ref={categoriesScrollRef} className="scrollbar-hide flex max-w-full items-center gap-2 overflow-x-auto py-1 md:justify-start">
               <button
-                key={slide.title}
-                type="button"
-                onClick={() => setActivePromo(index)}
-                aria-label={`Show promotion ${index + 1}`}
-                aria-current={activePromo === index}
-                className={`h-1.5 rounded-full transition-all ${activePromo === index ? "w-6 bg-red-600" : "w-1.5 bg-slate-300 dark:bg-slate-700"}`}
-              />
-            ))}
-          </div>
-        </section>
-
-        <section aria-labelledby="homepage-offers-title" className="mb-8">
-          <div className="mb-3 flex items-end justify-between gap-3">
-            <div>
-              <p className="text-xs font-semibold uppercase tracking-wider text-red-600">Save on your next order</p>
-              <h2 id="homepage-offers-title" className="mt-1 text-lg font-bold">Current offers</h2>
-            </div>
-            <Link href="/offers" className="inline-flex shrink-0 items-center gap-1 text-sm font-semibold text-red-600 hover:text-red-700">
-              All offers <ArrowRightIcon className="h-4 w-4" />
-            </Link>
-          </div>
-          {offersLoading ? (
-            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3" aria-label="Loading offers">
-              {[0, 1, 2].map((item) => (
-                <div key={item} className="h-28 animate-pulse rounded-2xl bg-slate-100 dark:bg-slate-900" />
-              ))}
-            </div>
-          ) : offersError ? (
-            <p className="rounded-xl bg-red-50 px-4 py-3 text-sm text-red-700 dark:bg-red-950/30 dark:text-red-300">
-              Current offers couldn’t be loaded. <Link href="/offers" className="font-semibold underline">View offers</Link>
-            </p>
-          ) : offers.length > 0 ? (
-            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-              {offers.map((offer) => (
-                <Link
-                  key={offer.id}
-                  href="/offers"
-                  className="group rounded-2xl border border-red-100 bg-gradient-to-br from-red-50 to-white p-4 transition hover:-translate-y-0.5 hover:shadow-md dark:border-red-950 dark:from-red-950/40 dark:to-slate-950"
-                >
-                  <div className="flex items-start justify-between gap-3">
-                    <div>
-                      <p className="font-semibold text-slate-900 dark:text-slate-100">{offer.title}</p>
-                      <p className="mt-1 line-clamp-2 text-sm text-slate-600 dark:text-slate-400">{offer.description}</p>
-                    </div>
-                    <span className="shrink-0 rounded-full bg-red-600 px-2.5 py-1 text-xs font-bold text-white">
-                      {offer.discount_percent > 0 ? `${offer.discount_percent}% OFF` : `KSh ${offer.discount_amount} OFF`}
-                    </span>
-                  </div>
-                  <span className="mt-3 inline-flex items-center gap-1 text-xs font-semibold text-red-600 group-hover:gap-2">
-                    See offer <ArrowRightIcon className="h-3.5 w-3.5" />
-                  </span>
-                </Link>
-              ))}
-            </div>
-          ) : (
-            <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-4 text-sm text-slate-600 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-400">
-              No current offers right now. Check back soon or <Link href="/offers" className="font-semibold text-red-600">browse all offers</Link>.
-            </div>
-          )}
-        </section>
-
-        {/* Categories - Sticky with blur */}
-        <div
-          id="categories-container"
-          className="sticky top-20 z-40 bg-white/80 dark:bg-black/80 backdrop-blur-md py-3 mb-6 -mx-4 sm:-mx-6 px-4 sm:px-6 flex justify-center"
-        >
-          <div ref={categoriesScrollRef} className="flex items-center gap-2 overflow-x-auto scrollbar-hide py-2 max-w-4xl">
-            <button
-              onClick={() => setSelectedCategory(null)}
-              className={`flex-shrink-0 px-5 py-2.5 rounded-full text-sm font-medium transition-all whitespace-nowrap transform active:scale-95 ${
-                selectedCategory === null
-                  ? "bg-red-600 text-white shadow-md"
-                  : "bg-slate-100 dark:bg-slate-900 text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-800 hover:scale-105"
-              }`}
-            >
-              All
-            </button>
-            {categories.map((cat) => (
-              <button
-                key={cat}
-                onClick={() => setSelectedCategory(selectedCategory === cat ? null : cat)}
+                onClick={() => setSelectedCategory(null)}
                 className={`flex-shrink-0 px-5 py-2.5 rounded-full text-sm font-medium transition-all whitespace-nowrap transform active:scale-95 ${
-                  selectedCategory === cat
+                  selectedCategory === null
                     ? "bg-red-600 text-white shadow-md"
                     : "bg-slate-100 dark:bg-slate-900 text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-800 hover:scale-105"
                 }`}
               >
-                {categoryLabels[cat]}
+                All
               </button>
-            ))}
+              {categories.map((cat) => (
+                <button
+                  key={cat}
+                  onClick={() => setSelectedCategory(selectedCategory === cat ? null : cat)}
+                  className={`flex-shrink-0 px-5 py-2.5 rounded-full text-sm font-medium transition-all whitespace-nowrap transform active:scale-95 ${
+                    selectedCategory === cat
+                      ? "bg-red-600 text-white shadow-md"
+                      : "bg-slate-100 dark:bg-slate-900 text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-800 hover:scale-105"
+                  }`}
+                >
+                  {categoryLabels[cat]}
+                </button>
+              ))}
+          </div>
           </div>
         </div>
 
@@ -714,89 +761,19 @@ export default function HomePage() {
             </p>
           </div>
         ) : (
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 md:gap-6">
-            {filteredServices.map((service) => (
-              <div
-                key={service.id}
-                ref={(el) => {
-                  if (el) cardRefs.current.set(service.id, el);
-                  else cardRefs.current.delete(service.id);
-                }}
-                data-id={service.id}
-                className={`${visibleCards.has(service.id) ? "card-enter" : "opacity-0"}`}
-                style={{ animationDelay: `${(service.id % 10) * 0.05}s` }}
-              >
-                <Link
-                  href={`/services/${service.id}`}
-                  className="group block h-full"
-                >
-                  <div className="bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 rounded-2xl overflow-hidden hover:shadow-xl hover:shadow-red-600/5 hover:border-red-600/20 dark:hover:border-red-600/20 transition-all duration-300 h-full flex flex-col cursor-pointer transform hover:-translate-y-1">
-                    {/* Image/Icon area */}
-                    <div className="relative h-40 bg-gradient-to-br from-slate-100 to-slate-50 dark:from-slate-800 dark:to-slate-950 flex items-center justify-center border-b border-slate-200 dark:border-slate-800 rounded-t-2xl overflow-hidden">
-                      {service.image_url ? (
-                        <StableImage
-                          src={service.image_url}
-                          alt={service.name}
-                          className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
-                        />
-                      ) : (
-                        <div className="flex flex-col items-center">
-                          {service.icon ? (
-                            <service.icon className="w-14 h-14 text-slate-400 dark:text-slate-600 mb-2 group-hover:text-red-500 transition-colors" />
-                          ) : (
-                            <SparklesIcon className="w-14 h-14 text-slate-400 dark:text-slate-600 mb-2 group-hover:text-red-500 transition-colors" />
-                          )}
-                          <span className="text-xs text-slate-500 dark:text-slate-500 font-medium">
-                            {categoryLabels[service.category || ""] || service.category}
-                          </span>
-                        </div>
-                      )}
-                    </div>
-
-                    {/* Content */}
-                    <div className="p-4 flex-1 flex flex-col">
-                      <h3 className="text-base font-semibold text-slate-900 dark:text-slate-100 mb-1 line-clamp-2">
-                        {service.name}
-                      </h3>
-
-                      {service.description && (
-                        <p className="text-xs text-slate-600 dark:text-slate-500 mb-3 line-clamp-2">
-                          {service.description}
-                        </p>
-                      )}
-
-                      <div className="flex items-baseline justify-between mb-3 mt-auto">
-                        <div className="text-lg font-bold text-slate-900 dark:text-slate-100">
-                          KSh {Number(service.price).toLocaleString()}
-                        </div>
-                      </div>
-
-                      <button
-                        onClick={(e) => {
-                          e.preventDefault();
-                          e.stopPropagation();
-                          handleAddToCart(service);
-                        }}
-                        className={`w-full py-2.5 rounded-xl font-medium text-sm transition-all transform active:scale-95 ${
-                          addedItem === service.id
-                            ? "bg-green-500 text-white"
-                            : "bg-red-600 text-white hover:bg-red-700 hover:shadow-md"
-                        }`}
-                      >
-                        {addedItem === service.id ? (
-                          <span className="flex items-center justify-center gap-1">
-                            <CheckBadgeIcon className="w-4 h-4" /> Added
-                          </span>
-                        ) : (
-                          "Add to cart"
-                        )}
-                      </button>
-                    </div>
-                  </div>
-                </Link>
+          <>
+            <div className="grid grid-cols-2 gap-4 md:grid-cols-3 md:gap-6 lg:grid-cols-4">
+              {filteredServices
+                .slice(0, hasActiveFilters ? filteredServices.length : serviceColumns)
+                .map(renderServiceCard)}
+              {!hasActiveFilters && promoAndOffers}
+            </div>
+            {!hasActiveFilters && filteredServices.length > serviceColumns && (
+              <div className="mt-4 grid grid-cols-2 gap-4 md:grid-cols-3 md:gap-6 lg:grid-cols-4">
+                {filteredServices.slice(serviceColumns).map(renderServiceCard)}
               </div>
-            ))}
-          </div>
+            )}
+          </>
         )}
       </div>
     </div>
