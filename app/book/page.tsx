@@ -40,7 +40,6 @@ export default function Page() {
   const [scheduleOption, setScheduleOption] = useState<'today' | 'scheduled'>('today');
   const [scheduledAt, setScheduledAt] = useState<string>(''); // stores value from datetime-local input
   const [customerNote, setCustomerNote] = useState<string>('');
-  const [summaryExpanded, setSummaryExpanded] = useState<boolean>(false);
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const [pickupPosition, setPickupPosition] = useState<[number, number] | null>(null);
   const [bookingStep, setBookingStep] = useState(0);
@@ -402,10 +401,10 @@ export default function Page() {
 
   return (
     <RouteGuard>
-      <main className="min-h-screen bg-gradient-to-b from-white via-slate-50 to-slate-100 dark:from-slate-900 dark:via-slate-800 dark:to-slate-900 py-12 px-4">
+      <main className="min-h-screen bg-gradient-to-b from-white via-slate-50 to-slate-100 dark:from-slate-900 dark:via-slate-800 dark:to-slate-900 py-4 px-3 sm:py-8 sm:px-4">
         <div className="mx-auto max-w-4xl rounded-2xl bg-white dark:bg-slate-800 shadow-xl overflow-hidden">
           <div className="md:flex">
-          <section className="w-full md:w-2/3 p-6 md:p-8">
+          <section className={`w-full p-4 sm:p-6 md:p-8 ${bookingStep === 2 ? "md:w-2/3" : ""}`}>
             <header className="flex items-start justify-between">
               <div>
                 <h1 className="text-2xl md:text-3xl font-extrabold tracking-tight text-slate-800 dark:text-slate-100">Book a Pick Up</h1>
@@ -415,7 +414,7 @@ export default function Page() {
 
             <div className="mt-5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/40 p-3">
               <div className="flex items-center justify-between text-xs font-bold text-slate-500 dark:text-slate-400">
-                <span>{["Cart", "Delivery", "Settings"][bookingStep]}</span>
+                <span>{["Services", "Pickup", "Review"][bookingStep]}</span>
                 <span>Step {bookingStep + 1} of 3</span>
               </div>
               <div className="mt-2 grid grid-cols-3 gap-2">
@@ -455,7 +454,7 @@ export default function Page() {
                 <div>
                   <label className="block text-xs text-slate-500 mb-1">Pin exact pickup location</label>
                   <div className="overflow-hidden rounded-lg border border-slate-200 dark:border-slate-600">
-                    <PickupMap position={pickupPosition || DEFAULT_PICKUP_POSITION} hasPin={pickupPosition !== null} onChange={setPickupPosition} />
+                    <PickupMap compact position={pickupPosition || DEFAULT_PICKUP_POSITION} hasPin={pickupPosition !== null} onChange={setPickupPosition} />
                   </div>
                 </div>
                 <label className="flex items-center gap-2">
@@ -467,7 +466,72 @@ export default function Page() {
             )}
 
             {bookingStep === 2 ? (
-            <div className="mt-6 space-y-6">
+            <div className="mt-4 space-y-3">
+              <div className="grid grid-cols-[1fr_auto] items-center gap-3">
+                <div>
+                  <div className="text-sm font-semibold text-slate-700 dark:text-slate-200">Delivery time</div>
+                  <div className="mt-0.5 text-xs text-slate-500">{getDeliveryLabel(effectiveDeliveryHours)} · {effectiveDeliveryHours} hours</div>
+                </div>
+                <div className="text-sm font-bold text-red-600">KSh {totalWithMultiplier.toFixed(2)}</div>
+              </div>
+              <input
+                id="delivery-hours"
+                type="range"
+                min={minDeliveryHours}
+                max={72}
+                value={deliveryHours}
+                onChange={(e) => setDeliveryHours(Number(e.target.value))}
+                className="w-full accent-red-500"
+              />
+              <div className="-mt-1 flex items-center justify-between text-[10px] text-slate-500">
+                <span>{minDeliveryHours}h</span>
+                <span>36h</span>
+                <span>72h</span>
+              </div>
+
+              <div className="grid grid-cols-2 gap-2">
+                <label className={`rounded-lg border px-3 py-2 text-center text-xs font-semibold ${scheduleOption === "today" ? "border-red-600 bg-red-50 text-red-700 dark:bg-red-950/30" : "border-slate-200 text-slate-600 dark:border-slate-700 dark:text-slate-300"}`}>
+                  <input type="radio" name="schedule" value="today" checked={scheduleOption === "today"} onChange={() => setScheduleOption("today")} className="sr-only" />
+                  Book now
+                </label>
+                <label className={`rounded-lg border px-3 py-2 text-center text-xs font-semibold ${scheduleOption === "scheduled" ? "border-red-600 bg-red-50 text-red-700 dark:bg-red-950/30" : "border-slate-200 text-slate-600 dark:border-slate-700 dark:text-slate-300"}`}>
+                  <input type="radio" name="schedule" value="scheduled" checked={scheduleOption === "scheduled"} onChange={() => setScheduleOption("scheduled")} className="sr-only" />
+                  Schedule
+                </label>
+              </div>
+
+              {scheduleOption === "scheduled" && (
+                <input
+                  id="scheduled-at"
+                  type="datetime-local"
+                  value={scheduledAt}
+                  onChange={(e) => setScheduledAt(e.target.value)}
+                  className="w-full rounded-lg border border-slate-200 p-2.5 text-sm dark:border-slate-600 dark:bg-slate-700"
+                />
+              )}
+
+              <textarea
+                id="customer-note"
+                value={customerNote}
+                onChange={(e) => setCustomerNote(e.target.value)}
+                placeholder="Rider note (optional)"
+                rows={2}
+                className="w-full rounded-lg border border-slate-200 p-2.5 text-sm dark:border-slate-600 dark:bg-slate-700"
+              />
+
+              {message && (
+                <div className="rounded-md border border-amber-100 bg-amber-50 p-2.5 text-xs text-amber-800 dark:border-amber-800 dark:bg-amber-900/20 dark:text-amber-200">
+                  {message}
+                </div>
+              )}
+              {serverErrors && (
+                <div className="rounded-md border border-red-100 bg-red-50 p-2.5 text-xs text-red-700 dark:border-red-900/40 dark:bg-red-950/20 dark:text-red-400">
+                  {typeof serverErrors === "object" ? "Please review the booking details and try again." : String(serverErrors)}
+                </div>
+              )}
+            </div>
+            ) : null}
+            <div className="hidden" aria-hidden="true">
               <div className="space-y-3">
                 <div className="text-sm font-semibold text-slate-700">Pickup Address</div>
                 <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
@@ -712,9 +776,11 @@ export default function Page() {
                 )}
               </div>
             </div>
+            </div>
             ) : null}
           </section>
-          <aside className="w-full md:w-1/3 bg-gradient-to-b from-slate-50 to-white dark:from-slate-800 dark:to-slate-900 p-6 md:p-8 border-l border-slate-100 dark:border-slate-700">
+          {bookingStep === 2 && (
+          <aside className="w-full border-l border-slate-100 bg-gradient-to-b from-slate-50 to-white p-4 dark:border-slate-700 dark:from-slate-800 dark:to-slate-900 md:w-1/3 md:p-5">
             <div className="sticky top-6">
               <h3 className="text-sm font-semibold text-slate-700 dark:text-slate-200">Booking Summary</h3>
               {/* Desktop / wide view: full summary */}
@@ -759,30 +825,9 @@ export default function Page() {
                   <div className="font-semibold text-red-600 dark:text-red-400">KSh {totalWithMultiplier.toFixed(2)}</div>
                 </div>
 
-                <div className="mt-3 flex items-center gap-2">
-                  <button onClick={() => setSummaryExpanded(s => !s)} className="text-sm text-blue-600 dark:text-blue-400 underline">
-                    {summaryExpanded ? 'Hide details' : 'Show details'}
-                  </button>
+                <div className="mt-2 flex items-center gap-2">
                   <div className="text-xs text-slate-500">{getDeliveryLabel(effectiveDeliveryHours)} ({effectiveDeliveryHours}h)</div>
                 </div>
-
-                {summaryExpanded && (
-                  <div className="mt-3 space-y-3 text-sm text-slate-600 dark:text-slate-400 max-h-56 overflow-auto">
-                    <div>
-                      <div className="text-xs text-slate-500 dark:text-slate-500">Pickup Location</div>
-                      <div className="mt-1 font-medium text-slate-800 dark:text-slate-100">{pickupBuilding || "—"}</div>
-                      <div className="text-xs text-slate-500 dark:text-slate-500">{pickupContact || "No contact provided"}</div>
-                    </div>
-                    <div>
-                      <div className="text-xs text-slate-500 dark:text-slate-500">Dropoff Location</div>
-                      <div className="mt-1 font-medium text-slate-800 dark:text-slate-100">{sameAsPickup ? "(Same as pickup)" : dropoffAddress || "—"}</div>
-                    </div>
-                    <div>
-                      <div className="text-xs text-slate-500 dark:text-slate-500">Selected Services</div>
-                      <div className="mt-1 font-medium text-slate-800 dark:text-slate-100">{cartItems.map(item => `${item.name} (x${item.quantity || 1})`).join(", ") || "No services selected"}</div>
-                    </div>
-                  </div>
-                )}
               </div>
 
               <div className="mt-6 pt-4 border-t border-slate-200 dark:border-slate-700">
@@ -803,10 +848,11 @@ export default function Page() {
               </div>
             </div>
           </aside>
+          )}
         </div>
 
-        <footer className="border-t border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 p-6 sticky bottom-0">
-          <div className="flex items-center justify-between gap-4 max-w-4xl mx-auto">
+        <footer className="sticky bottom-0 border-t border-slate-200 bg-white p-3 dark:border-slate-700 dark:bg-slate-800 sm:p-4">
+          <div className="mx-auto flex max-w-4xl items-center justify-between gap-3">
             {bookingStep > 0 && (
               <button
                 type="button"

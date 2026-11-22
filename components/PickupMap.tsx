@@ -41,6 +41,7 @@ type PickupMapProps = {
   interactive?: boolean;
   showCurrentLocation?: boolean;
   markerTitle?: string;
+  compact?: boolean;
 };
 
 const GOOGLE_MAPS_API_KEY = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
@@ -79,6 +80,7 @@ export default function PickupMap({
   interactive = true,
   showCurrentLocation = true,
   markerTitle = 'Pickup location',
+  compact = false,
 }: PickupMapProps) {
   const mapElement = useRef<HTMLDivElement>(null);
   const map = useRef<GoogleMap | null>(null);
@@ -216,11 +218,11 @@ export default function PickupMap({
       ) : null}
       {showCurrentLocation && locationError ? <p role="alert" className="mb-2 text-xs text-red-600">{locationError}</p> : null}
       {loadError ? (
-        <div className="flex h-64 w-full items-center justify-center bg-slate-100 p-4 text-center text-sm text-red-600">
+        <div className={`flex ${compact ? "h-40 md:h-48" : "h-64"} w-full items-center justify-center bg-slate-100 p-4 text-center text-sm text-red-600`}>
           {loadError}
         </div>
       ) : (
-        <div ref={mapElement} className="h-64 w-full bg-slate-100" role="application" aria-label="Pickup location map" />
+        <div ref={mapElement} className={`${compact ? "h-40 md:h-48" : "h-64"} w-full bg-slate-100`} role="application" aria-label="Pickup location map" />
       )}
     </div>
   );

@@ -3,6 +3,8 @@
 import React, { useState } from "react";
 import { ChevronDownIcon, BellIcon } from "@heroicons/react/24/outline";
 import { Spinner } from "@/components";
+import { useAppDispatch } from "@/redux/hooks";
+import { addToCart } from "@/redux/features/cartSlice";
 import { useGetServicesQuery } from "@/redux/services/apiSlice";
 import type { Service } from "@/redux/services/apiSlice";
 import StableImage from "@/components/StableImage";
@@ -56,6 +58,8 @@ export default function ServicesPage() {
   const [open, setOpen] = useState<string | null>(null);
   const [notif, setNotif] = useState({ push: true, sms: false, email: false });
   const [sent, setSent] = useState<string | null>(null);
+  const [addedServiceId, setAddedServiceId] = useState<number | null>(null);
+  const dispatch = useAppDispatch();
 
   // Fetch services using Redux
   const { data: servicesData = [], isLoading: loading, error: servicesError } = useGetServicesQuery();
@@ -78,6 +82,21 @@ export default function ServicesPage() {
           .join(", ") || "none"}`
       );
     }, 700);
+  }
+
+  function handleAddToCart(service: Service) {
+    dispatch(
+      addToCart({
+        id: service.id,
+        name: service.name,
+        price: String(service.price),
+        category: service.category || "other",
+        description: service.description || "",
+        processing_time: service.processing_time,
+      })
+    );
+    setAddedServiceId(service.id);
+    window.setTimeout(() => setAddedServiceId(null), 800);
   }
 
   const grouped = groupByCategory(services);
@@ -150,12 +169,17 @@ export default function ServicesPage() {
                         <div className="text-sm text-slate-600">
                           ETA: <span className="font-semibold">{getETA(s.category)}</span>
                         </div>
-                        <a
-                          href="/book"
-                          className="mt-3 inline-flex items-center gap-2 bg-red-600 text-white px-3 py-2 rounded-md text-sm font-medium"
+                        <button
+                          type="button"
+                          onClick={() => handleAddToCart(s)}
+                          className={`mt-3 inline-flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium text-white transition-colors ${
+                            addedServiceId === s.id
+                              ? "bg-green-600"
+                              : "bg-red-600 hover:bg-red-700"
+                          }`}
                         >
-                          Request
-                        </a>
+                          {addedServiceId === s.id ? "Added to cart" : "Request"}
+                        </button>
                       </div>
                     </article>
                   ))}

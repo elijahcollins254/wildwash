@@ -87,14 +87,6 @@ const promoSlides = [
     style: "from-red-700 via-rose-600 to-orange-500",
   },
   {
-    eyebrow: "Fresh deals, real savings",
-    title: "Find your next great offer.",
-    description: "See current offers and claim the ones that work for you.",
-    action: "View offers",
-    href: "/offers",
-    style: "from-slate-950 via-slate-800 to-red-900",
-  },
-  {
     eyebrow: "Care for your home",
     title: "Laundry is just the beginning.",
     description: "Explore cleaning, fumigation, repairs and more.",
