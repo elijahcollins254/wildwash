@@ -189,14 +189,11 @@ export default function HomePage() {
   const hasActiveFilters = Boolean(searchTerm.trim() || selectedCategory);
   const [addedItem, setAddedItem] = useState<number | null>(null);
   const [showScrollTop, setShowScrollTop] = useState(false);
-  const [visibleCards, setVisibleCards] = useState<Set<number>>(new Set());
   const [activePromo, setActivePromo] = useState(0);
   const [serviceColumns, setServiceColumns] = useState(2);
   const [offers, setOffers] = useState<Offer[]>([]);
   const [claimingOfferId, setClaimingOfferId] = useState<number | null>(null);
-  const cardRefs = useRef<Map<number, HTMLDivElement>>(new Map());
   const categoriesScrollRef = useRef<HTMLDivElement>(null);
-  const observerRef = useRef<IntersectionObserver | null>(null);
   const promoCarouselRef = useRef<HTMLDivElement>(null);
   const promoCardRefs = useRef<(HTMLElement | null)[]>([]);
 
@@ -330,38 +327,6 @@ export default function HomePage() {
     return () => scrollContainer.removeEventListener('wheel', handleWheel);
   }, []);
 
-  // Setup IntersectionObserver for card animations
-  useEffect(() => {
-    observerRef.current = new IntersectionObserver((entries) => {
-      entries.forEach((entry) => {
-        const id = Number(entry.target.getAttribute("data-id"));
-        if (entry.isIntersecting) {
-          setVisibleCards((prev) => new Set(prev).add(id));
-        } else {
-          setVisibleCards((prev) => {
-            const next = new Set(prev);
-            next.delete(id);
-            return next;
-          });
-        }
-      });
-    }, { threshold: 0.1, rootMargin: "0px 0px -50px 0px" });
-
-    return () => observerRef.current?.disconnect();
-  }, []);
-
-  // Observe/unobserve cards when services change
-  useEffect(() => {
-    cardRefs.current.forEach((ref, id) => {
-      if (ref && observerRef.current) {
-        observerRef.current.observe(ref);
-      }
-    });
-    return () => {
-      observerRef.current?.disconnect();
-    };
-  }, [services]);
-
   const handleAddToCart = (service: ServiceWithUI) => {
     const { icon, ...cartService } = service as any;
     const finalCartService = { ...cartService, price: String(cartService.price), description: cartService.description || "" };
@@ -409,13 +374,7 @@ export default function HomePage() {
   const renderServiceCard = (service: ServiceWithUI) => (
     <div
       key={service.id}
-      ref={(el) => {
-        if (el) cardRefs.current.set(service.id, el);
-        else cardRefs.current.delete(service.id);
-      }}
-      data-id={service.id}
-      className={`${visibleCards.has(service.id) ? "card-enter" : "opacity-0"}`}
-      style={{ animationDelay: `${(service.id % 10) * 0.05}s` }}
+      className="block"
     >
       <Link href={`/services/${service.id}`} className="group block h-full">
         <div className="bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 rounded-2xl overflow-hidden hover:shadow-xl hover:shadow-red-600/5 hover:border-red-600/20 dark:hover:border-red-600/20 transition-all duration-300 h-[360px] flex flex-col cursor-pointer transform hover:-translate-y-1">
@@ -620,13 +579,6 @@ export default function HomePage() {
         }
         .animate-bounce-custom {
           animation: bounce 0.6s ease-in-out;
-        }
-        @keyframes fade-up {
-          from { opacity: 0; transform: translateY(20px); }
-          to { opacity: 1; transform: translateY(0); }
-        }
-        .card-enter {
-          animation: fade-up 0.5s ease-out forwards;
         }
         .scrollbar-hide::-webkit-scrollbar {
           display: none;
