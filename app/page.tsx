@@ -396,8 +396,8 @@ export default function HomePage() {
       style={{ animationDelay: `${(service.id % 10) * 0.05}s` }}
     >
       <Link href={`/services/${service.id}`} className="group block h-full">
-        <div className="bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 rounded-2xl overflow-hidden hover:shadow-xl hover:shadow-red-600/5 hover:border-red-600/20 dark:hover:border-red-600/20 transition-all duration-300 h-full flex flex-col cursor-pointer transform hover:-translate-y-1">
-          <div className="relative h-40 bg-gradient-to-br from-slate-100 to-slate-50 dark:from-slate-800 dark:to-slate-950 flex items-center justify-center border-b border-slate-200 dark:border-slate-800 rounded-t-2xl overflow-hidden">
+        <div className="bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 rounded-2xl overflow-hidden hover:shadow-xl hover:shadow-red-600/5 hover:border-red-600/20 dark:hover:border-red-600/20 transition-all duration-300 h-[360px] flex flex-col cursor-pointer transform hover:-translate-y-1">
+          <div className="relative min-h-0 flex-[3] bg-gradient-to-br from-slate-100 to-slate-50 dark:from-slate-800 dark:to-slate-950 flex items-center justify-center border-b border-slate-200 dark:border-slate-800 rounded-t-2xl overflow-hidden">
             {service.image_url ? (
               <StableImage
                 src={service.image_url}
@@ -417,40 +417,39 @@ export default function HomePage() {
               </div>
             )}
           </div>
-          <div className="p-4 flex-1 flex flex-col">
-            <h3 className="text-base font-semibold text-slate-900 dark:text-slate-100 mb-1 line-clamp-2">
+          <div className="min-h-0 flex-1 px-3 py-2 flex flex-col">
+            <h3 className="truncate text-sm font-semibold text-slate-900 dark:text-slate-100">
               {service.name}
             </h3>
             {service.description && (
-              <p className="text-xs text-slate-600 dark:text-slate-500 mb-3 line-clamp-2">
+              <p className="line-clamp-1 text-xs text-slate-600 dark:text-slate-500">
                 {service.description}
               </p>
             )}
-            <div className="flex items-baseline justify-between mb-3 mt-auto">
-              <div className="text-lg font-bold text-slate-900 dark:text-slate-100">
+            <div className="mt-auto flex items-center justify-between gap-2">
+              <div className="truncate text-sm font-bold text-slate-900 dark:text-slate-100">
                 KSh {Number(service.price).toLocaleString()}
               </div>
+              <button
+                aria-label={`Add ${service.name} to cart`}
+                onClick={(event) => {
+                  event.preventDefault();
+                  event.stopPropagation();
+                  handleAddToCart(service);
+                }}
+                className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full font-medium transition-all transform active:scale-95 ${
+                  addedItem === service.id
+                    ? "bg-green-500 text-white"
+                    : "bg-red-600 text-white hover:bg-red-700 hover:shadow-md"
+                }`}
+              >
+                {addedItem === service.id ? (
+                  <CheckBadgeIcon className="h-4 w-4" />
+                ) : (
+                  <span aria-hidden="true" className="text-xl leading-none">+</span>
+                )}
+              </button>
             </div>
-            <button
-              onClick={(event) => {
-                event.preventDefault();
-                event.stopPropagation();
-                handleAddToCart(service);
-              }}
-              className={`w-full py-2.5 rounded-xl font-medium text-sm transition-all transform active:scale-95 ${
-                addedItem === service.id
-                  ? "bg-green-500 text-white"
-                  : "bg-red-600 text-white hover:bg-red-700 hover:shadow-md"
-              }`}
-            >
-              {addedItem === service.id ? (
-                <span className="flex items-center justify-center gap-1">
-                  <CheckBadgeIcon className="w-4 h-4" /> Added
-                </span>
-              ) : (
-                "Add to cart"
-              )}
-            </button>
           </div>
         </div>
       </Link>
