@@ -1,6 +1,7 @@
 "use client"
 
 import React, { useEffect, useState } from "react";
+import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import BNPLManager from "../../components/BNPLManager";
@@ -11,6 +12,7 @@ type Offer = {
   id: number;
   title: string;
   description: string;
+  image_url?: string | null;
   discount_percent: number;
   discount_amount: number;
   code: string;
@@ -252,49 +254,62 @@ export default function OffersPage() {
               <div className="rounded-2xl bg-white/80 dark:bg-white/5 p-6 shadow text-sm text-slate-600">No offers found.</div>
             ) : (
               filtered.map((o) => (
-                <article key={o.id} className="rounded-2xl bg-white/80 dark:bg-white/5 p-4 shadow flex flex-col">
-                  <div className="flex items-start justify-between gap-4">
-                    <div>
-                      <div className="font-medium">{o.title}</div>
-                      <div className="text-sm text-slate-600 mt-2">{o.description}</div>
-                      <div className="mt-2 text-xs text-slate-500">Code: {o.code}</div>
+                <article key={o.id} className="rounded-2xl bg-white/80 dark:bg-white/5 shadow flex flex-col overflow-hidden">
+                  <Image
+                    src={o.image_url || "/images/Clean%20Now%20Pay%20Later.png"}
+                    alt={o.title}
+                    width={1200}
+                    height={630}
+                    unoptimized
+                    className="h-44 w-full object-cover"
+                  />
+                  <div className="p-4 flex flex-1 flex-col">
+                    <div className="flex items-start justify-between gap-4">
+                      <div>
+                        <div className="font-medium">{o.title}</div>
+                        <div className="text-sm text-slate-600 mt-2">{o.description}</div>
+                        <div className="mt-2 text-xs text-slate-500">Code: {o.code}</div>
+                      </div>
+
+                      <div className="text-right shrink-0">
+                        <div className="text-xs px-2 py-1 rounded bg-red-100 dark:bg-red-900/20 text-red-600 dark:text-red-400">
+                          {o.discount_percent > 0
+                            ? `${o.discount_percent}% OFF`
+                            : `KSh ${o.discount_amount} OFF`}
+                        </div>
+                        {o.max_uses && (
+                          <div className="text-xs text-slate-500 mt-2">
+                            {o.max_uses - o.current_uses} of {o.max_uses} remaining
+                          </div>
+                        )}
+                        {o.valid_until && (
+                          <div className="text-xs text-slate-500 mt-1">
+                            Expires {new Date(o.valid_until).toLocaleDateString()}
+                          </div>
+                        )}
+                      </div>
                     </div>
 
-                    <div className="text-right shrink-0">
-                      <div className="text-xs px-2 py-1 rounded bg-red-100 dark:bg-red-900/20 text-red-600 dark:text-red-400">
-                        {o.discount_percent > 0 
-                          ? `${o.discount_percent}% OFF`
-                          : `KSh ${o.discount_amount} OFF`}
-                      </div>
-                      {o.max_uses && (
-                        <div className="text-xs text-slate-500 mt-2">
-                          {o.max_uses - o.current_uses} of {o.max_uses} remaining
+                    <div className="mt-4 flex items-center gap-2">
+                      <Link href={`/offers/${o.id}`} className="px-3 py-2 rounded border border-slate-300 dark:border-slate-700 text-sm">
+                        View & share
+                      </Link>
+                      {o.is_claimed ? (
+                        <div className="px-3 py-2 rounded bg-green-100 dark:bg-green-900/20 text-green-600 dark:text-green-400 text-sm">
+                          Claimed ✓
                         </div>
+                      ) : (
+                        <button
+                          onClick={() => claimOffer(o.id)}
+                          disabled={claimingId === o.id}
+                          className="px-3 py-2 rounded bg-red-600 hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed text-white text-sm transition-colors"
+                        >
+                          {claimingId === o.id ? 'Claiming...' : 'Claim Offer'}
+                        </button>
                       )}
-                      {o.valid_until && (
-                        <div className="text-xs text-slate-500 mt-1">
-                          Expires {new Date(o.valid_until).toLocaleDateString()}
-                        </div>
-                      )}
-                    </div>
-                  </div>
-
-                  <div className="mt-4 flex items-center gap-2">
-                    {o.is_claimed ? (
-                      <div className="px-3 py-2 rounded bg-green-100 dark:bg-green-900/20 text-green-600 dark:text-green-400 text-sm">
-                        Claimed ✓
+                      <div className="ml-auto text-xs text-slate-500">
+                        {o.current_uses} claimed
                       </div>
-                    ) : (
-                      <button 
-                        onClick={() => claimOffer(o.id)}
-                        disabled={claimingId === o.id}
-                        className="px-3 py-2 rounded bg-red-600 hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed text-white text-sm transition-colors"
-                      >
-                        {claimingId === o.id ? 'Claiming...' : 'Claim Offer'}
-                      </button>
-                    )}
-                    <div className="ml-auto text-xs text-slate-500">
-                      {o.current_uses} claimed
                     </div>
                   </div>
                 </article>

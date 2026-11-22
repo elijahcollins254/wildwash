@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import dynamic from "next/dynamic";
+import Image from "next/image";
 import { useDispatch, useSelector } from "react-redux";
 import { useRouter } from "next/navigation";
 import { FiAlertTriangle } from "react-icons/fi";
@@ -36,6 +37,7 @@ type Offer = {
   id: number;
   title: string;
   description: string;
+  image_url?: string | null;
   discount_amount: number;
   valid_from: string;
   valid_until: string | null;
@@ -566,9 +568,17 @@ export default function ProfilePage() {
                   {userOffers.map((userOffer) => (
                     <div
                       key={userOffer.id}
-                      className="p-4 rounded-lg border dark:border-slate-700 bg-white dark:bg-slate-800"
+                      className="flex gap-4 p-4 rounded-lg border dark:border-slate-700 bg-white dark:bg-slate-800"
                     >
-                      <div className="flex items-start justify-between">
+                      <Image
+                        src={userOffer.offer.image_url || "/images/Clean%20Now%20Pay%20Later.png"}
+                        alt={userOffer.offer.title}
+                        width={160}
+                        height={100}
+                        unoptimized
+                        className="h-20 w-28 shrink-0 rounded-lg object-cover sm:h-24 sm:w-36"
+                      />
+                      <div className="flex flex-1 items-start justify-between">
                         <div>
                           <h3 className="font-medium">{userOffer.offer.title}</h3>
                           <p className="text-sm text-slate-600 dark:text-slate-400">
