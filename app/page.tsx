@@ -638,7 +638,7 @@ export default function HomePage() {
         {/* Categories - Sticky with blur */}
         <div
           id="categories-container"
-          className="sticky top-16 z-40 bg-white/80 dark:bg-black/80 backdrop-blur-md py-3 mb-6 -mx-4 sm:-mx-6 px-4 sm:px-6 flex justify-center"
+          className="sticky top-20 z-40 bg-white/80 dark:bg-black/80 backdrop-blur-md py-3 mb-6 -mx-4 sm:-mx-6 px-4 sm:px-6 flex justify-center"
         >
           <div ref={categoriesScrollRef} className="flex items-center gap-2 overflow-x-auto scrollbar-hide py-2 max-w-4xl">
             <button
