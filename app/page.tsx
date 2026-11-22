@@ -622,7 +622,7 @@ export default function HomePage() {
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 pb-24">
         {/* Search bar - Sticky with blur */}
-        <div className="sticky top-0 z-50 flex flex-col gap-3 bg-white/80 dark:bg-black/80 backdrop-blur-md py-3 mb-6 -mx-4 sm:-mx-6 px-4 sm:px-6 md:flex-row md:items-center">
+        <div className="sticky top-0 z-50 flex flex-col gap-2 bg-white/80 dark:bg-black/80 backdrop-blur-md py-2 mb-3 -mx-4 sm:-mx-6 px-4 sm:px-6 md:mb-6 md:flex-row md:items-center md:gap-3 md:py-3">
           <div className="relative w-full max-w-md shrink-0">
             <MagnifyingGlassIcon className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
             <input
@@ -714,7 +714,7 @@ export default function HomePage() {
         </div>
 
         {/* Results header */}
-        <div className="flex items-center justify-between mb-8">
+        <div className="flex items-center justify-between mb-3 md:mb-8">
           <h2 className="text-xl font-semibold text-slate-900 dark:text-slate-50">
             {selectedCategory ? categoryLabels[selectedCategory] : "All Services"}
             <span className="text-slate-500 dark:text-slate-400 font-normal ml-2 text-base">
@@ -732,7 +732,7 @@ export default function HomePage() {
           )}
         </div>
 
-        <p className="mb-6 text-center text-sm font-semibold text-slate-600 dark:text-slate-300">
+        <p className="mb-2 text-center text-sm font-semibold text-slate-600 dark:text-slate-300 md:mb-6">
           Trusted by 597903+ users
         </p>
 

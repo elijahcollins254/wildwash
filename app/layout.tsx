@@ -17,8 +17,29 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
+  metadataBase: new URL("https://www.wildwash.co.ke"),
   title: "Wild Wash",
   description: "Restore Your House",
+  openGraph: {
+    title: "Wild Wash",
+    description: "Restore Your House",
+    siteName: "Wild Wash",
+    type: "website",
+    images: [
+      {
+        url: "/images/Clean Now Pay Later.png",
+        width: 1536,
+        height: 1024,
+        alt: "Wild Wash laundry services",
+      },
+    ],
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Wild Wash",
+    description: "Restore Your House",
+    images: ["/images/Clean Now Pay Later.png"],
+  },
   icons: {
     icon: "/favicon.png",
     shortcut: "/favicon.png",
