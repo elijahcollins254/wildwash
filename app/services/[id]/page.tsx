@@ -13,6 +13,7 @@ import { addToCart } from "@/redux/features/cartSlice";
 import { useGetServiceDetailQuery, useGetServicesQuery } from "@/redux/services/apiSlice";
 import type { Service } from "@/redux/services/apiSlice";
 import { getImageForService } from "@/lib/services/images";
+import { getServiceMetaData, trackMetaEvent } from "@/lib/metaConversions";
 import StableImage from "@/components/StableImage";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_BASE ?? "";
@@ -22,6 +23,7 @@ export default function ServiceDetailPage() {
   const router = useRouter();
   const dispatch = useAppDispatch();
   const serviceId = Number(params.id);
+  const viewedServiceId = useRef<number | null>(null);
 
   const [addedToCart, setAddedToCart] = useState(false);
   const [addedRelatedId, setAddedRelatedId] = useState<number | null>(null);
@@ -48,6 +50,13 @@ export default function ServiceDetailPage() {
       ...item,
       image_url: item.image_url || `/images/${getImageForService(item.name)}`,
     }));
+
+  useEffect(() => {
+    if (service && viewedServiceId.current !== service.id) {
+      viewedServiceId.current = service.id;
+      void trackMetaEvent("ViewContent", getServiceMetaData(service));
+    }
+  }, [service]);
 
   useEffect(() => {
     const carousel = relatedCarouselRef.current;
@@ -92,6 +101,7 @@ export default function ServiceDetailPage() {
         description: displayService.description || "",
       })
     );
+    void trackMetaEvent("AddToCart", getServiceMetaData(displayService));
     
     setAddedToCart(true);
     setTimeout(() => setAddedToCart(false), 800);
@@ -107,6 +117,7 @@ export default function ServiceDetailPage() {
         description: relatedService.description || "",
       })
     );
+    void trackMetaEvent("AddToCart", getServiceMetaData(relatedService));
 
     setAddedRelatedId(relatedService.id);
     setTimeout(() => setAddedRelatedId(null), 800);

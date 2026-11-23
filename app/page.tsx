@@ -29,6 +29,7 @@ import { useGetServicesQuery } from "@/redux/services/apiSlice";
 import type { Service } from "@/redux/services/apiSlice";
 import type { RootState } from "@/redux/store";
 import { client } from "@/lib/api/client";
+import { getServiceMetaData, trackMetaEvent } from "@/lib/metaConversions";
 import StableImage from "@/components/StableImage";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_BASE ?? "";
@@ -340,6 +341,7 @@ export default function HomePage() {
     const { icon, ...cartService } = service as any;
     const finalCartService = { ...cartService, price: String(cartService.price), description: cartService.description || "" };
     dispatch(addToCart(finalCartService));
+    void trackMetaEvent("AddToCart", getServiceMetaData(service));
     setAddedItem(service.id);
     setTimeout(() => setAddedItem(null), 800);
   };
@@ -653,6 +655,7 @@ export default function HomePage() {
                 if (event.key === "Escape") setShowSearchSuggestions(false);
                 if (event.key === "Enter" && searchSuggestions[0]) {
                   setShowSearchSuggestions(false);
+                  void trackMetaEvent("Search", { search_string: searchTerm.trim() });
                   router.push(`/services/${searchSuggestions[0].id}`);
                 }
               }}
@@ -678,6 +681,7 @@ export default function HomePage() {
                       onMouseDown={(event) => event.preventDefault()}
                       onClick={() => {
                         setShowSearchSuggestions(false);
+                        void trackMetaEvent("Search", { search_string: searchTerm.trim() });
                         router.push(`/services/${service.id}`);
                       }}
                       className="flex w-full items-center justify-between gap-3 border-b border-slate-100 px-4 py-3 text-left last:border-b-0 hover:bg-slate-50 focus:bg-slate-50 focus:outline-none dark:border-slate-800 dark:hover:bg-slate-900 dark:focus:bg-slate-900"

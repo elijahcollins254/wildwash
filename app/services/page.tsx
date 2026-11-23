@@ -7,6 +7,7 @@ import { useAppDispatch } from "@/redux/hooks";
 import { addToCart } from "@/redux/features/cartSlice";
 import { useGetServicesQuery } from "@/redux/services/apiSlice";
 import type { Service } from "@/redux/services/apiSlice";
+import { getServiceMetaData, trackMetaEvent } from "@/lib/metaConversions";
 import StableImage from "@/components/StableImage";
 
 // Map service names to image files with intelligent fallback
@@ -95,6 +96,7 @@ export default function ServicesPage() {
         processing_time: service.processing_time,
       })
     );
+    void trackMetaEvent("AddToCart", getServiceMetaData(service));
     setAddedServiceId(service.id);
     window.setTimeout(() => setAddedServiceId(null), 800);
   }

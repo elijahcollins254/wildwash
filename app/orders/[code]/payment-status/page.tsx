@@ -1,10 +1,11 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useParams } from 'next/navigation';
 import { FiCheck, FiX } from 'react-icons/fi';
 import axios from 'axios';
 import Link from 'next/link';
+import { trackMetaEvent } from '@/lib/metaConversions';
 
 interface PaymentStatus {
   status: 'pending' | 'completed' | 'failed' | 'initiated' | 'success';
@@ -34,6 +35,7 @@ export default function PaymentStatusPage() {
   const [deliverySuccess, setDeliverySuccess] = useState(false);
   const [deliveryError, setDeliveryError] = useState('');
   const [retryLoading, setRetryLoading] = useState(false);
+  const purchaseEventAttempted = useRef<string | null>(null);
 
   useEffect(() => {
     const fetchPaymentStatus = async () => {
@@ -98,6 +100,36 @@ export default function PaymentStatusPage() {
 
     return () => clearInterval(interval);
   }, [orderId]);
+
+  useEffect(() => {
+    const summary = paymentStatus?.payment_summary;
+    if (
+      !paymentStatus ||
+      (paymentStatus.status !== 'success' && paymentStatus.status !== 'completed') ||
+      !summary ||
+      summary.remaining_amount > 0 ||
+      summary.final_total === null ||
+      summary.final_total <= 0 ||
+      purchaseEventAttempted.current === orderId
+    ) {
+      return;
+    }
+
+    const storageKey = `wildwash_meta_purchase_${orderId}`;
+    if (localStorage.getItem(storageKey)) {
+      purchaseEventAttempted.current = orderId;
+      return;
+    }
+
+    purchaseEventAttempted.current = orderId;
+    void trackMetaEvent(
+      'Purchase',
+      { currency: 'KES', value: summary.final_total, content_type: 'product' },
+      `purchase_${orderId}`,
+    ).then((sent) => {
+      if (sent) localStorage.setItem(storageKey, 'sent');
+    });
+  }, [orderId, paymentStatus]);
 
   const handleRequestDelivery = async () => {
     setRequestingDelivery(true);

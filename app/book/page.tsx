@@ -776,8 +776,6 @@ export default function Page() {
                 )}
               </div>
             </div>
-            </div>
-            ) : null}
           </section>
           {bookingStep === 2 && (
           <aside className="w-full border-l border-slate-100 bg-gradient-to-b from-slate-50 to-white p-4 dark:border-slate-700 dark:from-slate-800 dark:to-slate-900 md:w-1/3 md:p-5">

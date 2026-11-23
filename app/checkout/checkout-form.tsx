@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useSelector } from 'react-redux';
 import axios from 'axios';
@@ -8,6 +8,7 @@ import { Phone, CreditCard, Recycle, Gift } from 'lucide-react';
 import { FiAlertTriangle } from 'react-icons/fi';
 import { AiOutlineLoading3Quarters } from 'react-icons/ai';
 import { BNPLManager } from '@/components';
+import { trackMetaEvent } from '@/lib/metaConversions';
 import type { RootState } from '@/redux/store';
 
 interface CheckoutForm {
@@ -56,6 +57,15 @@ export default function CheckoutForm() {
   const [loadingUserData, setLoadingUserData] = useState(true);
   const [profileIncomplete, setProfileIncomplete] = useState(false);
   const [paymentSummary, setPaymentSummary] = useState<PaymentSummary | null>(null);
+  const checkoutEventOrder = useRef<string | null>(null);
+
+  useEffect(() => {
+    const orderId = searchParams.get('order_id');
+    if (orderId && checkoutEventOrder.current !== orderId) {
+      checkoutEventOrder.current = orderId;
+      void trackMetaEvent('InitiateCheckout', { currency: 'KES' });
+    }
+  }, [searchParams]);
 
   // Check if profile is complete - fetch fresh data to avoid stale Redux state
   useEffect(() => {
