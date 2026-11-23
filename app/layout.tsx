@@ -5,6 +5,7 @@ import { NavBar, Footer, WhatsAppButton, HelpButton, BottomNav } from '@/compone
 import { Providers } from './providers';
 import AuthInitializer from '@/components/AuthInitializer';
 import { Analytics } from "@vercel/analytics/next"
+import MetaPixel from '@/components/MetaPixel';
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -56,6 +57,7 @@ export default function RootLayout({
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased min-h-screen bg-gradient-to-b from-slate-50 to-white dark:from-slate-950 dark:to-slate-900 text-slate-900 dark:text-slate-100`}
       >
+        <MetaPixel />
         <Providers>
           <AuthInitializer />
           <NavBar />

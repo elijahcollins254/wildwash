@@ -512,14 +512,6 @@ export default function OrderDetailsPage() {
 
             {/* Actions */}
             <div className="mt-6">
-              {order.status === "Delivered" && (
-                <Link
-                  href={`/orders/${encodeURIComponent(order.code)}/rating`}
-                  className="mr-3 inline-block rounded-lg border border-red-600 px-6 py-3 font-medium text-red-600 transition-colors hover:bg-red-50 dark:hover:bg-red-950/30"
-                >
-                  Rate this order
-                </Link>
-              )}
               {!order.is_paid && (order.payment_summary?.payable_amount ?? 1) > 0 && (
                 <button
                   onClick={handleProceedToCheckout}
@@ -531,6 +523,14 @@ export default function OrderDetailsPage() {
               )}
               {!order.is_paid && order.payment_summary?.payable_amount === 0 && !order.payment_summary.price_finalized && (
                 <p className="text-sm text-slate-600 dark:text-slate-300">The estimate is covered. The final price is pending staff confirmation.</p>
+              )}
+              {order.status.toLowerCase() === "delivered" && (
+                <Link
+                  href={`/orders/${encodeURIComponent(order.code)}/rate`}
+                  className="ml-0 mt-3 inline-block rounded-lg border border-red-700 px-5 py-3 font-medium text-red-700 transition-colors hover:bg-red-50 dark:border-red-400 dark:text-red-400 dark:hover:bg-red-950/30 sm:ml-3 sm:mt-0"
+                >
+                  Rate this order
+                </Link>
               )}
             </div>
 
