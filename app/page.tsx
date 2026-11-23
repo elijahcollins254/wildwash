@@ -473,13 +473,13 @@ export default function HomePage() {
                     href={banner.link_url}
                     target={external ? "_blank" : undefined}
                     rel={external ? "noopener noreferrer" : undefined}
-                    className="flex min-w-0 flex-[0_0_75%] items-center justify-center overflow-hidden bg-slate-100 dark:bg-slate-900"
+                    className="flex min-w-0 flex-[0_0_75%] items-center justify-center overflow-hidden bg-slate-100 dark:bg-slate-900 md:flex-[0_0_25%]"
                     aria-label={banner.title}
                   >
                     <Image src={banner.image_url} alt={banner.title} width={1200} height={630} unoptimized className="h-full w-full object-cover" />
                   </Link>
                   <div
-                    className="relative flex min-w-0 flex-[0_0_25%] flex-col justify-between overflow-hidden bg-rose-100 p-2.5 sm:p-4"
+                    className="relative flex min-w-0 flex-[0_0_25%] flex-col justify-between overflow-hidden bg-rose-100 p-2.5 sm:p-4 md:flex-[0_0_75%]"
                   >
                     <Image
                       src={banner.image_url}
@@ -518,7 +518,7 @@ export default function HomePage() {
               >
                 <Link
                   href={`/offers/${offer.id}`}
-                  className="flex min-w-0 flex-[0_0_25%] items-center justify-center overflow-hidden bg-rose-50 dark:bg-rose-950/40"
+                  className="flex min-w-0 flex-[0_0_75%] items-center justify-center overflow-hidden bg-rose-50 dark:bg-rose-950/40 md:flex-[0_0_25%]"
                   aria-label={`View ${offer.title}`}
                 >
                   <Image
@@ -530,7 +530,7 @@ export default function HomePage() {
                     className="h-full w-full object-contain"
                   />
                 </Link>
-                <div className="relative flex min-w-0 flex-[0_0_75%] flex-col justify-between overflow-hidden bg-rose-50 p-3 dark:bg-slate-950 sm:p-4">
+                <div className="relative flex min-w-0 flex-[0_0_25%] flex-col justify-between overflow-hidden bg-rose-50 p-3 dark:bg-slate-950 sm:p-4 md:flex-[0_0_75%]">
                   <Image
                     src={offer.image_url || "/images/Clean%20Now%20Pay%20Later.png"}
                     alt=""
