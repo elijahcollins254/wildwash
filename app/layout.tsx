@@ -17,21 +17,19 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  metadataBase: new URL("https://wildwasher.co.ke"),
+  metadataBase: new URL("https://www.wildwash.co.ke"),
   title: "Wild Wash",
   description: "Restore Your House",
   openGraph: {
     title: "Wild Wash",
     description: "Restore Your House",
-    url: "https://wildwasher.co.ke",
+    url: "https://www.wildwash.co.ke/",
     siteName: "Wild Wash",
     type: "website",
     images: [
       {
-        url: "https://wildwash-photos.s3.eu-north-1.amazonaws.com/WildWash+Cleaning+Service+Showcase+(2).png",
-        width: 1200,
-        height: 630,
-        alt: "Wild Wash cleaning service showcase",
+        url: "/WildWash Cleaning Services App Promotion.png",
+        alt: "WildWash cleaning services app promotion",
       },
     ],
   },
@@ -39,7 +37,7 @@ export const metadata: Metadata = {
     card: "summary_large_image",
     title: "Wild Wash",
     description: "Restore Your House",
-    images: ["https://wildwash-photos.s3.eu-north-1.amazonaws.com/WildWash+Cleaning+Service+Showcase+(2).png"],
+    images: ["/WildWash Cleaning Services App Promotion.png"],
   },
   icons: {
     icon: "/favicon.png",

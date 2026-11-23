@@ -23,7 +23,6 @@ import {
   TagIcon,
   TruckIcon,
 } from "@heroicons/react/24/outline";
-import { FaGooglePlay } from "react-icons/fa";
 import { useAppDispatch } from "@/redux/hooks";
 import { addToCart } from "@/redux/features/cartSlice";
 import { useGetServicesQuery } from "@/redux/services/apiSlice";
@@ -48,6 +47,22 @@ type Offer = {
   valid_until: string | null;
 };
 
+type Banner = {
+  id: number;
+  title: string;
+  image_url: string;
+  button_text?: string;
+  link_url: string;
+  is_active: boolean;
+  valid_from?: string;
+  valid_until: string | null;
+  sort_order: number;
+};
+
+type CarouselItem =
+  | { kind: "offer"; data: Offer }
+  | { kind: "banner"; data: Banner };
+
 const isOffer = (
   value: unknown,
 ): value is Omit<Offer, "discount_amount"> & { discount_amount: number | string } => {
@@ -57,6 +72,7 @@ const isOffer = (
     typeof offer.id === "number" &&
     typeof offer.title === "string" &&
     typeof offer.description === "string" &&
+    (typeof offer.image_url === "string" || offer.image_url === null || offer.image_url === undefined) &&
     typeof offer.discount_percent === "number" &&
     (typeof offer.discount_amount === "number" ||
       (typeof offer.discount_amount === "string" &&
@@ -68,33 +84,7 @@ const isOffer = (
   );
 };
 
-const promoSlides = [
-  {
-    eyebrow: "Wild Wash on Android",
-    title: "Get the Wild Wash app.",
-    description: "Book laundry and home-care services wherever you are.",
-    action: "Install Now",
-    href: "https://play.google.com/store/apps/details?id=com.kibeezy.ww&pli=1",
-    external: true,
-    style: "from-red-800 via-red-700 to-orange-600",
-  },
-  {
-    eyebrow: "Wild Wash, made easy",
-    title: "More time for what matters.",
-    description: "Book laundry and home-care services from one simple place.",
-    action: "Explore services",
-    href: "/services",
-    style: "from-red-700 via-rose-600 to-orange-500",
-  },
-  {
-    eyebrow: "Care for your home",
-    title: "Laundry is just the beginning.",
-    description: "Explore cleaning, fumigation, repairs and more.",
-    action: "Browse all services",
-    href: "/services",
-    style: "from-emerald-800 via-teal-700 to-cyan-700",
-  },
-];
+
 
 // Extended service type with UI properties (omit icon from Service since we're replacing it)
 type ServiceWithUI = Omit<Service, 'icon'> & {
@@ -184,6 +174,7 @@ export default function HomePage() {
   const [activePromo, setActivePromo] = useState(0);
   const [serviceColumns, setServiceColumns] = useState(2);
   const [offers, setOffers] = useState<Offer[]>([]);
+  const [carouselItems, setCarouselItems] = useState<CarouselItem[]>([]);
   const [claimingOfferId, setClaimingOfferId] = useState<number | null>(null);
   const categoriesScrollRef = useRef<HTMLDivElement>(null);
   const promoCarouselRef = useRef<HTMLDivElement>(null);
@@ -202,7 +193,7 @@ export default function HomePage() {
     return () => window.removeEventListener("resize", updateColumns);
   }, []);
 
-  const carouselSlideCount = promoSlides.length + (!hasActiveFilters ? offers.length : 0);
+  const carouselSlideCount = !hasActiveFilters ? carouselItems.length : 0;
 
   useEffect(() => {
     if (carouselSlideCount === 0) return;
@@ -231,13 +222,23 @@ export default function HomePage() {
   useEffect(() => {
     let isMounted = true;
 
-    async function fetchOffers() {
+    async function fetchCarouselItems() {
       try {
-        const response: unknown = await client.get("/offers");
-        const items = Array.isArray(response)
-          ? response
-          : response && typeof response === "object" && "results" in response && Array.isArray(response.results)
-            ? response.results
+        const [offerResponse, bannerResponse] = await Promise.all([
+          client.get("/offers"),
+          client.get("/offers/banners"),
+        ]);
+        const offerItems: unknown = offerResponse;
+        const bannerItems: unknown = bannerResponse;
+        const items = Array.isArray(offerItems)
+          ? offerItems
+          : offerItems && typeof offerItems === "object" && "results" in offerItems && Array.isArray(offerItems.results)
+            ? offerItems.results
+            : [];
+        const banners = Array.isArray(bannerItems)
+          ? bannerItems
+          : bannerItems && typeof bannerItems === "object" && "results" in bannerItems && Array.isArray(bannerItems.results)
+            ? bannerItems.results
             : [];
         const now = Date.now();
         const currentOffers = items.filter(isOffer).filter((offer) => {
@@ -249,13 +250,29 @@ export default function HomePage() {
           discount_amount: Number(offer.discount_amount),
         }));
 
-        if (isMounted) setOffers(currentOffers.slice(0, 3));
+        const currentBanners = (banners as Banner[])
+          .filter((banner) => {
+            if (!banner.is_active || !banner.image_url) return false;
+            const startsAt = banner.valid_from ? new Date(banner.valid_from).getTime() : 0;
+            const endsAt = banner.valid_until ? new Date(banner.valid_until).getTime() : Infinity;
+            return startsAt <= now && endsAt >= now;
+          })
+          .sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0));
+        const mixedItems: CarouselItem[] = [
+          ...currentOffers.slice(0, 3).map((offer): CarouselItem => ({ kind: "offer", data: offer })),
+          ...currentBanners.map((banner): CarouselItem => ({ kind: "banner", data: banner })),
+        ];
+
+        if (isMounted) {
+          setOffers(currentOffers.slice(0, 3));
+          setCarouselItems(mixedItems);
+        }
       } catch (error) {
-        console.error("Error fetching homepage offers:", error);
+        console.error("Error fetching homepage carousel:", error);
       }
     }
 
-    fetchOffers();
+    fetchCarouselItems();
     return () => {
       isMounted = false;
     };
@@ -431,50 +448,63 @@ export default function HomePage() {
 
   const promoAndOffers = (
     <>
-      <section aria-label="Discover Wild Wash" className="col-span-full mb-2">
+      {carouselSlideCount > 0 && (
+      <section aria-label="Wild Wash offers" className="col-span-full mb-2">
         <div
           ref={promoCarouselRef}
           className="scrollbar-hide flex snap-x snap-mandatory gap-3 overflow-x-auto"
           aria-roledescription="carousel"
         >
-          {promoSlides.map((slide, index) => (
-            <article
-              key={slide.title}
-              ref={(element) => {
-                promoCardRefs.current[index] = element;
-              }}
-              className={`w-full shrink-0 snap-center rounded-2xl bg-gradient-to-br ${slide.style} p-5 text-white shadow-md sm:p-7`}
-              aria-label={`${index + 1} of ${carouselSlideCount}`}
-            >
-              <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-white/75">
-                {slide.eyebrow}
-              </p>
-              <h2 className="mt-2 text-xl font-bold leading-tight sm:text-3xl">{slide.title}</h2>
-              <p className="mt-2 max-w-xl text-sm leading-5 text-white/85">{slide.description}</p>
-              {slide.external ? (
-                <a
-                  href={slide.href}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="mt-4 inline-flex items-center gap-2 rounded-full bg-white px-5 py-2.5 text-sm font-extrabold text-red-700"
+          {!hasActiveFilters && carouselItems.map((item, offerIndex) => {
+            const index = offerIndex;
+            if (item.kind === "banner") {
+              const banner = item.data;
+              const external = /^https?:\/\//i.test(banner.link_url);
+              return (
+                <article
+                  key={`banner-${banner.id}`}
+                  ref={(element) => { promoCardRefs.current[index] = element; }}
+                  className="flex h-[168px] w-full shrink-0 snap-center overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-md dark:border-slate-800 dark:bg-slate-950 sm:h-[220px]"
+                  aria-label={`${index + 1} of ${carouselSlideCount}`}
                 >
-                  <FaGooglePlay className="h-4 w-4 text-emerald-600" aria-hidden="true" />
-                  {slide.action}
-                  <ArrowRightIcon className="h-4 w-4" aria-hidden="true" />
-                </a>
-              ) : (
-                <Link
-                  href={slide.href}
-                  className="mt-4 inline-flex items-center gap-2 rounded-full bg-white px-5 py-2.5 text-sm font-semibold text-slate-900"
-                >
-                  {slide.action}
-                  <ArrowRightIcon className="h-4 w-4" />
-                </Link>
-              )}
-            </article>
-          ))}
-          {!hasActiveFilters && offers.map((offer, offerIndex) => {
-            const index = promoSlides.length + offerIndex;
+                  <Link
+                    href={banner.link_url}
+                    target={external ? "_blank" : undefined}
+                    rel={external ? "noopener noreferrer" : undefined}
+                    className="flex min-w-0 flex-[0_0_75%] items-center justify-center overflow-hidden bg-slate-100 dark:bg-slate-900"
+                    aria-label={banner.title}
+                  >
+                    <Image src={banner.image_url} alt={banner.title} width={1200} height={630} unoptimized className="h-full w-full object-cover" />
+                  </Link>
+                  <div
+                    className="relative flex min-w-0 flex-[0_0_25%] flex-col justify-between overflow-hidden bg-rose-100 p-2.5 sm:p-4"
+                  >
+                    <Image
+                      src={banner.image_url}
+                      alt=""
+                      aria-hidden="true"
+                      width={500}
+                      height={300}
+                      unoptimized
+                      className="absolute inset-0 h-full w-full object-cover opacity-30 blur-sm"
+                    />
+                    <div className="absolute inset-0 bg-gradient-to-br from-rose-100/85 via-orange-100/90 to-amber-100/85 dark:from-rose-950/85 dark:via-slate-900/90 dark:to-orange-950/85" />
+                    <p className="relative z-10 line-clamp-3 text-xs font-extrabold leading-tight text-rose-950 dark:text-rose-100 sm:text-base">{banner.title}</p>
+                    {banner.button_text && (
+                      <Link
+                        href={banner.link_url}
+                        target={external ? "_blank" : undefined}
+                        rel={external ? "noopener noreferrer" : undefined}
+                        className="relative z-10 rounded-lg bg-rose-700 px-1 py-2 text-center text-[10px] font-bold text-white shadow-sm hover:bg-rose-800 sm:text-xs"
+                      >
+                        {banner.button_text}
+                      </Link>
+                    )}
+                  </div>
+                </article>
+              );
+            }
+            const offer = item.data;
             return (
               <article
                 key={`offer-${offer.id}`}
@@ -484,7 +514,11 @@ export default function HomePage() {
                 className="flex h-[168px] w-full shrink-0 snap-center overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-md dark:border-slate-800 dark:bg-slate-950 sm:h-[220px]"
                 aria-label={`${index + 1} of ${carouselSlideCount}`}
               >
-                <div className="flex basis-3/4 items-center justify-center bg-slate-100 p-2 dark:bg-slate-900">
+                <Link
+                  href={`/offers/${offer.id}`}
+                  className="flex min-w-0 flex-[0_0_25%] items-center justify-center overflow-hidden bg-rose-50 dark:bg-rose-950/40"
+                  aria-label={`View ${offer.title}`}
+                >
                   <Image
                     src={offer.image_url || "/images/Clean%20Now%20Pay%20Later.png"}
                     alt={offer.title}
@@ -493,25 +527,35 @@ export default function HomePage() {
                     unoptimized
                     className="h-full w-full object-contain"
                   />
-                </div>
-                <div className="flex basis-1/4 flex-col justify-between p-2.5 sm:p-4">
-                  <div className="min-w-0">
-                    <p className="text-[9px] font-bold uppercase tracking-wide text-red-600 sm:text-xs">Offer</p>
-                    <p className="mt-1 line-clamp-2 text-xs font-extrabold leading-tight text-slate-900 dark:text-slate-100 sm:text-base">
+                </Link>
+                <div className="relative flex min-w-0 flex-[0_0_75%] flex-col justify-between overflow-hidden bg-rose-50 p-3 dark:bg-slate-950 sm:p-4">
+                  <Image
+                    src={offer.image_url || "/images/Clean%20Now%20Pay%20Later.png"}
+                    alt=""
+                    aria-hidden="true"
+                    width={500}
+                    height={300}
+                    unoptimized
+                    className="absolute inset-0 h-full w-full object-cover opacity-15 blur-sm"
+                  />
+                  <div className="absolute inset-0 bg-gradient-to-br from-rose-50/90 via-white/95 to-orange-50/90 dark:from-rose-950/85 dark:via-slate-950/95 dark:to-orange-950/80" />
+                  <div className="relative z-10 min-w-0">
+                    <p className="text-[9px] font-bold uppercase tracking-wide text-rose-700 dark:text-rose-300 sm:text-xs">Offer</p>
+                    <p className="mt-1 line-clamp-2 text-sm font-extrabold leading-tight text-slate-900 dark:text-slate-100 sm:text-lg">
                       {offer.title}
                     </p>
-                    <p className="mt-1 line-clamp-2 hidden text-xs text-slate-500 sm:block dark:text-slate-400">
+                    <p className="mt-1 line-clamp-2 text-xs text-slate-600 dark:text-slate-400">
                       {offer.description}
                     </p>
                   </div>
-                  <div className="flex flex-col gap-1.5">
-                    <span className="text-center text-[10px] font-black text-red-600 sm:text-sm">
+                  <div className="relative z-10 flex items-center justify-between gap-2">
+                    <span className="text-xs font-black text-rose-700 dark:text-rose-300 sm:text-sm">
                       {offer.discount_percent > 0
                         ? `${offer.discount_percent}% OFF`
                         : `KSh ${offer.discount_amount} OFF`}
                     </span>
                     {offer.is_claimed ? (
-                      <span className="rounded-lg bg-green-100 px-1 py-2 text-center text-[10px] font-bold text-green-700 dark:bg-green-950/40 dark:text-green-300">
+                      <span className="rounded-lg bg-green-100 px-3 py-2 text-center text-[10px] font-bold text-green-700 dark:bg-green-950/40 dark:text-green-300 sm:text-xs">
                         Claimed
                       </span>
                     ) : (
@@ -519,7 +563,7 @@ export default function HomePage() {
                         type="button"
                         onClick={() => claimOfferFromHome(offer.id)}
                         disabled={claimingOfferId === offer.id}
-                        className="rounded-lg bg-red-600 px-1 py-2 text-[10px] font-bold text-white hover:bg-red-700 disabled:opacity-60 sm:text-xs"
+                        className="rounded-lg bg-rose-700 px-4 py-2 text-xs font-bold text-white shadow-sm hover:bg-rose-800 disabled:opacity-60 sm:text-sm"
                       >
                         {claimingOfferId === offer.id ? "..." : "Claim"}
                       </button>
@@ -530,7 +574,7 @@ export default function HomePage() {
             );
           })}
         </div>
-        <div className="mt-3 flex items-center justify-center gap-2" aria-label="Promotion slides">
+        <div className="mt-3 flex items-center justify-center gap-2"         aria-label="Offer slides">
           <button
             type="button"
             onClick={() => setActivePromo((activePromo + carouselSlideCount - 1) % carouselSlideCount)}
@@ -559,6 +603,7 @@ export default function HomePage() {
           </button>
         </div>
       </section>
+      )}
     </>
   );
 
