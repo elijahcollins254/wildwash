@@ -1,10 +1,9 @@
 "use client"
 
 import React, { useEffect, useState } from "react";
-import Image from "next/image";
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import BNPLManager from "../../components/BNPLManager";
+import OfferCard from "@/components/OfferCard";
 import { client } from "../../lib/api/client";
 import { getStoredAuthState } from "@/lib/auth";
 
@@ -254,44 +253,13 @@ export default function OffersPage() {
               <div className="rounded-2xl bg-white/80 dark:bg-white/5 p-6 shadow text-sm text-slate-600">No offers found.</div>
             ) : (
               filtered.map((o) => (
-                <article key={o.id} className="flex h-[220px] overflow-hidden rounded-2xl bg-white shadow dark:bg-white/5">
-                  <div className="flex basis-3/4 items-center justify-center bg-slate-100 p-2 dark:bg-slate-900">
-                    <Image
-                      src={o.image_url || "/images/Clean%20Now%20Pay%20Later.png"}
-                      alt={o.title}
-                      width={1200}
-                      height={630}
-                      unoptimized
-                      className="h-full w-full object-contain"
-                    />
-                  </div>
-                  <div className="flex basis-1/4 min-w-0 flex-col justify-between p-2.5 sm:p-3">
-                    <div className="min-w-0">
-                      <div className="line-clamp-2 text-xs font-extrabold leading-tight sm:text-sm">{o.title}</div>
-                      <div className="mt-1 line-clamp-2 text-[10px] text-slate-600 dark:text-slate-400">{o.description}</div>
-                      <div className="mt-1 text-[9px] text-slate-500">Code: {o.code}</div>
-                    </div>
-                    <div className="flex flex-col gap-1.5">
-                      <div className="text-center text-[10px] font-black text-red-600 sm:text-xs">
-                        {o.discount_percent > 0 ? `${o.discount_percent}% OFF` : `KSh ${o.discount_amount} OFF`}
-                      </div>
-                      {o.is_claimed ? (
-                        <div className="rounded-lg bg-green-100 px-1 py-2 text-center text-[10px] font-bold text-green-700 dark:bg-green-900/20 dark:text-green-400">Claimed ✓</div>
-                      ) : (
-                        <button
-                          onClick={() => claimOffer(o.id)}
-                          disabled={claimingId === o.id}
-                          className="rounded-lg bg-red-600 px-1 py-2 text-[10px] font-bold text-white hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-50"
-                        >
-                          {claimingId === o.id ? '...' : 'Claim'}
-                        </button>
-                      )}
-                      <Link href={`/offers/${o.id}`} className="rounded-lg border border-slate-300 px-1 py-2 text-center text-[10px] font-bold dark:border-slate-700">
-                        Share
-                      </Link>
-                    </div>
-                  </div>
-                </article>
+                <OfferCard
+                  key={o.id}
+                  offer={o}
+                  isClaimed={o.is_claimed}
+                  claiming={claimingId === o.id}
+                  onClaim={() => claimOffer(o.id)}
+                />
               ))
             )}
           </div>

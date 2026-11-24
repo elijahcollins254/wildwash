@@ -2,8 +2,6 @@
 
 import { useEffect, useState } from "react";
 import dynamic from "next/dynamic";
-import Image from "next/image";
-import Link from "next/link";
 import { useDispatch, useSelector } from "react-redux";
 import { useRouter } from "next/navigation";
 import { FiAlertTriangle } from "react-icons/fi";
@@ -13,6 +11,7 @@ import type { RootState } from "@/redux/store";
 import { client } from "@/lib/api/client";
 import { roundPickupPosition } from "@/lib/coordinates";
 import { Spinner } from "@/components";
+import OfferCard from "@/components/OfferCard";
 
 type UserProfile = {
   id: number;
@@ -40,6 +39,7 @@ type Offer = {
   description: string;
   image_url?: string | null;
   discount_amount: number;
+  discount_percent?: number;
   valid_from: string;
   valid_until: string | null;
   is_active: boolean;
@@ -567,54 +567,13 @@ export default function ProfilePage() {
               ) : userOffers.length > 0 ? (
                 <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
                   {userOffers.map((userOffer) => (
-                    <article
+                    <OfferCard
                       key={userOffer.id}
-                      className="relative h-[180px] overflow-hidden rounded-xl border border-slate-200 bg-slate-900 shadow-md dark:border-slate-700 sm:h-[220px]"
-                    >
-                      <Image
-                        src={userOffer.offer.image_url || "/images/Clean%20Now%20Pay%20Later.png"}
-                        alt=""
-                        aria-hidden="true"
-                        width={1200}
-                        height={630}
-                        unoptimized
-                        className="absolute inset-0 h-full w-full object-cover"
-                      />
-                      <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/40 to-black/5" />
-                      <div className="relative z-10 flex h-full flex-col justify-between p-3 sm:p-4">
-                        <div className="min-w-0">
-                          <h3 className="line-clamp-2 text-sm font-extrabold leading-tight text-white sm:text-lg">
-                            {userOffer.offer.title}
-                          </h3>
-                          <p className="mt-1 line-clamp-1 text-[10px] text-white/80 sm:text-xs">
-                            {userOffer.offer.description}
-                          </p>
-                        </div>
-                        <div className="flex items-end justify-between gap-2">
-                          <div>
-                            <span className="block text-xs font-black text-white sm:text-sm">
-                              {userOffer.offer.discount_amount}% OFF
-                            </span>
-                            <span className="mt-1 block text-[10px] text-white/80 sm:text-xs">
-                              Claimed {new Date(userOffer.claimed_at).toLocaleDateString()}
-                            </span>
-                            <span className={`mt-1 inline-block rounded-full px-2 py-0.5 text-[10px] font-semibold ${
-                              userOffer.is_used
-                                ? 'bg-slate-100/90 text-slate-700'
-                                : 'bg-green-100/90 text-green-700'
-                            }`}>
-                              {userOffer.is_used ? 'Used' : 'Available'}
-                            </span>
-                          </div>
-                          <Link
-                            href={`/offers/${userOffer.offer.id}`}
-                            className="shrink-0 rounded-lg bg-white px-3 py-1.5 text-xs font-bold text-slate-900 shadow-sm hover:bg-rose-50 sm:text-sm"
-                          >
-                            Open offer
-                          </Link>
-                        </div>
-                      </div>
-                    </article>
+                      offer={userOffer.offer}
+                      isClaimed
+                      claimedAt={userOffer.claimed_at}
+                      isUsed={userOffer.is_used}
+                    />
                   ))}
                 </div>
               ) : (

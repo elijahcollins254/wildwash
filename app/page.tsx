@@ -31,6 +31,7 @@ import type { RootState } from "@/redux/store";
 import { client } from "@/lib/api/client";
 import { getServiceMetaData, trackMetaEvent } from "@/lib/metaConversions";
 import StableImage from "@/components/StableImage";
+import OfferCard from "@/components/OfferCard";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_BASE ?? "";
 
@@ -289,6 +290,13 @@ export default function HomePage() {
           offer.id === id ? { ...offer, is_claimed: true } : offer
         )
       );
+      setCarouselItems((current) =>
+        current.map((item) =>
+          item.kind === "offer" && item.data.id === id
+            ? { ...item, data: { ...item.data, is_claimed: true } }
+            : item
+        )
+      );
     } catch (error) {
       console.error("Unable to claim offer:", error);
     } finally {
@@ -491,63 +499,17 @@ export default function HomePage() {
             }
             const offer = item.data;
             return (
-              <article
+              <OfferCard
                 key={`offer-${offer.id}`}
-                ref={(element) => {
+                cardRef={(element) => {
                   promoCardRefs.current[index] = element;
                 }}
-                className="relative h-[168px] w-full shrink-0 snap-start overflow-hidden rounded-2xl border border-slate-200 bg-slate-900 shadow-md dark:border-slate-800 sm:h-[220px] md:w-[calc(50%_-_0.375rem)]"
-                aria-label={`${index + 1} of ${carouselSlideCount}`}
-              >
-                <Image
-                  src={offer.image_url || "/images/Clean%20Now%20Pay%20Later.png"}
-                  alt=""
-                  aria-hidden="true"
-                  width={1200}
-                  height={630}
-                  unoptimized
-                  className="absolute inset-0 h-full w-full object-cover"
-                />
-                <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/40 to-black/5" />
-                <div className="relative z-10 flex h-full flex-col justify-between p-3 sm:p-4">
-                  <div className="min-w-0">
-                    <p className="text-[9px] font-bold uppercase tracking-wide text-white/80 sm:text-xs">Offer</p>
-                    <p className="mt-1 line-clamp-2 text-sm font-extrabold leading-tight text-white sm:text-lg">
-                      {offer.title}
-                    </p>
-                    <p className="mt-1 line-clamp-1 text-[10px] text-white/80 sm:text-xs">
-                      {offer.description}
-                    </p>
-                  </div>
-                  <div className="flex items-center justify-between gap-2">
-                    <span className="text-xs font-black text-white sm:text-sm">
-                      {offer.discount_percent > 0
-                        ? `${offer.discount_percent}% OFF`
-                        : `KSh ${offer.discount_amount} OFF`}
-                    </span>
-                    <Link
-                      href={`/offers/${offer.id}`}
-                      className="rounded-lg bg-white px-3 py-1.5 text-xs font-bold text-slate-900 shadow-sm hover:bg-rose-50 sm:text-sm"
-                    >
-                      View offer
-                    </Link>
-                    {offer.is_claimed ? (
-                      <span className="rounded-lg bg-green-100 px-2 py-1.5 text-center text-[10px] font-bold text-green-700 dark:bg-green-950/40 dark:text-green-300 sm:text-xs">
-                        Claimed
-                      </span>
-                    ) : (
-                      <button
-                        type="button"
-                        onClick={() => claimOfferFromHome(offer.id)}
-                        disabled={claimingOfferId === offer.id}
-                        className="rounded-lg bg-rose-700 px-3 py-1.5 text-xs font-bold text-white shadow-sm hover:bg-rose-800 disabled:opacity-60 sm:text-sm"
-                      >
-                        {claimingOfferId === offer.id ? "..." : "Claim"}
-                      </button>
-                    )}
-                  </div>
-                </div>
-              </article>
+                offer={offer}
+                isClaimed={Boolean(offer.is_claimed)}
+                onClaim={() => claimOfferFromHome(offer.id)}
+                claiming={claimingOfferId === offer.id}
+                className="w-full shrink-0 snap-start md:w-[calc(50%_-_0.375rem)]"
+              />
             );
           })}
         </div>
