@@ -211,11 +211,7 @@ export default function HomePage() {
 
     const carouselRect = carousel.getBoundingClientRect();
     const cardRect = card.getBoundingClientRect();
-    const left =
-      carousel.scrollLeft +
-      cardRect.left -
-      carouselRect.left -
-      (carousel.clientWidth - card.clientWidth) / 2;
+    const left = carousel.scrollLeft + cardRect.left - carouselRect.left;
 
     carousel.scrollTo({ left, behavior: "smooth" });
   }, [activePromo, hasActiveFilters]);
@@ -466,42 +462,29 @@ export default function HomePage() {
                 <article
                   key={`banner-${banner.id}`}
                   ref={(element) => { promoCardRefs.current[index] = element; }}
-                  className="flex h-[168px] w-full shrink-0 snap-center overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-md dark:border-slate-800 dark:bg-slate-950 sm:h-[220px]"
+                  className="relative h-[168px] w-full shrink-0 snap-start overflow-hidden rounded-2xl border border-slate-200 bg-slate-900 shadow-md dark:border-slate-800 sm:h-[220px] md:w-[calc(50%_-_0.375rem)]"
                   aria-label={`${index + 1} of ${carouselSlideCount}`}
                 >
-                  <Link
-                    href={banner.link_url}
-                    target={external ? "_blank" : undefined}
-                    rel={external ? "noopener noreferrer" : undefined}
-                    className="flex min-w-0 flex-[0_0_75%] items-center justify-center overflow-hidden bg-slate-100 dark:bg-slate-900 md:flex-[0_0_25%]"
-                    aria-label={banner.title}
-                  >
-                    <Image src={banner.image_url} alt={banner.title} width={1200} height={630} unoptimized className="h-full w-full object-cover" />
-                  </Link>
-                  <div
-                    className="relative flex min-w-0 flex-[0_0_25%] flex-col justify-between overflow-hidden bg-rose-100 p-2.5 sm:p-4 md:flex-[0_0_75%]"
-                  >
-                    <Image
-                      src={banner.image_url}
-                      alt=""
-                      aria-hidden="true"
-                      width={500}
-                      height={300}
-                      unoptimized
-                      className="absolute inset-0 h-full w-full object-cover opacity-30 blur-sm"
-                    />
-                    <div className="absolute inset-0 bg-gradient-to-br from-rose-100/85 via-orange-100/90 to-amber-100/85 dark:from-rose-950/85 dark:via-slate-900/90 dark:to-orange-950/85" />
-                    <p className="relative z-10 line-clamp-3 text-xs font-extrabold leading-tight text-rose-950 dark:text-rose-100 sm:text-base">{banner.title}</p>
-                    {banner.button_text && (
-                      <Link
-                        href={banner.link_url}
-                        target={external ? "_blank" : undefined}
-                        rel={external ? "noopener noreferrer" : undefined}
-                        className="relative z-10 rounded-lg bg-rose-700 px-1 py-2 text-center text-[10px] font-bold text-white shadow-sm hover:bg-rose-800 sm:text-xs"
-                      >
-                        {banner.button_text}
-                      </Link>
-                    )}
+                  <Image
+                    src={banner.image_url}
+                    alt=""
+                    aria-hidden="true"
+                    width={1200}
+                    height={630}
+                    unoptimized
+                    className="absolute inset-0 h-full w-full object-cover"
+                  />
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/25 to-transparent" />
+                  <div className="relative z-10 flex h-full flex-col items-start justify-end gap-2 p-3 sm:p-4">
+                    <p className="line-clamp-2 text-sm font-extrabold leading-tight text-white sm:text-lg">{banner.title}</p>
+                    <Link
+                      href={banner.link_url}
+                      target={external ? "_blank" : undefined}
+                      rel={external ? "noopener noreferrer" : undefined}
+                      className="rounded-lg bg-white px-3 py-1.5 text-xs font-bold text-slate-900 shadow-sm hover:bg-rose-50 sm:text-sm"
+                    >
+                      {banner.button_text || "View offer"}
+                    </Link>
                   </div>
                 </article>
               );
@@ -513,51 +496,43 @@ export default function HomePage() {
                 ref={(element) => {
                   promoCardRefs.current[index] = element;
                 }}
-                className="flex h-[168px] w-full shrink-0 snap-center overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-md dark:border-slate-800 dark:bg-slate-950 sm:h-[220px]"
+                className="relative h-[168px] w-full shrink-0 snap-start overflow-hidden rounded-2xl border border-slate-200 bg-slate-900 shadow-md dark:border-slate-800 sm:h-[220px] md:w-[calc(50%_-_0.375rem)]"
                 aria-label={`${index + 1} of ${carouselSlideCount}`}
               >
-                <Link
-                  href={`/offers/${offer.id}`}
-                  className="flex min-w-0 flex-[0_0_75%] items-center justify-center overflow-hidden bg-rose-50 dark:bg-rose-950/40 md:flex-[0_0_25%]"
-                  aria-label={`View ${offer.title}`}
-                >
-                  <Image
-                    src={offer.image_url || "/images/Clean%20Now%20Pay%20Later.png"}
-                    alt={offer.title}
-                    width={1200}
-                    height={630}
-                    unoptimized
-                    className="h-full w-full object-contain"
-                  />
-                </Link>
-                <div className="relative flex min-w-0 flex-[0_0_25%] flex-col justify-between overflow-hidden bg-rose-50 p-3 dark:bg-slate-950 sm:p-4 md:flex-[0_0_75%]">
-                  <Image
-                    src={offer.image_url || "/images/Clean%20Now%20Pay%20Later.png"}
-                    alt=""
-                    aria-hidden="true"
-                    width={500}
-                    height={300}
-                    unoptimized
-                    className="absolute inset-0 h-full w-full object-cover opacity-15 blur-sm"
-                  />
-                  <div className="absolute inset-0 bg-gradient-to-br from-rose-50/90 via-white/95 to-orange-50/90 dark:from-rose-950/85 dark:via-slate-950/95 dark:to-orange-950/80" />
-                  <div className="relative z-10 min-w-0">
-                    <p className="text-[9px] font-bold uppercase tracking-wide text-rose-700 dark:text-rose-300 sm:text-xs">Offer</p>
-                    <p className="mt-1 line-clamp-2 text-sm font-extrabold leading-tight text-slate-900 dark:text-slate-100 sm:text-lg">
+                <Image
+                  src={offer.image_url || "/images/Clean%20Now%20Pay%20Later.png"}
+                  alt=""
+                  aria-hidden="true"
+                  width={1200}
+                  height={630}
+                  unoptimized
+                  className="absolute inset-0 h-full w-full object-cover"
+                />
+                <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/40 to-black/5" />
+                <div className="relative z-10 flex h-full flex-col justify-between p-3 sm:p-4">
+                  <div className="min-w-0">
+                    <p className="text-[9px] font-bold uppercase tracking-wide text-white/80 sm:text-xs">Offer</p>
+                    <p className="mt-1 line-clamp-2 text-sm font-extrabold leading-tight text-white sm:text-lg">
                       {offer.title}
                     </p>
-                    <p className="mt-1 line-clamp-2 text-xs text-slate-600 dark:text-slate-400">
+                    <p className="mt-1 line-clamp-1 text-[10px] text-white/80 sm:text-xs">
                       {offer.description}
                     </p>
                   </div>
-                  <div className="relative z-10 flex items-center justify-between gap-2">
-                    <span className="text-xs font-black text-rose-700 dark:text-rose-300 sm:text-sm">
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="text-xs font-black text-white sm:text-sm">
                       {offer.discount_percent > 0
                         ? `${offer.discount_percent}% OFF`
                         : `KSh ${offer.discount_amount} OFF`}
                     </span>
+                    <Link
+                      href={`/offers/${offer.id}`}
+                      className="rounded-lg bg-white px-3 py-1.5 text-xs font-bold text-slate-900 shadow-sm hover:bg-rose-50 sm:text-sm"
+                    >
+                      View offer
+                    </Link>
                     {offer.is_claimed ? (
-                      <span className="rounded-lg bg-green-100 px-3 py-2 text-center text-[10px] font-bold text-green-700 dark:bg-green-950/40 dark:text-green-300 sm:text-xs">
+                      <span className="rounded-lg bg-green-100 px-2 py-1.5 text-center text-[10px] font-bold text-green-700 dark:bg-green-950/40 dark:text-green-300 sm:text-xs">
                         Claimed
                       </span>
                     ) : (
@@ -565,7 +540,7 @@ export default function HomePage() {
                         type="button"
                         onClick={() => claimOfferFromHome(offer.id)}
                         disabled={claimingOfferId === offer.id}
-                        className="rounded-lg bg-rose-700 px-4 py-2 text-xs font-bold text-white shadow-sm hover:bg-rose-800 disabled:opacity-60 sm:text-sm"
+                        className="rounded-lg bg-rose-700 px-3 py-1.5 text-xs font-bold text-white shadow-sm hover:bg-rose-800 disabled:opacity-60 sm:text-sm"
                       >
                         {claimingOfferId === offer.id ? "..." : "Claim"}
                       </button>
