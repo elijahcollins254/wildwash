@@ -65,12 +65,6 @@ export default function OfferCard({
               </span>
             )}
           </div>
-          <h3 className="mt-1 line-clamp-2 text-sm font-extrabold leading-tight text-white sm:text-lg">
-            {offer.title}
-          </h3>
-          <p className="mt-1 line-clamp-1 text-[10px] text-white/80 sm:text-xs">
-            {offer.description}
-          </p>
           {offer.code && (
             <p className="mt-1 truncate text-[10px] text-white/75 sm:text-xs">
               Code: {offer.code}
