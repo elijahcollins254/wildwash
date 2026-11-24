@@ -627,13 +627,14 @@ export default function StaffRoleDashboard({ staffRole }: StaffRoleDashboardProp
 
         {/* Orders Table */}
         {(!ordersLoading || orders.length > 0) && (
-        <div className="rounded-2xl bg-white dark:bg-slate-800 p-6 shadow-xl border border-slate-200 dark:border-slate-700">
+        <div className="rounded-2xl bg-white dark:bg-slate-800 p-3 shadow-xl border border-slate-200 dark:border-slate-700 sm:p-6">
           <h2 className="text-lg font-semibold mb-3 text-slate-900 dark:text-slate-100">Recent Orders</h2>
           <div className="overflow-x-auto">
-            <table className="min-w-full text-sm">
-              <thead className="border-b border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400">
+            <table className="w-full text-sm sm:min-w-[1000px]">
+              <thead className="hidden border-b border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400 sm:table-header-group">
                 <tr>
                   <th className="text-left py-2 px-3 w-32">Code</th>
+                  <th className="text-right py-2 px-3 w-32">Date</th>
                   <th className="text-left py-2 px-3 w-72">Status</th>
                   <th className="text-left py-2 px-3 w-24">Payment</th>
                   <th className="text-center py-2 px-3 w-32">Urgency</th>
@@ -641,133 +642,166 @@ export default function StaffRoleDashboard({ staffRole }: StaffRoleDashboardProp
                   <th className="text-right py-2 px-3">Estimated Price</th>
                   <th className="text-right py-2 px-3">Actual Price</th>
                   <th className="text-right py-2 px-3">Actions</th>
-                  <th className="text-right py-2 px-3 w-32">Date</th>
                 </tr>
               </thead>
-              <tbody>
+              <tbody className="block space-y-3 sm:table-row-group sm:space-y-0">
                 {filteredOrders.slice(0, displayLimit).map((o) => {
                   const urgency = calculateOrderUrgency(o);
                   const label = getUrgencyLabel(urgency.score);
                   return (
-                    <tr key={o.id ?? o.code} className={`border-b border-slate-100 dark:border-slate-800 ${label.rowBgColor} hover:brightness-95 dark:hover:brightness-125`}>
-                      <td className="py-2 px-3 font-mono text-left">
-                        <Link href={`/staff/order/${o.code}`} className="text-indigo-600 dark:text-indigo-400 hover:underline">
-                          {o.code}
-                        </Link>
-                      </td>
-                      <td className="py-2 px-3 text-left">
-                        <div className="flex flex-col gap-2">
-                          <div className="px-3 py-1 rounded bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-300 text-xs font-medium capitalize">
-                            {o.status ?? o.state ?? 'requested'}
-                          </div>
-                          {config.statusAction && config.targetStatus ? (
-                            o.status !== config.targetStatus && (
-                              <button
-                                onClick={async () => {
-                                  try {
-                                    // Make the API call to update status
-                                    await client.patch(`/orders/update/?id=${o.id}`, { status: config.targetStatus });
-                                    
-                                    // Refetch orders from context to update UI
-                                    await refetchOrders();
-                                    showModal('Success', 'Status updated successfully!', 'success');
-                                  } catch (err: any) {
-                                    console.error('Failed to update status:', err);
-                                    showModal('Error', err?.message || 'Failed to update status', 'error');
-                                  }
-                                }}
-                                className={`px-3 py-1 rounded ${colorClasses.bg} ${colorClasses.text} ${colorClasses.hover} text-xs font-medium transition-colors`}
-                              >
-                                {config.statusAction}
-                              </button>
-                            )
-                          ) : (
-                            <OrderStatusUpdate
-                              orderId={o.id}
-                              currentStatus={o.status ?? o.state ?? 'requested'}
-                              onUpdate={async () => {
-                                try {
-                                  await refetchOrders();
-                                  showModal('Success', 'Order status updated successfully!', 'success');
-                                } catch (err: any) {
-                                  showModal('Update Error', err?.message || 'Failed to update order status', 'error');
-                                }
-                              }}
-                              onError={(error: string) => showModal('Status Update Error', error, 'error')}
-                            />
-                          )}
+                    <tr key={o.id ?? o.code} className={`mb-3 block rounded-xl border border-slate-200 p-3 dark:border-slate-700 sm:mb-0 sm:table-row sm:rounded-none sm:border-0 sm:border-b sm:p-0 ${label.rowBgColor} hover:brightness-95 dark:hover:brightness-125`}>
+                      <td className="block px-0 py-2 text-left font-mono sm:table-cell sm:px-3">
+                        <div className="flex items-start justify-between gap-3 sm:block">
+                          <span className="font-sans text-xs font-medium text-slate-500 dark:text-slate-400 sm:hidden">Code</span>
+                          <Link href={`/staff/order/${o.code}`} className="break-all text-right text-indigo-600 dark:text-indigo-400 hover:underline sm:text-left">
+                            {o.code}
+                          </Link>
                         </div>
                       </td>
-                      <td className="py-2 px-3 text-left">
-                        <span className={`inline-flex px-2 py-1 rounded text-xs font-medium ${
+                      <td className="block px-0 py-2 text-left sm:table-cell sm:px-3 sm:text-right">
+                        <div className="flex items-start justify-between gap-3 sm:block">
+                          <span className="text-xs font-medium text-slate-500 dark:text-slate-400 sm:hidden">Date</span>
+                          <span className="whitespace-nowrap text-slate-600 dark:text-slate-400">{o.created_at?.split?.('T')?.[0] ?? '—'}</span>
+                        </div>
+                      </td>
+                      <td className="block px-0 py-2 text-left sm:table-cell sm:px-3">
+                        <div className="flex items-start justify-between gap-3 sm:block">
+                          <span className="text-xs font-medium text-slate-500 dark:text-slate-400 sm:hidden">Status</span>
+                          <div className="flex w-3/4 flex-col gap-2 sm:w-auto">
+                            <div className="rounded bg-slate-100 px-3 py-1 text-xs font-medium capitalize text-slate-700 dark:bg-slate-700 dark:text-slate-300">
+                              {o.status ?? o.state ?? 'requested'}
+                            </div>
+                            {config.statusAction && config.targetStatus ? (
+                              o.status !== config.targetStatus && (
+                                <button
+                                  onClick={async () => {
+                                    try {
+                                      // Make the API call to update status
+                                      await client.patch(`/orders/update/?id=${o.id}`, { status: config.targetStatus });
+                                      
+                                      // Refetch orders from context to update UI
+                                      await refetchOrders();
+                                      showModal('Success', 'Status updated successfully!', 'success');
+                                    } catch (err: any) {
+                                      console.error('Failed to update status:', err);
+                                      showModal('Error', err?.message || 'Failed to update status', 'error');
+                                    }
+                                  }}
+                                  className={`rounded px-3 py-1 ${colorClasses.bg} ${colorClasses.text} ${colorClasses.hover} text-xs font-medium transition-colors`}
+                                >
+                                  {config.statusAction}
+                                </button>
+                              )
+                            ) : (
+                              <OrderStatusUpdate
+                                orderId={o.id}
+                                currentStatus={o.status ?? o.state ?? 'requested'}
+                                onUpdate={async () => {
+                                  try {
+                                    await refetchOrders();
+                                    showModal('Success', 'Order status updated successfully!', 'success');
+                                  } catch (err: any) {
+                                    showModal('Update Error', err?.message || 'Failed to update order status', 'error');
+                                  }
+                                }}
+                                onError={(error: string) => showModal('Status Update Error', error, 'error')}
+                              />
+                            )}
+                          </div>
+                        </div>
+                      </td>
+                      <td className="block px-0 py-2 text-left sm:table-cell sm:px-3">
+                        <div className="flex items-start justify-between gap-3 sm:block">
+                          <span className="text-xs font-medium text-slate-500 dark:text-slate-400 sm:hidden">Payment</span>
+                          <span className={`inline-flex rounded px-2 py-1 text-xs font-medium ${
                           o.is_paid 
                             ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400' 
                             : 'bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400'
                         }`}>
                           {o.is_paid ? '✓ Paid' : 'Pending'}
-                        </span>
-                      </td>
-                      <td className="py-2 px-3 text-center">
-                        <div className={`inline-block rounded-full border border-current/20 px-2 py-1 text-xs font-semibold ${label.bgColor} ${label.color}`}>
-                          {label.label} ({urgency.score})
+                          </span>
                         </div>
                       </td>
-                      <td className="py-2 px-3 text-slate-900 dark:text-slate-300 text-left">
-                        {o.order_type === 'manual' ? (
-                          <div className="flex flex-col">
-                            <span className="font-medium">
-                              {typeof o.created_by === 'object' 
-                                ? (o.created_by?.username || o.created_by?.first_name || 'Staff')
-                                : o.created_by ?? 'Staff'}
-                            </span>
-                            <span className="text-xs text-slate-500 dark:text-slate-500">(Creator)</span>
-                          </div>
-                        ) : (
+                      <td className="block px-0 py-2 text-left sm:table-cell sm:px-3 sm:text-center">
+                        <div className="flex items-start justify-between gap-3 sm:block">
+                          <span className="text-xs font-medium text-slate-500 dark:text-slate-400 sm:hidden">Urgency</span>
+                          <span className={`inline-block rounded-full border border-current/20 px-2 py-1 text-xs font-semibold ${label.bgColor} ${label.color}`}>
+                            {label.label} ({urgency.score})
+                          </span>
+                        </div>
+                      </td>
+                      <td className="block px-0 py-2 text-left text-slate-900 dark:text-slate-300 sm:table-cell sm:px-3">
+                        <div className="flex items-start justify-between gap-3 sm:block">
+                          <span className="text-xs font-medium text-slate-500 dark:text-slate-400 sm:hidden">Assigned To</span>
                           <div>
-                            {typeof o.rider === 'object' 
-                              ? (o.rider?.username || o.rider?.first_name || o.rider?.name || '—')
-                              : o.rider ?? o.user ?? '—'}
+                            {o.order_type === 'manual' ? (
+                              <div className="flex flex-col">
+                                <span className="font-medium">
+                                  {typeof o.created_by === 'object' 
+                                    ? (o.created_by?.username || o.created_by?.first_name || 'Staff')
+                                    : o.created_by ?? 'Staff'}
+                                </span>
+                                <span className="text-xs text-slate-500 dark:text-slate-500">(Creator)</span>
+                              </div>
+                            ) : (
+                              <div>
+                                {typeof o.rider === 'object' 
+                                  ? (o.rider?.username || o.rider?.first_name || o.rider?.name || '—')
+                                  : o.rider ?? o.user ?? '—'}
+                              </div>
+                            )}
                           </div>
-                        )}
+                        </div>
                       </td>
-                      <td className="py-2 px-3 text-right text-slate-900 dark:text-slate-300">
-                        {(() => {
-                          const total = o.total_price ?? null;
-                          if (total !== null && total !== undefined && !isNaN(Number(total))) {
-                            return `KSh ${Number(total).toLocaleString()}`;
-                          }
-                          if (o.price !== undefined && o.price !== null && !isNaN(Number(o.price))) {
-                            return `KSh ${Number(o.price).toLocaleString()}`;
-                          }
-                          if (o.price_display) return o.price_display;
-                          return '—';
-                        })()}
+                      <td className="block px-0 py-2 text-left text-slate-900 dark:text-slate-300 sm:table-cell sm:px-3 sm:text-right">
+                        <div className="flex items-start justify-between gap-3 sm:block">
+                          <span className="text-xs font-medium text-slate-500 dark:text-slate-400 sm:hidden">Estimated Price</span>
+                          <span>
+                            {(() => {
+                              const total = o.total_price ?? null;
+                              if (total !== null && total !== undefined && !isNaN(Number(total))) {
+                                return `KSh ${Number(total).toLocaleString()}`;
+                              }
+                              if (o.price !== undefined && o.price !== null && !isNaN(Number(o.price))) {
+                                return `KSh ${Number(o.price).toLocaleString()}`;
+                              }
+                              if (o.price_display) return o.price_display;
+                              return '—';
+                            })()}
+                          </span>
+                        </div>
                       </td>
-                      <td className="py-2 px-3 text-right text-slate-900 dark:text-slate-300">
-                        {(() => {
-                          // Map role-specific price fields
-                          const roleFieldMap: Record<string, { price: string; items: string; notes: string; weight: string }> = {
-                            washer: { price: 'washer_price', items: 'washer_items', notes: 'washer_notes', weight: 'washer_weight' },
-                            folder: { price: 'folder_price', items: 'folder_items', notes: 'folder_notes', weight: 'folder_weight' },
-                            fumigator: { price: 'fumigator_price', items: 'fumigator_items', notes: 'fumigator_notes', weight: 'fumigator_weight' },
-                            staff: { price: 'staff_price', items: 'staff_items', notes: 'staff_notes', weight: 'staff_weight' },
-                            admin: { price: 'staff_price', items: 'staff_items', notes: 'staff_notes', weight: 'staff_weight' },
-                          };
-                          
-                          const rolePrice = o[roleFieldMap[staffRole]?.price];
-                          
-                          // Check role-specific price first, then fall back to actual_price
-                          if (rolePrice !== undefined && rolePrice !== null && !isNaN(Number(rolePrice))) {
-                            return `KSh ${Number(rolePrice).toLocaleString()}`;
-                          }
-                          if (o.actual_price !== undefined && o.actual_price !== null && !isNaN(Number(o.actual_price))) {
-                            return `KSh ${Number(o.actual_price).toLocaleString()}`;
-                          }
-                          return '—';
-                        })()}
+                      <td className="block px-0 py-2 text-left text-slate-900 dark:text-slate-300 sm:table-cell sm:px-3 sm:text-right">
+                        <div className="flex items-start justify-between gap-3 sm:block">
+                          <span className="text-xs font-medium text-slate-500 dark:text-slate-400 sm:hidden">Actual Price</span>
+                          <span>
+                            {(() => {
+                              // Map role-specific price fields
+                              const roleFieldMap: Record<string, { price: string; items: string; notes: string; weight: string }> = {
+                                washer: { price: 'washer_price', items: 'washer_items', notes: 'washer_notes', weight: 'washer_weight' },
+                                folder: { price: 'folder_price', items: 'folder_items', notes: 'folder_notes', weight: 'folder_weight' },
+                                fumigator: { price: 'fumigator_price', items: 'fumigator_items', notes: 'fumigator_notes', weight: 'fumigator_weight' },
+                                staff: { price: 'staff_price', items: 'staff_items', notes: 'staff_notes', weight: 'staff_weight' },
+                                admin: { price: 'staff_price', items: 'staff_items', notes: 'staff_notes', weight: 'staff_weight' },
+                              };
+                              
+                              const rolePrice = o[roleFieldMap[staffRole]?.price];
+                              
+                              // Check role-specific price first, then fall back to actual_price
+                              if (rolePrice !== undefined && rolePrice !== null && !isNaN(Number(rolePrice))) {
+                                return `KSh ${Number(rolePrice).toLocaleString()}`;
+                              }
+                              if (o.actual_price !== undefined && o.actual_price !== null && !isNaN(Number(o.actual_price))) {
+                                return `KSh ${Number(o.actual_price).toLocaleString()}`;
+                              }
+                              return '—';
+                            })()}
+                          </span>
+                        </div>
                       </td>
-                      <td className="py-2 px-3 text-right">
-                        <div className="flex items-center justify-end gap-2">
+                      <td className="block px-0 py-2 text-left sm:table-cell sm:px-3 sm:text-right">
+                        <div className="flex items-start justify-between gap-3 sm:justify-end">
+                          <span className="text-xs font-medium text-slate-500 dark:text-slate-400 sm:hidden">Actions</span>
                           <button
                             onClick={() => {
                               // Map generic field names to role-specific field names for loading
@@ -788,19 +822,18 @@ export default function StaffRoleDashboard({ staffRole }: StaffRoleDashboardProp
                                 actual_price: o[fieldMap.price] !== undefined && o[fieldMap.price] !== null ? String(o[fieldMap.price]) : (o.actual_price !== undefined && o.actual_price !== null ? String(o.actual_price) : '')
                               });
                             }}
-                            className="px-3 py-1 text-xs rounded-lg bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400 hover:bg-red-200 dark:hover:bg-red-900/50 font-medium transition-colors shadow-sm hover:shadow-md"
+                            className="rounded-lg bg-red-100 px-3 py-1 text-xs font-medium text-red-700 shadow-sm transition-colors hover:bg-red-200 hover:shadow-md dark:bg-red-900/30 dark:text-red-400 dark:hover:bg-red-900/50"
                           >
                             Add details
                           </button>
-                          <div className="text-right text-slate-600 dark:text-slate-400">{o.created_at?.split?.('T')?.[0] ?? '—'}</div>
                         </div>
                       </td>
                     </tr>
                   );
                 })}
                 {filteredOrders.length === 0 && (
-                  <tr>
-                    <td colSpan={8} className="py-6 text-center text-slate-500 dark:text-slate-400">
+                  <tr className="block sm:table-row">
+                    <td colSpan={9} className="block py-6 text-center text-slate-500 dark:text-slate-400 sm:table-cell">
                       No orders found for your location.
                     </td>
                   </tr>
