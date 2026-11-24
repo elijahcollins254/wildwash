@@ -3,6 +3,7 @@
 import { signIn, signOut, getSession } from 'next-auth/react';
 import { AppDispatch } from '@/redux/store';
 import { setAuth, logout } from '@/redux/features/authSlice';
+import { getStaffDashboardPath } from '@/lib/staffRoutes';
 
 /**
  * Unified authentication helper using NextAuth for all auth methods
@@ -101,18 +102,18 @@ export const phonePasswordLogin = async (
 
     // Determine redirect based on user role
     const role = user.role;
+    const staffDashboardPath = getStaffDashboardPath(role, user.staff_type);
     let redirectUrl = '/';
 
     if (userData.is_superuser || role === 'admin') {
       redirectUrl = '/admin';
-    } else if (role === 'washer') {
-      redirectUrl = '/staff/washer';
-    } else if (role === 'folder') {
-      redirectUrl = '/staff/folder';
+    } else if (staffDashboardPath) {
+      redirectUrl = staffDashboardPath;
     } else if (role === 'rider') {
       redirectUrl = '/rider';
     } else if (userData.is_staff || role === 'staff') {
-      redirectUrl = '/staff';
+      console.error('[UnifiedAuth] Staff account has no supported staff_type');
+      redirectUrl = '/profile';
     }
 
     return {

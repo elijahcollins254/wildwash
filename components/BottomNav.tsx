@@ -5,6 +5,7 @@ import { usePathname, useRouter } from 'next/navigation';
 import { useSelector } from 'react-redux';
 import { selectCartTotalItems } from '@/redux/features/cartSlice';
 import type { RootState } from '@/redux/store';
+import { getStaffType } from '@/lib/staffRoutes';
 import { FiHome, FiShoppingCart, FiFileText, FiUser, FiLogIn } from 'react-icons/fi';
 import { FaShieldAlt, FaTruck, FaCloud, FaPlus, FaSmile } from 'react-icons/fa';
 
@@ -12,12 +13,14 @@ export default function BottomNav() {
   const pathname = usePathname();
   const isAuthenticated = useSelector((state: RootState) => state.auth.isAuthenticated);
   const userRole = useSelector((state: RootState) => state.auth.user?.role);
+  const staffType = useSelector((state: RootState) => state.auth.user?.staff_type);
   const totalCartItems = useSelector(selectCartTotalItems);
+  const staffDashboardType = getStaffType(userRole, staffType);
 
   const isActive = (href: string) => pathname === href;
 
   // Determine if we should show customer navigation
-  const showCustomerNav = isAuthenticated && userRole !== 'admin' && userRole !== 'washer' && userRole !== 'folder' && userRole !== 'fumigator' && userRole !== 'rider';
+  const showCustomerNav = isAuthenticated && userRole !== 'admin' && !staffDashboardType && userRole !== 'rider';
   
   // Determine navigation items based on role
   const getNavItems = () => {
@@ -27,14 +30,8 @@ export default function BottomNav() {
     if (userRole === 'rider') {
       return ['home', 'rider', 'profile'];
     }
-    if (userRole === 'washer') {
-      return ['home', 'washer', 'profile'];
-    }
-    if (userRole === 'folder') {
-      return ['home', 'folder', 'profile'];
-    }
-    if (userRole === 'fumigator') {
-      return ['home', 'fumigator', 'profile'];
+    if (staffDashboardType) {
+      return ['home', staffDashboardType, 'profile'];
     }
     if (showCustomerNav) {
       return ['home', 'cart', 'orders', 'profile'];

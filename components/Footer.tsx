@@ -2,8 +2,14 @@
 
 import React from 'react';
 import Link from 'next/link';
+import { useSelector } from 'react-redux';
+import type { RootState } from '@/redux/store';
+import { getStaffDashboardPath } from '@/lib/staffRoutes';
 
 export default function Footer() {
+  const user = useSelector((state: RootState) => state.auth.user);
+  const staffDashboardPath = getStaffDashboardPath(user?.role, user?.staff_type);
+
   return (
     <footer className="bg-white dark:bg-[#071025] border-t border-slate-200 dark:border-slate-800">
       <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
@@ -12,7 +18,7 @@ export default function Footer() {
             <Link href="/rider" className="text-sm text-slate-600 dark:text-slate-400 hover:underline">
               Rider
             </Link>
-            <Link href="/staff" className="text-sm text-slate-600 dark:text-slate-400 hover:underline">
+            <Link href={staffDashboardPath || "/login"} className="text-sm text-slate-600 dark:text-slate-400 hover:underline">
               Staff
             </Link>
             <Link href="/admin" className="text-sm text-slate-600 dark:text-slate-400 hover:underline">

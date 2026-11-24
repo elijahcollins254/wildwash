@@ -8,6 +8,7 @@ import { FaGoogle } from "react-icons/fa";
 import { phonePasswordLogin, googleLogin } from "@/lib/api/unifiedAuthHelpers";
 import { Spinner } from "@/components";
 import type { RootState } from "@/redux/store";
+import { getStaffDashboardPath } from "@/lib/staffRoutes";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_BASE || '';
 
@@ -58,24 +59,21 @@ export default function LoginPage() {
       
       // Otherwise redirect based on user role
       const role = user.role;
+      const staffDashboardPath = getStaffDashboardPath(role, user.staff_type);
       console.log('[LoginPage] Redirecting based on role:', role);
       
       if (user.is_superuser || role === 'admin') {
         console.log('[LoginPage] Redirecting to /admin');
         router.push('/admin');
-      } else if (role === 'washer') {
-        console.log('[LoginPage] Redirecting to /staff/washer');
-        router.push('/staff/washer');
-      } else if (role === 'folder') {
-        console.log('[LoginPage] Redirecting to /staff/folder');
-        router.push('/staff/folder');
+      } else if (staffDashboardPath) {
+        console.log('[LoginPage] Redirecting to', staffDashboardPath);
+        router.push(staffDashboardPath);
       } else if (role === 'rider') {
         console.log('[LoginPage] Redirecting to /rider');
         router.push('/rider');
       } else if (user.is_staff || role === 'staff') {
-        // Generic staff member
-        console.log('[LoginPage] Redirecting to /staff');
-        router.push('/staff');
+        console.error('[LoginPage] Staff account has no supported staff_type');
+        router.push('/profile');
       } else {
         // Default redirect for regular users/customers
         console.log('[LoginPage] Redirecting to /');

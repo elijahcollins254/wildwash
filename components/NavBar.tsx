@@ -9,6 +9,7 @@ import { logout } from '@/redux/features/authSlice';
 import type { RootState } from '@/redux/store';
 import { selectCartTotalItems } from '@/redux/features/cartSlice';
 import { useRiderOrderNotifications } from '@/lib/hooks/useRiderOrderNotifications';
+import { getStaffDashboardPath } from '@/lib/staffRoutes';
 import { FiShoppingCart, FiFileText, FiUser, FiGrid, FiLogOut } from 'react-icons/fi';
 import { FaShieldAlt, FaCloud, FaFolder, FaPlus, FaSmile, FaTruck, FaMoneyBillWave } from 'react-icons/fa';
 
@@ -30,9 +31,10 @@ export default function NavBar() {
   const appsDropdownRef = useRef<HTMLDivElement>(null);
   const mobileMenuRef = useRef<HTMLDivElement>(null);
   const isRider = userRole === 'rider';
-  const isWasher = userRole === 'staff' && staffType === 'washer';
-  const isFolder = userRole === 'staff' && staffType === 'folder';
-  const isFumigator = userRole === 'staff' && staffType === 'fumigator';
+  const staffDashboardPath = getStaffDashboardPath(userRole, staffType);
+  const isWasher = staffDashboardPath === '/staff/washer';
+  const isFolder = staffDashboardPath === '/staff/folder';
+  const isFumigator = staffDashboardPath === '/staff/fumigator';
 
   const handleLogout = () => {
     localStorage.removeItem('access_token');
