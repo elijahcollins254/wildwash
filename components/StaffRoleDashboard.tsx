@@ -474,28 +474,28 @@ export default function StaffRoleDashboard({ staffRole }: StaffRoleDashboardProp
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-white via-slate-50 to-slate-100 dark:from-slate-900 dark:via-slate-800 dark:to-slate-900">
-      <div className="max-w-7xl mx-auto px-4 py-8">
-        <header className="mb-6">
-          <div className="flex items-center justify-between mb-4">
+      <div className={`mx-auto max-w-7xl ${staffRole === 'washer' ? 'px-3 py-3 sm:px-4' : 'px-4 py-8'}`}>
+        <header className={staffRole === 'washer' ? 'mb-3' : 'mb-6'}>
+          <div className={`flex items-center justify-between ${staffRole === 'washer' ? 'mb-2 gap-2' : 'mb-4'}`}>
             <div>
-              <h1 className="flex items-center gap-3 text-2xl font-bold text-slate-900 dark:text-slate-100">
+              <h1 className={`flex items-center font-bold text-slate-900 dark:text-slate-100 ${staffRole === 'washer' ? 'gap-2 text-lg sm:text-xl' : 'gap-3 text-2xl'}`}>
                 {staffRole === 'washer' && (
-                  <span className="inline-flex h-11 w-11 items-center justify-center rounded-xl bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300">
-                    <WashingMachine className="h-6 w-6" aria-hidden="true" />
+                  <span className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300">
+                    <WashingMachine className="h-4 w-4" aria-hidden="true" />
                   </span>
                 )}
                 {config.title}
               </h1>
-              <div className="mt-2 space-y-1">
-                <p className="text-sm text-slate-600 dark:text-slate-400">
+              <div className={staffRole === 'washer' ? 'mt-1 flex flex-wrap items-center gap-x-3 gap-y-0.5' : 'mt-2 space-y-1'}>
+                <p className={`text-slate-600 dark:text-slate-400 ${staffRole === 'washer' ? 'text-xs' : 'text-sm'}`}>
                   <span className="font-semibold">Staff Name:</span> {profile?.first_name ? `${profile.first_name} ${profile.last_name}` : profile?.username}
                 </p>
-                <p className="text-sm text-slate-600 dark:text-slate-400">
+                <p className={`text-slate-600 dark:text-slate-400 ${staffRole === 'washer' ? 'text-xs' : 'text-sm'}`}>
                   <span className="font-semibold">Location:</span> {profile?.service_location_display ?? profile?.service_location?.name ?? 'Not assigned'}
                 </p>
-                <p className="text-sm text-slate-600 dark:text-slate-400">
+                <p className={`text-slate-600 dark:text-slate-400 ${staffRole === 'washer' ? 'text-xs' : 'text-sm'}`}>
                   <span className="font-semibold">Role:</span> 
-                  <span className={`ml-2 inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold ${colorClasses.bg} ${colorClasses.text}`}>
+                  <span className={`ml-1 inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold ${colorClasses.bg} ${colorClasses.text}`}>
                     {profile?.role?.charAt(0).toUpperCase() + profile?.role?.slice(1) || 'Staff'}
                   </span>
                 </p>
@@ -503,20 +503,20 @@ export default function StaffRoleDashboard({ staffRole }: StaffRoleDashboardProp
             </div>
             {activeDashboardTab === 'orders' && <button 
               onClick={() => setShowCreateOrderModal(true)}
-              className="px-6 py-2 bg-green-600 text-white rounded-full hover:bg-green-700 dark:bg-green-700 dark:hover:bg-green-600 text-sm font-semibold whitespace-nowrap shadow-md hover:shadow-lg transition-all"
+              className={`whitespace-nowrap rounded-full bg-green-600 text-white hover:bg-green-700 dark:bg-green-700 dark:hover:bg-green-600 font-semibold shadow-md transition-all ${staffRole === 'washer' ? 'px-3 py-1.5 text-xs' : 'px-6 py-2 text-sm hover:shadow-lg'}`}
             >
               + Create Order
             </button>}
           </div>
           {staffRole === 'washer' && (
-            <nav aria-label="Washer dashboard sections" className="mb-5 flex w-full flex-nowrap gap-2 overflow-x-auto border-b border-slate-200 pb-3 touch-pan-x dark:border-slate-700">
+            <nav aria-label="Washer dashboard sections" className="mb-3 flex w-full flex-nowrap gap-1 overflow-x-auto border-b border-slate-200 pb-2 touch-pan-x dark:border-slate-700">
               {(['orders', 'analytics', 'payments', 'profile'] as const).map((tab) => (
                 <button
                   key={tab}
                   type="button"
                   onClick={() => setActiveDashboardTab(tab)}
                   aria-current={activeDashboardTab === tab ? 'page' : undefined}
-                  className={`shrink-0 whitespace-nowrap rounded-full px-4 py-2 text-sm font-semibold capitalize transition-colors ${activeDashboardTab === tab ? 'bg-blue-600 text-white shadow' : 'bg-white text-slate-600 hover:bg-slate-100 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700'}`}
+                  className={`shrink-0 whitespace-nowrap rounded-full px-3 py-1.5 text-xs font-semibold capitalize transition-colors ${activeDashboardTab === tab ? 'bg-blue-600 text-white shadow' : 'bg-white text-slate-600 hover:bg-slate-100 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700'}`}
                 >
                   {tab}
                 </button>
@@ -856,117 +856,130 @@ export default function StaffRoleDashboard({ staffRole }: StaffRoleDashboardProp
         </>}
 
         {staffRole === 'washer' && activeDashboardTab === 'analytics' && (
-          <section aria-labelledby="washer-analytics-heading" className="space-y-6">
-            <div className="flex flex-wrap items-center justify-between gap-3">
+          <section aria-labelledby="washer-analytics-heading" className="space-y-3">
+            <div className="flex flex-wrap items-center justify-between gap-2">
               <div>
-                <h2 id="washer-analytics-heading" className="text-xl font-bold text-slate-900 dark:text-white">Washer analytics</h2>
-                <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">Your order activity and customer feedback.</p>
+                <h2 id="washer-analytics-heading" className="text-lg font-bold text-slate-900 dark:text-white">Analytics</h2>
+                <p className="text-xs text-slate-500 dark:text-slate-400">Orders and customer feedback</p>
               </div>
-              <button type="button" onClick={() => void loadWasherAnalytics()} disabled={analyticsLoading} className="rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-white disabled:opacity-50 dark:border-slate-600 dark:text-slate-200 dark:hover:bg-slate-800">
+              <button type="button" onClick={() => void loadWasherAnalytics()} disabled={analyticsLoading} className="rounded-lg border border-slate-300 px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-white disabled:opacity-50 dark:border-slate-600 dark:text-slate-200 dark:hover:bg-slate-800">
                 {analyticsLoading ? 'Refreshing…' : 'Refresh'}
               </button>
             </div>
-            {analyticsError && <div role="alert" className="rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-700 dark:border-red-800 dark:bg-red-900/20 dark:text-red-300">{analyticsError}</div>}
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-              <div className="rounded-2xl border border-emerald-200 bg-white p-5 shadow-sm dark:border-emerald-900 dark:bg-slate-800">
-                <p className="text-sm font-medium text-slate-500 dark:text-slate-400">Completed orders</p>
-                <p className="mt-2 text-3xl font-bold text-emerald-700 dark:text-emerald-400">{analyticsLoading && !washerAnalytics ? '—' : washerAnalytics?.completed_orders ?? 0}</p>
+            {analyticsError && <div role="alert" className="rounded-lg border border-red-200 bg-red-50 p-3 text-xs text-red-700 dark:border-red-800 dark:bg-red-900/20 dark:text-red-300">{analyticsError}</div>}
+            <div className="grid grid-cols-2 gap-2">
+              <div className="rounded-xl border border-emerald-200 bg-white p-3 dark:border-emerald-900 dark:bg-slate-800">
+                <p className="text-xs font-medium text-slate-500 dark:text-slate-400">Completed</p>
+                <p className="mt-1 text-2xl font-bold text-emerald-700 dark:text-emerald-400">{analyticsLoading && !washerAnalytics ? '—' : washerAnalytics?.completed_orders ?? 0}</p>
               </div>
-              <div className="rounded-2xl border border-blue-200 bg-white p-5 shadow-sm dark:border-blue-900 dark:bg-slate-800">
-                <p className="text-sm font-medium text-slate-500 dark:text-slate-400">In progress</p>
-                <p className="mt-2 text-3xl font-bold text-blue-700 dark:text-blue-400">{analyticsLoading && !washerAnalytics ? '—' : washerAnalytics?.in_progress_orders ?? 0}</p>
+              <div className="rounded-xl border border-blue-200 bg-white p-3 dark:border-blue-900 dark:bg-slate-800">
+                <p className="text-xs font-medium text-slate-500 dark:text-slate-400">In progress</p>
+                <p className="mt-1 text-2xl font-bold text-blue-700 dark:text-blue-400">{analyticsLoading && !washerAnalytics ? '—' : washerAnalytics?.in_progress_orders ?? 0}</p>
               </div>
             </div>
-            <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-700 dark:bg-slate-800">
-              <div className="flex flex-wrap items-start justify-between gap-3">
+            <div className="rounded-xl border border-slate-200 bg-white p-3 dark:border-slate-700 dark:bg-slate-800 sm:p-4">
+              <div className="flex flex-wrap items-start justify-between gap-2">
                 <div>
-                  <h3 className="text-lg font-semibold text-slate-900 dark:text-white">Customer ratings &amp; reviews</h3>
-                  <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
+                  <h3 className="text-sm font-semibold text-slate-900 dark:text-white">Customer reviews</h3>
+                  <p className="mt-0.5 text-xs text-slate-500 dark:text-slate-400">
                     {washerAnalytics?.average_rating != null ? `Average rating: ${Number(washerAnalytics.average_rating).toFixed(1)} / 5` : 'Ratings summary'}
                   </p>
                 </div>
-                {washerAnalytics?.reviews?.length ? <span className="rounded-full bg-amber-100 px-3 py-1 text-sm font-semibold text-amber-800 dark:bg-amber-900/30 dark:text-amber-300">{washerAnalytics.reviews.length} review{washerAnalytics.reviews.length === 1 ? '' : 's'}</span> : null}
+                {washerAnalytics?.reviews?.length ? <span className="rounded-full bg-amber-100 px-2 py-1 text-xs font-semibold text-amber-800 dark:bg-amber-900/30 dark:text-amber-300">{washerAnalytics.reviews.length} review{washerAnalytics.reviews.length === 1 ? '' : 's'}</span> : null}
               </div>
               {washerAnalytics?.reviews?.length ? (
                 <ul className="mt-4 divide-y divide-slate-100 dark:divide-slate-700">
                   {washerAnalytics.reviews.map((review, index) => (
-                    <li key={String(review.id ?? index)} className="py-4 first:pt-0 last:pb-0">
+                    <li key={String(review.id ?? index)} className="py-3 first:pt-0 last:pb-0">
                       <div className="flex flex-wrap items-center justify-between gap-2">
-                        <span className="font-medium text-slate-900 dark:text-white">{review.customer_name ?? review.customer ?? 'Customer'}</span>
-                        {review.rating != null && <span className="text-sm font-semibold text-amber-600 dark:text-amber-400">★ {Number(review.rating).toFixed(1)} / 5</span>}
+                        <span className="text-sm font-medium text-slate-900 dark:text-white">{review.customer_name ?? review.customer ?? 'Customer'}</span>
+                        {review.rating != null && <span className="text-xs font-semibold text-amber-600 dark:text-amber-400">★ {Number(review.rating).toFixed(1)} / 5</span>}
                       </div>
-                      <p className="mt-2 text-sm text-slate-600 dark:text-slate-300">{review.comment ?? review.review ?? review.text ?? 'No written comment.'}</p>
-                      {review.created_at && <p className="mt-2 text-xs text-slate-400">{new Date(review.created_at).toLocaleDateString()}</p>}
+                      <p className="mt-1 text-sm text-slate-600 dark:text-slate-300">{review.comment ?? review.review ?? review.text ?? 'No written comment.'}</p>
+                      {review.created_at && <p className="mt-1 text-[11px] text-slate-400">{new Date(review.created_at).toLocaleDateString()}</p>}
                     </li>
                   ))}
                 </ul>
               ) : (
-                <p className="mt-4 rounded-lg bg-slate-50 p-4 text-sm text-slate-600 dark:bg-slate-900 dark:text-slate-400">Customer ratings and reviews will appear here when feedback is enabled for orders.</p>
+                <p className="mt-3 rounded-lg bg-slate-50 p-3 text-xs text-slate-600 dark:bg-slate-900 dark:text-slate-400">Customer reviews will appear here when available.</p>
               )}
             </div>
           </section>
         )}
 
         {staffRole === 'washer' && activeDashboardTab === 'payments' && (
-          <section aria-labelledby="washer-payments-heading" className="space-y-6">
-            <div className="flex flex-wrap items-center justify-between gap-3">
+          <section aria-labelledby="washer-payments-heading" className="space-y-3">
+            <div className="flex flex-wrap items-center justify-between gap-2">
               <div>
-                <h2 id="washer-payments-heading" className="text-xl font-bold text-slate-900 dark:text-white">Payments</h2>
-                <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">Revenue and estimated commission from your assigned orders.</p>
+                <h2 id="washer-payments-heading" className="text-lg font-bold text-slate-900 dark:text-white">Payments</h2>
+                <p className="text-xs text-slate-500 dark:text-slate-400">Earnings and wallet</p>
               </div>
-              <button type="button" onClick={() => void loadWasherAnalytics()} disabled={analyticsLoading} className="rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-white disabled:opacity-50 dark:border-slate-600 dark:text-slate-200 dark:hover:bg-slate-800">
-                {analyticsLoading ? 'Refreshing…' : 'Refresh'}
+              <button type="button" onClick={() => { void loadWasherAnalytics(); void refreshWasherWallet(); }} disabled={analyticsLoading || walletLoading} className="rounded-lg border border-slate-300 px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-white disabled:opacity-50 dark:border-slate-600 dark:text-slate-200 dark:hover:bg-slate-800">
+                {analyticsLoading || walletLoading ? 'Refreshing…' : 'Refresh'}
               </button>
             </div>
-            {analyticsError && <div role="alert" className="rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-700 dark:border-red-800 dark:bg-red-900/20 dark:text-red-300">{analyticsError}</div>}
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-              <div className="rounded-2xl border border-emerald-200 bg-white p-6 shadow-sm dark:border-emerald-900 dark:bg-slate-800">
-                <p className="text-sm font-medium text-slate-500 dark:text-slate-400">Paid revenue</p>
-                <p className="mt-2 text-3xl font-bold text-emerald-700 dark:text-emerald-400">KSh {Number(washerAnalytics?.revenue ?? 0).toLocaleString('en-KE')}</p>
+            {analyticsError && <div role="alert" className="rounded-lg border border-red-200 bg-red-50 p-3 text-xs text-red-700 dark:border-red-800 dark:bg-red-900/20 dark:text-red-300">{analyticsError}</div>}
+            {walletError && <div role="alert" className="rounded-lg border border-red-200 bg-red-50 p-3 text-xs text-red-700 dark:border-red-800 dark:bg-red-900/20 dark:text-red-300">{walletError}</div>}
+            {walletMessage && <div role="status" className="rounded-lg border border-emerald-200 bg-emerald-50 p-3 text-xs text-emerald-700 dark:border-emerald-800 dark:bg-emerald-900/20 dark:text-emerald-300">{walletMessage}</div>}
+            <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+              <div className="rounded-xl border border-emerald-200 bg-white p-3 dark:border-emerald-900 dark:bg-slate-800">
+                <p className="text-xs font-medium text-slate-500 dark:text-slate-400">Paid revenue</p>
+                <p className="mt-1 break-words text-xl font-bold text-emerald-700 dark:text-emerald-400">KSh {Number(washerAnalytics?.revenue ?? 0).toLocaleString('en-KE')}</p>
               </div>
-              <div className="rounded-2xl border border-violet-200 bg-white p-6 shadow-sm dark:border-violet-900 dark:bg-slate-800">
-                <p className="text-sm font-medium text-slate-500 dark:text-slate-400">Commission ({((washerAnalytics?.commission_rate ?? 0.1) * 100).toFixed(0)}%)</p>
-                <p className="mt-2 text-3xl font-bold text-violet-700 dark:text-violet-400">KSh {Number(washerAnalytics?.commission ?? 0).toLocaleString('en-KE')}</p>
+              <div className="rounded-xl border border-violet-200 bg-white p-3 dark:border-violet-900 dark:bg-slate-800">
+                <p className="text-xs font-medium text-slate-500 dark:text-slate-400">Commission ({((washerAnalytics?.commission_rate ?? 0.1) * 100).toFixed(0)}%)</p>
+                <p className="mt-1 break-words text-xl font-bold text-violet-700 dark:text-violet-400">KSh {Number(washerAnalytics?.commission ?? 0).toLocaleString('en-KE')}</p>
+              </div>
+              <div className="col-span-2 rounded-xl border border-teal-200 bg-white p-3 dark:border-teal-900 dark:bg-slate-800 sm:col-span-1">
+                <p className="text-xs font-medium text-slate-500 dark:text-slate-400">Wallet balance</p>
+                <p className="mt-1 break-words text-xl font-bold text-teal-700 dark:text-teal-400">KSh {Number(washerWallet?.balance ?? 0).toLocaleString('en-KE')}</p>
               </div>
             </div>
-            {walletError && <div role="alert" className="rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-700 dark:border-red-800 dark:bg-red-900/20 dark:text-red-300">{walletError}</div>}
-            {walletMessage && <div role="status" className="rounded-lg border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-700 dark:border-emerald-800 dark:bg-emerald-900/20 dark:text-emerald-300">{walletMessage}</div>}
-            <div className="rounded-2xl bg-gradient-to-r from-emerald-600 to-teal-600 p-5 text-white shadow-sm">
-              <div className="text-sm text-white/80">Available wallet balance</div>
-              <div className="mt-1 text-3xl font-extrabold">KSh {Number(washerWallet?.balance ?? 0).toLocaleString('en-KE')}</div>
-              {walletLoading && <div className="mt-2 text-xs text-white/75">Refreshing wallet…</div>}
-            </div>
-            <div className="grid gap-5 lg:grid-cols-2">
-              <div className="rounded-xl border border-slate-200 bg-white p-4 dark:border-slate-700 dark:bg-slate-800">
-                <h3 className="font-semibold text-slate-900 dark:text-white">M-Pesa payout number</h3>
-                <p className="mb-3 mt-1 text-xs text-slate-500 dark:text-slate-400">Save a Kenyan M-Pesa number where B2C withdrawals should be sent.</p>
-                <div className="flex flex-col gap-2 sm:flex-row">
+            <div className="grid gap-3 lg:grid-cols-2">
+              <div className="rounded-xl border border-slate-200 bg-white p-3 dark:border-slate-700 dark:bg-slate-800">
+                <h3 className="text-sm font-semibold text-slate-900 dark:text-white">M-Pesa number</h3>
+                <div className="mt-2 flex min-w-0 gap-2">
                   <input value={washerPayoutPhone} onChange={(event) => setWasherPayoutPhone(event.target.value)} type="tel" placeholder="0712345678 or 254712345678" className="min-w-0 flex-1 rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 dark:border-slate-600 dark:bg-slate-900 dark:text-white" />
-                  <button type="button" onClick={() => void saveWasherPayoutPhone()} disabled={walletActionLoading || !washerPayoutPhone.trim()} className="rounded-lg bg-slate-900 px-4 py-2 text-sm font-semibold text-white disabled:opacity-50 dark:bg-slate-700">{walletActionLoading ? 'Saving…' : 'Save number'}</button>
+                  <button type="button" onClick={() => void saveWasherPayoutPhone()} disabled={walletActionLoading || !washerPayoutPhone.trim()} className="shrink-0 rounded-lg bg-slate-900 px-3 py-2 text-xs font-semibold text-white disabled:opacity-50 dark:bg-slate-700">{walletActionLoading ? 'Saving…' : 'Save'}</button>
                 </div>
               </div>
-              <div className="rounded-xl border border-slate-200 bg-white p-4 dark:border-slate-700 dark:bg-slate-800">
-                <h3 className="font-semibold text-slate-900 dark:text-white">Withdraw to M-Pesa</h3>
-                <p className="mb-3 mt-1 text-xs text-slate-500 dark:text-slate-400">Whole KSh amounts only. Funds are reserved until Safaricom confirms the request.</p>
-                <div className="flex flex-col gap-2 sm:flex-row">
-                  <input value={washerWithdrawalAmount} onChange={(event) => setWasherWithdrawalAmount(event.target.value)} type="number" min="1" step="1" placeholder="Amount in KSh" className="min-w-0 flex-1 rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 dark:border-slate-600 dark:bg-slate-900 dark:text-white" />
-                  <button type="button" onClick={() => void requestWasherWithdrawal()} disabled={walletActionLoading || !washerWithdrawalAmount || !washerWallet?.payout_phone || Number(washerWallet?.balance ?? 0) < Number(washerWithdrawalAmount)} className="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-50">{walletActionLoading ? 'Processing…' : 'Withdraw'}</button>
+              <div className="rounded-xl border border-slate-200 bg-white p-3 dark:border-slate-700 dark:bg-slate-800">
+                <h3 className="text-sm font-semibold text-slate-900 dark:text-white">Withdraw to M-Pesa</h3>
+                <div className="mt-2 flex min-w-0 gap-2">
+                  <input value={washerWithdrawalAmount} onChange={(event) => setWasherWithdrawalAmount(event.target.value)} type="number" min="1" step="1" placeholder="Amount (whole KSh)" className="min-w-0 flex-1 rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 dark:border-slate-600 dark:bg-slate-900 dark:text-white" />
+                  <button type="button" onClick={() => void requestWasherWithdrawal()} disabled={walletActionLoading || !washerWithdrawalAmount || !washerWallet?.payout_phone || Number(washerWallet?.balance ?? 0) < Number(washerWithdrawalAmount)} className="shrink-0 rounded-lg bg-emerald-600 px-3 py-2 text-xs font-semibold text-white hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-50">{walletActionLoading ? 'Processing…' : 'Withdraw'}</button>
                 </div>
                 {!washerWallet?.payout_phone && <p className="mt-2 text-xs text-amber-600">Save your M-Pesa payout number before requesting a withdrawal.</p>}
               </div>
             </div>
-            <div className="rounded-2xl border border-slate-200 bg-white p-5 dark:border-slate-700 dark:bg-slate-800">
-              <h3 className="mb-3 font-semibold text-slate-900 dark:text-white">Wallet activity</h3>
-              {!washerWallet?.transactions?.length ? <p className="rounded-lg bg-slate-50 p-4 text-sm text-slate-500 dark:bg-slate-900">No wallet transactions yet. Your admin can add available funds.</p> : (
-                <div className="overflow-x-auto">
-                  <table className="min-w-full text-left text-sm">
-                    <thead className="border-b border-slate-200 text-xs uppercase text-slate-500 dark:border-slate-700"><tr><th className="py-2 pr-4">Type</th><th className="py-2 pr-4">Amount</th><th className="py-2 pr-4">Status</th><th className="py-2 pr-4">Date</th><th className="py-2">Details</th></tr></thead>
-                    <tbody>{washerWallet.transactions.map((entry) => <tr key={entry.id} className="border-b border-slate-100 dark:border-slate-700"><td className="py-3 pr-4 capitalize">{entry.type}</td><td className="py-3 pr-4 font-semibold">KSh {Number(entry.amount).toLocaleString('en-KE')}</td><td className="py-3 pr-4 capitalize">{entry.status}</td><td className="whitespace-nowrap py-3 pr-4">{new Date(entry.created_at).toLocaleString()}</td><td className="py-3 text-slate-500">{entry.reason || entry.provider_transaction_id || '—'}</td></tr>)}</tbody>
+            <div className="rounded-xl border border-slate-200 bg-white p-3 dark:border-slate-700 dark:bg-slate-800">
+              <h3 className="mb-2 text-sm font-semibold text-slate-900 dark:text-white">Wallet activity</h3>
+              {!washerWallet?.transactions?.length ? <p className="rounded-lg bg-slate-50 p-3 text-xs text-slate-500 dark:bg-slate-900">No wallet transactions yet.</p> : (
+                <>
+                  <ul className="space-y-2 sm:hidden">
+                    {washerWallet.transactions.map((entry) => (
+                      <li key={entry.id} className="rounded-lg bg-slate-50 p-3 text-xs dark:bg-slate-900">
+                        <div className="flex items-center justify-between gap-2">
+                          <span className="font-medium capitalize">{entry.type}</span>
+                          <span className="font-semibold">KSh {Number(entry.amount).toLocaleString('en-KE')}</span>
+                        </div>
+                        <div className="mt-1 flex items-center justify-between gap-2 text-slate-500 dark:text-slate-400">
+                          <span className="capitalize">{entry.status}</span>
+                          <span>{new Date(entry.created_at).toLocaleDateString()}</span>
+                        </div>
+                        {(entry.reason || entry.provider_transaction_id) && <p className="mt-1 truncate text-slate-500 dark:text-slate-400">{entry.reason || entry.provider_transaction_id}</p>}
+                      </li>
+                    ))}
+                  </ul>
+                  <div className="hidden overflow-x-auto sm:block">
+                    <table className="min-w-full text-left text-sm">
+                      <thead className="border-b border-slate-200 text-xs uppercase text-slate-500 dark:border-slate-700"><tr><th className="py-2 pr-4">Type</th><th className="py-2 pr-4">Amount</th><th className="py-2 pr-4">Status</th><th className="py-2 pr-4">Date</th><th className="py-2">Details</th></tr></thead>
+                      <tbody>{washerWallet.transactions.map((entry) => <tr key={entry.id} className="border-b border-slate-100 dark:border-slate-700"><td className="py-2 pr-4 capitalize">{entry.type}</td><td className="py-2 pr-4 font-semibold">KSh {Number(entry.amount).toLocaleString('en-KE')}</td><td className="py-2 pr-4 capitalize">{entry.status}</td><td className="whitespace-nowrap py-2 pr-4">{new Date(entry.created_at).toLocaleString()}</td><td className="py-2 text-slate-500">{entry.reason || entry.provider_transaction_id || '—'}</td></tr>)}</tbody>
                   </table>
-                </div>
+                  </div>
+                </>
               )}
             </div>
-            <p className="text-xs text-slate-500 dark:text-slate-400">Revenue reflects payments received for orders assigned to your washer account. Commission is an estimate based on the configured rate.</p>
           </section>
         )}
 
