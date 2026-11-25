@@ -126,16 +126,16 @@ export default function ServiceDetailPage() {
   if (loading) {
     return (
       <div className="min-h-screen bg-white dark:bg-black text-slate-900 dark:text-slate-50">
-        <div className="max-w-2xl mx-auto px-5 pt-6 pb-24">
+        <div className="max-w-2xl mx-auto px-4 pt-4 pb-24 sm:px-5 sm:pt-6">
           <button
             onClick={() => router.back()}
-            className="flex items-center gap-2 text-red-600 hover:text-red-700 dark:text-red-500 dark:hover:text-red-400 transition-colors mb-8"
+            className="flex items-center gap-2 text-red-600 hover:text-red-700 dark:text-red-500 dark:hover:text-red-400 transition-colors mb-4 sm:mb-8"
           >
             <ArrowLeftIcon className="w-5 h-5" />
             Back
           </button>
           <div className="space-y-4">
-            <div className="h-[500px] bg-slate-100 dark:bg-slate-900 rounded-2xl animate-pulse" />
+            <div className="h-[220px] sm:h-[300px] lg:h-[420px] bg-slate-100 dark:bg-slate-900 rounded-xl sm:rounded-2xl animate-pulse" />
             <div className="h-6 bg-slate-100 dark:bg-slate-900 rounded-lg animate-pulse w-3/4" />
             <div className="h-3 bg-slate-100 dark:bg-slate-900 rounded-lg animate-pulse" />
             <div className="h-3 bg-slate-100 dark:bg-slate-900 rounded-lg animate-pulse w-1/2" />
@@ -148,10 +148,10 @@ export default function ServiceDetailPage() {
   if (serviceError || !displayService) {
     return (
       <div className="min-h-screen bg-white dark:bg-black text-slate-900 dark:text-slate-50">
-        <div className="max-w-2xl mx-auto px-5 pt-6 pb-24">
+        <div className="max-w-2xl mx-auto px-4 pt-4 pb-24 sm:px-5 sm:pt-6">
           <button
             onClick={() => router.back()}
-            className="flex items-center gap-2 text-red-600 hover:text-red-700 dark:text-red-500 dark:hover:text-red-400 transition-colors mb-8"
+            className="flex items-center gap-2 text-red-600 hover:text-red-700 dark:text-red-500 dark:hover:text-red-400 transition-colors mb-4 sm:mb-8"
           >
             <ArrowLeftIcon className="w-5 h-5" />
             Back
@@ -177,20 +177,20 @@ export default function ServiceDetailPage() {
 
   return (
     <div className="min-h-screen bg-white dark:bg-black text-slate-900 dark:text-slate-50">
-      <div className="max-w-7xl mx-auto px-5 pt-6 pb-24">
+      <div className="max-w-7xl mx-auto px-4 pt-4 pb-24 sm:px-5 sm:pt-6">
         {/* Back button */}
         <button
           onClick={() => router.back()}
-          className="flex items-center gap-2 text-red-600 hover:text-red-700 dark:text-red-500 dark:hover:text-red-400 transition-colors mb-8"
+          className="flex items-center gap-2 text-red-600 hover:text-red-700 dark:text-red-500 dark:hover:text-red-400 transition-colors mb-4 sm:mb-8"
         >
           <ArrowLeftIcon className="w-5 h-5" />
           Back
         </button>
 
-        <div className="grid gap-8 lg:grid-cols-[minmax(0,2fr)_minmax(300px,1fr)]">
+        <div className="grid gap-6 lg:gap-8 lg:grid-cols-[minmax(0,2fr)_minmax(300px,1fr)]">
           <div className="min-w-0">
             {/* Service image/icon */}
-            <div className="w-full h-[500px] bg-gradient-to-br from-slate-100 to-slate-50 dark:from-slate-800 dark:to-slate-950 rounded-2xl flex items-center justify-center mb-6 border border-slate-200 dark:border-slate-800 overflow-hidden">
+            <div className="w-full h-[220px] sm:h-[300px] lg:h-[420px] bg-gradient-to-br from-slate-100 to-slate-50 dark:from-slate-800 dark:to-slate-950 rounded-xl sm:rounded-2xl flex items-center justify-center mb-4 sm:mb-6 border border-slate-200 dark:border-slate-800 overflow-hidden">
               {displayService?.image_url ? (
                 <StableImage
                   src={displayService.image_url}
@@ -200,7 +200,7 @@ export default function ServiceDetailPage() {
                 />
               ) : (
                 <div className="flex flex-col items-center">
-                  <SparklesIcon className="w-24 h-24 text-slate-400 dark:text-slate-600 mb-3" />
+                  <SparklesIcon className="w-16 h-16 sm:w-24 sm:h-24 text-slate-400 dark:text-slate-600 mb-3" />
                   <span className="text-slate-500 dark:text-slate-500 text-sm font-500">
                     {displayService?.category || "Service"}
                   </span>
