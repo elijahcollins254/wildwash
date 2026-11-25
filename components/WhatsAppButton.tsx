@@ -48,8 +48,8 @@ export default function WhatsAppButton() {
   return (
     <div
       aria-hidden={isScrolling}
-      className={`fixed z-[9999] flex flex-col items-end gap-2 transition-[transform,opacity] duration-300 ease-in-out ${
-        isScrolling ? "translate-x-full opacity-0 pointer-events-none" : "translate-x-0 opacity-100"
+      className={`fixed z-[9999] flex flex-col items-end gap-2 scroll-snap-control ${
+        isScrolling ? "scroll-snap-out pointer-events-none" : ""
       }`}
       style={{
         bottom: `calc(env(safe-area-inset-bottom, 0px) + ${isDesktop ? 84 : 156}px)`,

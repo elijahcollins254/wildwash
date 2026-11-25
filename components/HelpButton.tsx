@@ -81,8 +81,8 @@ export default function HelpButton() {
           ? `Get help from Wild Wash, ${unreadCount} unread messages`
           : "Get help from Wild Wash"
       }
-      className={`fixed bottom-[calc(env(safe-area-inset-bottom,0px)+88px)] right-[calc(env(safe-area-inset-right,0px)+16px)] z-[9999] flex items-center gap-3 rounded-full bg-red-700 px-3 py-2 shadow-lg transition-[transform,opacity] duration-300 ease-in-out hover:brightness-95 active:scale-95 focus:outline-none focus-visible:ring-2 focus-visible:ring-red-300 md:bottom-[calc(env(safe-area-inset-bottom,0px)+16px)] ${
-        isScrolling ? "translate-x-full opacity-0 pointer-events-none" : "translate-x-0 opacity-100"
+      className={`fixed bottom-[calc(env(safe-area-inset-bottom,0px)+88px)] right-[calc(env(safe-area-inset-right,0px)+16px)] z-[9999] flex items-center gap-3 rounded-full bg-red-700 px-3 py-2 shadow-lg scroll-snap-control hover:brightness-95 active:scale-95 focus:outline-none focus-visible:ring-2 focus-visible:ring-red-300 md:bottom-[calc(env(safe-area-inset-bottom,0px)+16px)] ${
+        isScrolling ? "scroll-snap-out pointer-events-none" : ""
       }`}
     >
       <span className="relative flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-white/10">
