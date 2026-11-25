@@ -327,8 +327,8 @@ export default function HomePage() {
           })
           .sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0));
         const mixedItems: CarouselItem[] = [
-          ...currentOffers.slice(0, 3).map((offer): CarouselItem => ({ kind: "offer", data: offer })),
           ...currentBanners.map((banner): CarouselItem => ({ kind: "banner", data: banner })),
+          ...currentOffers.slice(0, 3).map((offer): CarouselItem => ({ kind: "offer", data: offer })),
         ];
 
         if (isMounted) {
@@ -525,7 +525,7 @@ export default function HomePage() {
   const promoAndOffers = (
     <>
       {carouselSlideCount > 0 && (
-      <section aria-label="Wild Wash offers" className="col-span-full mb-2">
+      <section aria-label="Wild Wash promotions" className="col-span-full mb-2">
         <div
           ref={promoCarouselRef}
           className="scrollbar-hide flex snap-x snap-mandatory gap-3 overflow-x-auto"
@@ -583,7 +583,7 @@ export default function HomePage() {
             );
           })}
         </div>
-        <div className="mt-3 flex items-center justify-center gap-2"         aria-label="Offer slides">
+        <div className="mt-3 flex items-center justify-center gap-2" aria-label="Promotion slides">
           <button
             type="button"
             onClick={() => setActivePromo((activePromo + carouselSlideCount - 1) % carouselSlideCount)}
