@@ -5,7 +5,7 @@
  * - Single source of truth for orders across entire app
  * - Smart caching: orders cached and reused across page navigation
  * - SSE updates: refreshes staff order data when the backend changes an order
- * - Filters run on backend: status, rider, search parameters
+ * - Filters run on backend: status, rider, search, and date range
  * - <5s initial load time with pagination
  */
 
@@ -38,11 +38,15 @@ export interface OrderContextType {
   statusFilter: string;
   riderFilter: string;
   searchQuery: string;
+  dateFrom: string;
+  dateTo: string;
   
   // Actions
   setStatusFilter: (status: string) => void;
   setRiderFilter: (rider: string) => void;
   setSearchQuery: (query: string) => void;
+  setDateFrom: (date: string) => void;
+  setDateTo: (date: string) => void;
   resetFilters: () => void;
   
   // Manual refresh
@@ -74,6 +78,8 @@ export const OrderProvider: React.FC<OrderProviderProps> = ({ children }) => {
   const [statusFilter, setStatusFilter] = useState('');
   const [riderFilter, setRiderFilter] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
+  const [dateFrom, setDateFrom] = useState('');
+  const [dateTo, setDateTo] = useState('');
   
   // Refs for smart caching and request coordination
   const cacheRef = useRef<{ orders: Order[]; count: number; timestamp: number; filters: any }>({
@@ -86,6 +92,7 @@ export const OrderProvider: React.FC<OrderProviderProps> = ({ children }) => {
   const currentPageRef = useRef(1);
   const requestIdRef = useRef(0);
   const filtersInitializedRef = useRef(false);
+  const hasFetchedOrdersRef = useRef(false);
 
   /**
    * Fetch orders with filters - uses backend filtering for speed
@@ -95,7 +102,7 @@ export const OrderProvider: React.FC<OrderProviderProps> = ({ children }) => {
     try {
       // Check cache validity (5 minute TTL) - only use cache on initial load
       const cacheAge = Date.now() - cacheRef.current.timestamp;
-      const filterChanged = JSON.stringify({ statusFilter, riderFilter, searchQuery }) !== 
+      const filterChanged = JSON.stringify({ statusFilter, riderFilter, searchQuery, dateFrom, dateTo }) !== 
                            JSON.stringify(cacheRef.current.filters);
       
       if (useCache && cacheAge < 300000 && !filterChanged && cacheRef.current.orders.length > 0) {
@@ -103,10 +110,11 @@ export const OrderProvider: React.FC<OrderProviderProps> = ({ children }) => {
         setOrders(cacheRef.current.orders);
         setTotalOrdersCount(cacheRef.current.count);
         currentPageRef.current = 1;
+        hasFetchedOrdersRef.current = true;
         return;
       }
 
-      setIsLoading(true);
+      if (!hasFetchedOrdersRef.current) setIsLoading(true);
       setError(null);
 
       // Build query params (backend filtering is now available!)
@@ -116,6 +124,8 @@ export const OrderProvider: React.FC<OrderProviderProps> = ({ children }) => {
       if (statusFilter) params.append('status', statusFilter);
       if (riderFilter) params.append('rider', riderFilter);
       if (searchQuery) params.append('search', searchQuery);
+      if (dateFrom) params.append('date_from', dateFrom);
+      if (dateTo) params.append('date_to', dateTo);
 
       const endpoint = `/orders/?${params.toString()}`;
       console.log('[OrderContext] Fetching from:', endpoint);
@@ -131,13 +141,14 @@ export const OrderProvider: React.FC<OrderProviderProps> = ({ children }) => {
           orders: list,
           count,
           timestamp: Date.now(),
-          filters: { statusFilter, riderFilter, searchQuery }
+          filters: { statusFilter, riderFilter, searchQuery, dateFrom, dateTo }
         };
       }
 
       setOrders(currentOrders => append ? [...currentOrders, ...list] : [...list]);
       setTotalOrdersCount(count);
       currentPageRef.current = page;
+      hasFetchedOrdersRef.current = true;
       console.log('[OrderContext] Orders updated:', list.length, 'items');
 
     } catch (err: any) {
@@ -148,7 +159,7 @@ export const OrderProvider: React.FC<OrderProviderProps> = ({ children }) => {
     } finally {
       if (requestId === requestIdRef.current) setIsLoading(false);
     }
-  }, [statusFilter, riderFilter, searchQuery]);
+  }, [statusFilter, riderFilter, searchQuery, dateFrom, dateTo]);
 
   /**
    * Debounced fetch when filters change
@@ -178,6 +189,8 @@ export const OrderProvider: React.FC<OrderProviderProps> = ({ children }) => {
     setStatusFilter('');
     setRiderFilter('');
     setSearchQuery('');
+    setDateFrom('');
+    setDateTo('');
   }, []);
 
   /**
@@ -207,7 +220,7 @@ export const OrderProvider: React.FC<OrderProviderProps> = ({ children }) => {
       return;
     }
     debouncedFetch();
-  }, [statusFilter, riderFilter, searchQuery, debouncedFetch]);
+  }, [statusFilter, riderFilter, searchQuery, dateFrom, dateTo, debouncedFetch]);
 
   // Cleanup
   useEffect(() => {
@@ -226,9 +239,13 @@ export const OrderProvider: React.FC<OrderProviderProps> = ({ children }) => {
     statusFilter,
     riderFilter,
     searchQuery,
+    dateFrom,
+    dateTo,
     setStatusFilter,
     setRiderFilter,
     setSearchQuery,
+    setDateFrom,
+    setDateTo,
     resetFilters,
     refetchOrders,
     loadMoreOrders,

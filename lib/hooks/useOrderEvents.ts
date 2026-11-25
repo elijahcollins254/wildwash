@@ -15,14 +15,24 @@ export function useOrderEvents(
     if (!enabled) return;
 
     const controller = new AbortController();
+    let refreshTimer: number | undefined;
+    const scheduleRefresh = () => {
+      window.clearTimeout(refreshTimer);
+      refreshTimer = window.setTimeout(() => onUpdateRef.current(), 250);
+    };
     void listenForOrderUpdates(
       controller.signal,
-      () => onUpdateRef.current(),
+      scheduleRefresh,
       (error) => {
         console.error("[Order events] SSE connection failed:", error);
       },
     );
 
-    return () => controller.abort();
+    document.addEventListener("visibilitychange", scheduleRefresh);
+    return () => {
+      controller.abort();
+      window.clearTimeout(refreshTimer);
+      document.removeEventListener("visibilitychange", scheduleRefresh);
+    };
   }, [enabled]);
 }

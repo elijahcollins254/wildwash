@@ -6,6 +6,7 @@ import Link from "next/link";
 import RouteGuard from "@/components/RouteGuard";
 import Modal from "@/components/ui/Modal";
 import { useRiderOrderUpdates } from "@/lib/hooks/useRiderOrderUpdates";
+import OrderUpdatesService from "@/lib/services/orderUpdatesService";
 import { FiArrowRight, FiCheck, FiX, FiBox, FiClock, FiTruck } from "react-icons/fi";
 import { AiOutlineLoading3Quarters } from "react-icons/ai";
 import { client } from "@/lib/api/client";
@@ -262,7 +263,8 @@ export default function RiderMapPage(): React.ReactElement {
         throw new Error(errorData.error || `Failed to update order: ${res.status}`);
       }
 
-      // Closing the form leaves the SSE subscription active.
+      const updatedOrder = await res.json();
+      OrderUpdatesService.getInstance().applyOrderUpdate(updatedOrder);
       handleCloseDetailsForm();
       setCurrentTab('in_progress');
     } catch (err: any) {
@@ -316,8 +318,8 @@ export default function RiderMapPage(): React.ReactElement {
         throw new Error(errorData.error || `Failed to complete pickup: ${res.status}`);
       }
 
-      // Refresh the orders list and switch to picked page
-      // SSE will deliver the order update.
+      const updatedOrder = await res.json();
+      OrderUpdatesService.getInstance().applyOrderUpdate(updatedOrder);
       setCurrentTab('in_progress'); // Switch to in_progress page after completion
     } catch (err: any) {
       console.error('Failed to complete pickup:', err);
@@ -364,6 +366,8 @@ export default function RiderMapPage(): React.ReactElement {
         throw new Error(errorData.error || `Failed to mark delivered: ${res.status}`);
       }
 
+      const updatedOrder = await res.json();
+      OrderUpdatesService.getInstance().applyOrderUpdate(updatedOrder);
       // Switch to completed tab
       setCurrentTab('completed');
     } catch (err: any) {
@@ -651,6 +655,7 @@ export default function RiderMapPage(): React.ReactElement {
                       {(order.status === 'assigned_pickup' || order.status === 'picked' || order.status === 'ready' || order.status === 'assigned_delivery') && (
                         <div className="flex flex-col gap-2" onClick={(e) => e.stopPropagation()}>
                           <button
+                            disabled={processingOrderId === order.id}
                             onClick={(e) => {
                               e.preventDefault();
                               e.stopPropagation();
@@ -662,7 +667,7 @@ export default function RiderMapPage(): React.ReactElement {
                               order.status === 'assigned_pickup' || order.status === 'picked'
                                 ? 'bg-green-600 hover:bg-green-700 text-white'
                                 : 'hidden'
-                            }`}
+                            } disabled:opacity-60`}
                           >
                             <span>{order.status === 'assigned_pickup' ? 'Confirm Pickup' : 'Complete Pickup'}</span>
                             <FiArrowRight className="h-4 w-4" />
@@ -683,8 +688,17 @@ export default function RiderMapPage(): React.ReactElement {
                                 : 'hidden'
                             }`}
                           >
-                            <span>{confirmingOrderId === order.id ? 'Confirm Delivery' : 'Mark as Delivered'}</span>
-                            <FiCheck className="h-4 w-4" />
+                            {processingOrderId === order.id ? (
+                              <>
+                                <AiOutlineLoading3Quarters className="h-4 w-4 animate-spin" />
+                                <span>Updating…</span>
+                              </>
+                            ) : (
+                              <>
+                                <span>{confirmingOrderId === order.id ? 'Confirm Delivery' : 'Mark as Delivered'}</span>
+                                <FiCheck className="h-4 w-4" />
+                              </>
+                            )}
                           </button>
                         </div>
                       )}

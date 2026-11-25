@@ -110,6 +110,21 @@ class OrderUpdatesService {
     return { loaded: this.hasLoaded, error: this.lastError };
   }
 
+  applyOrderUpdate(updatedOrder: Partial<Order> & { id: number }): void {
+    const orderIndex = this.cachedOrders.findIndex(order => order.id === updatedOrder.id);
+    if (orderIndex === -1) return;
+
+    const updatedOrders = [...this.cachedOrders];
+    updatedOrders[orderIndex] = {
+      ...updatedOrders[orderIndex],
+      ...updatedOrder,
+      status: typeof updatedOrder.status === 'string'
+        ? updatedOrder.status.toLowerCase()
+        : updatedOrders[orderIndex].status,
+    };
+    this.publishOrders(updatedOrders);
+  }
+
   private publishOrders(orders: Order[]): void {
     this.cachedOrders = orders;
     this.hasLoaded = true;
@@ -361,7 +376,7 @@ class OrderUpdatesService {
    * Manual refresh
    */
   async refreshNow(token: string): Promise<void> {
-    await this.fetchOrders(token);
+    await this.executeFetch(token);
   }
 }
 

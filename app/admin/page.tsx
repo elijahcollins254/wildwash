@@ -41,6 +41,7 @@ import {
   Eye,
 } from "lucide-react";
 import { FiRefreshCw, FiSearch, FiDownload, FiInbox, FiCheck } from "react-icons/fi";
+import { useOrderEvents } from "@/lib/hooks/useOrderEvents";
 
 /* --- Types --- */
 type RawOrder = Record<string, any>;
@@ -446,6 +447,25 @@ export default function AdminPage(): React.ReactElement {
   // Display orders: use paginated orders if available, fallback to Redux orders
   const displayOrders = allOrders.length > 0 ? allOrders : orders;
 
+  const refreshVisibleOrders = useCallback(() => {
+    if (activeTab !== 'orders') return;
+    const visibleLimit = Math.max(progressiveLoadedCount, allOrders.length, 20);
+    void fetchOrdersWithLimit(visibleLimit);
+  }, [activeTab, allOrders.length, fetchOrdersWithLimit, progressiveLoadedCount]);
+
+  useOrderEvents(refreshVisibleOrders, activeTab === 'orders');
+
+  const updateDisplayedOrder = useCallback((orderId: number, updatedOrder: RawOrder) => {
+    setAllOrders((currentOrders) => currentOrders.map((order) => {
+      if (order.id !== orderId) return order;
+      return {
+        ...order,
+        ...updatedOrder,
+        raw: { ...order.raw, ...updatedOrder },
+      };
+    }));
+  }, []);
+
   // Helper function to calculate price from order_items with quantities
   const calculateOrderPrice = (order: any): number => {
     if (order.order_items && Array.isArray(order.order_items) && order.order_items.length > 0) {
@@ -564,15 +584,19 @@ export default function AdminPage(): React.ReactElement {
         payload.rider = riderId;
       }
       
-      await client.patch(`/orders/update/?id=${orderId}`, payload);
+      const updatedOrder = await client.patch(`/orders/update/?id=${orderId}`, payload);
+      if (updatedOrder && typeof updatedOrder === 'object') {
+        updateDisplayedOrder(orderId, updatedOrder);
+      }
       setUserActionSuccess('Rider assigned successfully');
       dispatch(fetchOrders());
       setTimeout(() => setUserActionSuccess(null), 3000);
     } catch (err: any) {
       setUserActionError(err?.message ?? 'Failed to assign rider');
       setTimeout(() => setUserActionError(null), 3000);
+      throw err;
     }
-  }, [dispatch]);
+  }, [dispatch, updateDisplayedOrder]);
 
   const handleWasherAssignment = useCallback(async (orderId: number, washerId: number) => {
     const response = await client.post('/orders/assign-washer/', {
@@ -2513,7 +2537,7 @@ function AssignRiderButton({ order, users, onAssign }: { order: Order; users: Us
         disabled={!selectedRider || isAssigning}
         className="px-2 py-1 text-xs bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
       >
-        {isAssigning ? '...' : 'Assign'}
+        {isAssigning ? <><Loader2 className="mr-1 inline h-3.5 w-3.5 animate-spin" />Assigning…</> : 'Assign'}
       </button>
     </div>
   );
@@ -2588,7 +2612,7 @@ function InlineAssignWasherButton({
           disabled={!selectedWasher || isAssigning}
           className="rounded bg-blue-600 px-2 py-1.5 text-sm font-medium text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
         >
-          {isAssigning ? '...' : 'Assign'}
+          {isAssigning ? <span className="inline-flex items-center gap-1"><Loader2 className="h-3.5 w-3.5 animate-spin" />Assigning…</span> : 'Assign'}
         </button>
       </div>
       {error && <span role="alert" className="max-w-48 text-xs text-red-600">{error}</span>}
@@ -2597,9 +2621,10 @@ function InlineAssignWasherButton({
 }
 
 // Inline variant for Rider column - shows dropdown directly in table cell
-function InlineAssignRiderButton({ order, users, onAssign }: { order: Order; users: User[]; onAssign: (orderId: number, riderId: number, status?: string) => void }) {
+function InlineAssignRiderButton({ order, users, onAssign }: { order: Order; users: User[]; onAssign: (orderId: number, riderId: number, status?: string) => Promise<void> }) {
   const [selectedRider, setSelectedRider] = useState<string>('');
   const [isAssigning, setIsAssigning] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   // Filter riders: by role='rider', or by is_staff=true (fallback for older data)
   // Only include if is_active is not explicitly false (allow null/undefined as active)
@@ -2617,9 +2642,12 @@ function InlineAssignRiderButton({ order, users, onAssign }: { order: Order; use
     if (!selectedRider) return;
 
     setIsAssigning(true);
+    setError(null);
     try {
       await onAssign(order.id!, parseInt(selectedRider));
       setSelectedRider('');
+    } catch (assignmentError) {
+      setError(assignmentError instanceof Error ? assignmentError.message : 'Failed to assign rider');
     } finally {
       setIsAssigning(false);
     }
@@ -2639,6 +2667,7 @@ function InlineAssignRiderButton({ order, users, onAssign }: { order: Order; use
         value={selectedRider}
         onChange={(e) => setSelectedRider(e.target.value)}
         disabled={isAssigning}
+        aria-label={`Assign rider to order ${order.code ?? ''}`}
         className="text-sm rounded border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 px-3 py-1.5 font-medium text-slate-900 dark:text-slate-100 hover:border-slate-400 dark:hover:border-slate-500 transition-colors"
       >
         <option value="">Select rider...</option>
@@ -2657,7 +2686,7 @@ function InlineAssignRiderButton({ order, users, onAssign }: { order: Order; use
             className="px-2 py-1.5 text-sm bg-green-600 text-white rounded hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors font-medium"
             title="Confirm assignment"
           >
-            {isAssigning ? '...' : '✓'}
+            {isAssigning ? <><Loader2 className="h-3.5 w-3.5 animate-spin" /> Assigning…</> : 'Assign'}
           </button>
           <button
             onClick={handleCancel}
@@ -2669,6 +2698,7 @@ function InlineAssignRiderButton({ order, users, onAssign }: { order: Order; use
           </button>
         </>
       )}
+      {error && <span role="alert" className="text-xs text-red-600">{error}</span>}
     </div>
   );
 }
@@ -2842,7 +2872,7 @@ function LaundryAssignmentButton({
                 disabled={!selectedLocationId || saving || loading}
                 className="rounded-md bg-blue-700 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-800 disabled:cursor-not-allowed disabled:opacity-50"
               >
-                {saving ? 'Assigning...' : 'Confirm assignment'}
+                {saving ? <span className="inline-flex items-center gap-2"><Loader2 className="h-4 w-4 animate-spin" />Assigning…</span> : 'Confirm assignment'}
               </button>
             </div>
           </section>

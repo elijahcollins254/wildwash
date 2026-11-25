@@ -92,6 +92,34 @@ const ROLE_CONFIG = {
   }
 };
 
+type DateRangePreset = 'all' | 'last7' | 'last30' | 'thisMonth' | 'lastMonth' | 'custom';
+
+function formatDateInput(date: Date): string {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
+function getPresetDateRange(preset: Exclude<DateRangePreset, 'all' | 'custom'>): { from: string; to: string } {
+  const today = new Date();
+  let from = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+  let to = new Date(from);
+
+  if (preset === 'last7') {
+    from.setDate(from.getDate() - 6);
+  } else if (preset === 'last30') {
+    from.setDate(from.getDate() - 29);
+  } else if (preset === 'thisMonth') {
+    from.setDate(1);
+  } else {
+    from = new Date(today.getFullYear(), today.getMonth() - 1, 1);
+    to = new Date(today.getFullYear(), today.getMonth(), 0);
+  }
+
+  return { from: formatDateInput(from), to: formatDateInput(to) };
+}
+
 export default function StaffRoleDashboard({ staffRole }: StaffRoleDashboardProps): React.ReactElement {
   const router = useRouter();
   const config = ROLE_CONFIG[staffRole];
@@ -105,15 +133,20 @@ export default function StaffRoleDashboard({ staffRole }: StaffRoleDashboardProp
     statusFilter,
     riderFilter,
     searchQuery,
+    dateFrom,
+    dateTo,
     setStatusFilter,
     setRiderFilter,
     setSearchQuery,
+    setDateFrom,
+    setDateTo,
     resetFilters,
     refetchOrders,
     loadMoreOrders,
   } = useOrders();
   
   // Local state
+  const [dateRangePreset, setDateRangePreset] = useState<DateRangePreset>(() => dateFrom || dateTo ? 'custom' : 'all');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [profile, setProfile] = useState<any | null>(null);
@@ -143,6 +176,7 @@ export default function StaffRoleDashboard({ staffRole }: StaffRoleDashboardProp
   const [profileError, setProfileError] = useState('');
   const [detailsFormOrderId, setDetailsFormOrderId] = useState<number | null>(null);
   const [detailsForm, setDetailsForm] = useState<{ items?: number; weight_kg?: string; pickup_notes?: string; actual_price?: string }>({});
+  const [updatingStatusOrderId, setUpdatingStatusOrderId] = useState<number | null>(null);
   const [displayLimit, setDisplayLimit] = useState<number>(20);
   const [showCreateOrderModal, setShowCreateOrderModal] = useState(false);
   const [creatingOrder, setCreatingOrder] = useState(false);
@@ -449,22 +483,26 @@ export default function StaffRoleDashboard({ staffRole }: StaffRoleDashboardProp
       blue: {
         bg: 'bg-blue-100 dark:bg-blue-900/30',
         text: 'text-blue-700 dark:text-blue-400',
-        hover: 'hover:bg-blue-200 dark:hover:bg-blue-900/50'
+        hover: 'hover:bg-blue-200 dark:hover:bg-blue-900/50',
+        button: 'bg-blue-600 text-white hover:bg-blue-700 dark:bg-blue-700 dark:hover:bg-blue-600 focus-visible:ring-blue-500'
       },
       purple: {
         bg: 'bg-purple-100 dark:bg-purple-900/30',
         text: 'text-purple-700 dark:text-purple-400',
-        hover: 'hover:bg-purple-200 dark:hover:bg-purple-900/50'
+        hover: 'hover:bg-purple-200 dark:hover:bg-purple-900/50',
+        button: 'bg-purple-600 text-white hover:bg-purple-700 dark:bg-purple-700 dark:hover:bg-purple-600 focus-visible:ring-purple-500'
       },
       amber: {
         bg: 'bg-amber-100 dark:bg-amber-900/30',
         text: 'text-amber-700 dark:text-amber-400',
-        hover: 'hover:bg-amber-200 dark:hover:bg-amber-900/50'
+        hover: 'hover:bg-amber-200 dark:hover:bg-amber-900/50',
+        button: 'bg-amber-600 text-white hover:bg-amber-700 dark:bg-amber-700 dark:hover:bg-amber-600 focus-visible:ring-amber-500'
       },
       slate: {
         bg: 'bg-slate-100 dark:bg-slate-900/30',
         text: 'text-slate-700 dark:text-slate-400',
-        hover: 'hover:bg-slate-200 dark:hover:bg-slate-900/50'
+        hover: 'hover:bg-slate-200 dark:hover:bg-slate-900/50',
+        button: 'bg-slate-700 text-white hover:bg-slate-800 dark:bg-slate-600 dark:hover:bg-slate-500 focus-visible:ring-slate-500'
       }
     };
     return colors[colorName] || colors.slate;
@@ -571,6 +609,64 @@ export default function StaffRoleDashboard({ staffRole }: StaffRoleDashboardProp
               className="rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 px-3 py-2 text-sm text-slate-900 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500 shadow-sm focus:outline-none focus:ring-2 focus:ring-red-500 transition-all"
             />
 
+            <label className="flex flex-col gap-1 text-xs font-medium text-slate-600 dark:text-slate-300">
+              Statement period
+              <select
+                value={dateRangePreset}
+                onChange={(e) => {
+                  const preset = e.target.value as DateRangePreset;
+                  setDateRangePreset(preset);
+                  if (preset === 'all') {
+                    setDateFrom('');
+                    setDateTo('');
+                  } else if (preset !== 'custom') {
+                    const range = getPresetDateRange(preset);
+                    setDateFrom(range.from);
+                    setDateTo(range.to);
+                  }
+                }}
+                className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-normal text-slate-900 shadow-sm dark:border-slate-600 dark:bg-slate-700 dark:text-slate-100"
+              >
+                <option value="all">All dates</option>
+                <option value="last7">Last 7 days</option>
+                <option value="last30">Last 30 days</option>
+                <option value="thisMonth">This month</option>
+                <option value="lastMonth">Last month</option>
+                <option value="custom">Custom range</option>
+              </select>
+            </label>
+
+            {dateRangePreset === 'custom' && (
+              <>
+                <label className="flex flex-col gap-1 text-xs font-medium text-slate-600 dark:text-slate-300">
+                  From
+                  <input
+                    type="date"
+                    value={dateFrom}
+                    onChange={(e) => {
+                      const nextDate = e.target.value;
+                      setDateFrom(nextDate);
+                      if (dateTo && nextDate && nextDate > dateTo) setDateTo(nextDate);
+                    }}
+                    className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-normal text-slate-900 shadow-sm dark:border-slate-600 dark:bg-slate-700 dark:text-slate-100"
+                  />
+                </label>
+                <label className="flex flex-col gap-1 text-xs font-medium text-slate-600 dark:text-slate-300">
+                  To
+                  <input
+                    type="date"
+                    value={dateTo}
+                    onChange={(e) => {
+                      const nextDate = e.target.value;
+                      setDateTo(nextDate);
+                      if (dateFrom && nextDate && nextDate < dateFrom) setDateFrom(nextDate);
+                    }}
+                    className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-normal text-slate-900 shadow-sm dark:border-slate-600 dark:bg-slate-700 dark:text-slate-100"
+                  />
+                </label>
+              </>
+            )}
+
             <select
               value={displayLimit}
               onChange={(e) => setDisplayLimit(Number(e.target.value))}
@@ -584,7 +680,7 @@ export default function StaffRoleDashboard({ staffRole }: StaffRoleDashboardProp
             </select>
 
             <button 
-              onClick={() => { resetFilters(); setDisplayLimit(20); }} 
+              onClick={() => { resetFilters(); setDateRangePreset('all'); setDisplayLimit(20); }} 
               className="text-sm text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300"
             >
               Reset
@@ -644,37 +740,40 @@ export default function StaffRoleDashboard({ staffRole }: StaffRoleDashboardProp
                   <th className="text-right py-2 px-3">Actions</th>
                 </tr>
               </thead>
-              <tbody className="block space-y-3 sm:table-row-group sm:space-y-0">
+              <tbody className="block space-y-2 sm:table-row-group sm:space-y-0">
                 {filteredOrders.slice(0, displayLimit).map((o) => {
                   const urgency = calculateOrderUrgency(o);
                   const label = getUrgencyLabel(urgency.score);
+                  const isUpdatingStatus = updatingStatusOrderId === o.id;
                   return (
-                    <tr key={o.id ?? o.code} className={`mb-3 block rounded-xl border border-slate-200 p-3 dark:border-slate-700 sm:mb-0 sm:table-row sm:rounded-none sm:border-0 sm:border-b sm:p-0 ${label.rowBgColor} hover:brightness-95 dark:hover:brightness-125`}>
-                      <td className="block px-0 py-2 text-left font-mono sm:table-cell sm:px-3">
+                    <tr key={o.id ?? o.code} className={`grid grid-cols-2 gap-x-3 gap-y-1 rounded-lg border border-slate-200 p-2 dark:border-slate-700 sm:table-row sm:rounded-none sm:border-0 sm:border-b sm:p-0 ${label.rowBgColor} hover:brightness-95 dark:hover:brightness-125`}>
+                      <td className="col-span-1 block px-0 py-1 text-left font-mono sm:table-cell sm:px-3 sm:py-2">
                         <div className="flex items-start justify-between gap-3 sm:block">
-                          <span className="font-sans text-xs font-medium text-slate-500 dark:text-slate-400 sm:hidden">Code</span>
+                          <span className="font-sans text-[10px] font-medium text-slate-500 dark:text-slate-400 sm:hidden">Code</span>
                           <Link href={`/staff/order/${o.code}`} className="break-all text-right text-indigo-600 dark:text-indigo-400 hover:underline sm:text-left">
                             {o.code}
                           </Link>
                         </div>
                       </td>
-                      <td className="block px-0 py-2 text-left sm:table-cell sm:px-3 sm:text-right">
+                      <td className="col-span-1 block px-0 py-1 text-left sm:table-cell sm:px-3 sm:py-2 sm:text-right">
                         <div className="flex items-start justify-between gap-3 sm:block">
-                          <span className="text-xs font-medium text-slate-500 dark:text-slate-400 sm:hidden">Date</span>
-                          <span className="whitespace-nowrap text-slate-600 dark:text-slate-400">{o.created_at?.split?.('T')?.[0] ?? '—'}</span>
+                          <span className="text-[10px] font-medium text-slate-500 dark:text-slate-400 sm:hidden">Date</span>
+                          <span className="whitespace-nowrap text-xs text-slate-600 dark:text-slate-400">{o.created_at?.split?.('T')?.[0] ?? '—'}</span>
                         </div>
                       </td>
-                      <td className="block px-0 py-2 text-left sm:table-cell sm:px-3">
+                      <td className="col-span-2 block px-0 py-1 text-left sm:table-cell sm:px-3 sm:py-2">
                         <div className="flex items-start justify-between gap-3 sm:block">
-                          <span className="text-xs font-medium text-slate-500 dark:text-slate-400 sm:hidden">Status</span>
-                          <div className="flex w-3/4 flex-col gap-2 sm:w-auto">
-                            <div className="rounded bg-slate-100 px-3 py-1 text-xs font-medium capitalize text-slate-700 dark:bg-slate-700 dark:text-slate-300">
+                          <span className="text-[10px] font-medium text-slate-500 dark:text-slate-400 sm:hidden">Status</span>
+                          <div className="flex w-3/4 flex-col gap-1 sm:w-auto sm:gap-2">
+                            <div className="rounded bg-slate-100 px-2 py-1 text-xs font-medium capitalize text-slate-700 dark:bg-slate-700 dark:text-slate-300 sm:px-3">
                               {o.status ?? o.state ?? 'requested'}
                             </div>
                             {config.statusAction && config.targetStatus ? (
                               o.status !== config.targetStatus && (
                                 <button
                                   onClick={async () => {
+                                    if (updatingStatusOrderId !== null) return;
+                                    setUpdatingStatusOrderId(o.id);
                                     try {
                                       // Make the API call to update status
                                       await client.patch(`/orders/update/?id=${o.id}`, { status: config.targetStatus });
@@ -685,11 +784,21 @@ export default function StaffRoleDashboard({ staffRole }: StaffRoleDashboardProp
                                     } catch (err: any) {
                                       console.error('Failed to update status:', err);
                                       showModal('Error', err?.message || 'Failed to update status', 'error');
+                                    } finally {
+                                      setUpdatingStatusOrderId(null);
                                     }
                                   }}
-                                  className={`rounded px-3 py-1 ${colorClasses.bg} ${colorClasses.text} ${colorClasses.hover} text-xs font-medium transition-colors`}
+                                  disabled={updatingStatusOrderId !== null}
+                                  aria-busy={isUpdatingStatus}
+                                  className={`inline-flex min-h-10 items-center justify-center gap-2 rounded-lg px-4 py-2 text-sm font-semibold shadow-sm transition hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 disabled:cursor-wait disabled:opacity-70 sm:min-h-9 sm:px-3 sm:py-1.5 sm:text-xs ${colorClasses.button}`}
                                 >
-                                  {config.statusAction}
+                                  {isUpdatingStatus && (
+                                    <span
+                                      aria-hidden="true"
+                                      className="h-4 w-4 animate-spin rounded-full border-2 border-current border-r-transparent"
+                                    />
+                                  )}
+                                  <span>{isUpdatingStatus ? 'Updating…' : config.statusAction}</span>
                                 </button>
                               )
                             ) : (
@@ -710,9 +819,9 @@ export default function StaffRoleDashboard({ staffRole }: StaffRoleDashboardProp
                           </div>
                         </div>
                       </td>
-                      <td className="block px-0 py-2 text-left sm:table-cell sm:px-3">
+                      <td className="col-span-1 block px-0 py-1 text-left sm:table-cell sm:px-3 sm:py-2">
                         <div className="flex items-start justify-between gap-3 sm:block">
-                          <span className="text-xs font-medium text-slate-500 dark:text-slate-400 sm:hidden">Payment</span>
+                          <span className="text-[10px] font-medium text-slate-500 dark:text-slate-400 sm:hidden">Payment</span>
                           <span className={`inline-flex rounded px-2 py-1 text-xs font-medium ${
                           o.is_paid 
                             ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400' 
@@ -722,17 +831,17 @@ export default function StaffRoleDashboard({ staffRole }: StaffRoleDashboardProp
                           </span>
                         </div>
                       </td>
-                      <td className="block px-0 py-2 text-left sm:table-cell sm:px-3 sm:text-center">
+                      <td className="col-span-1 block px-0 py-1 text-left sm:table-cell sm:px-3 sm:py-2 sm:text-center">
                         <div className="flex items-start justify-between gap-3 sm:block">
-                          <span className="text-xs font-medium text-slate-500 dark:text-slate-400 sm:hidden">Urgency</span>
-                          <span className={`inline-block rounded-full border border-current/20 px-2 py-1 text-xs font-semibold ${label.bgColor} ${label.color}`}>
+                          <span className="text-[10px] font-medium text-slate-500 dark:text-slate-400 sm:hidden">Urgency</span>
+                          <span className={`inline-block rounded-full border border-current/20 px-2 py-1 text-[10px] font-semibold sm:text-xs ${label.bgColor} ${label.color}`}>
                             {label.label} ({urgency.score})
                           </span>
                         </div>
                       </td>
-                      <td className="block px-0 py-2 text-left text-slate-900 dark:text-slate-300 sm:table-cell sm:px-3">
+                      <td className="col-span-2 block px-0 py-1 text-left text-slate-900 dark:text-slate-300 sm:table-cell sm:px-3 sm:py-2">
                         <div className="flex items-start justify-between gap-3 sm:block">
-                          <span className="text-xs font-medium text-slate-500 dark:text-slate-400 sm:hidden">Assigned To</span>
+                          <span className="text-[10px] font-medium text-slate-500 dark:text-slate-400 sm:hidden">Assigned To</span>
                           <div>
                             {o.order_type === 'manual' ? (
                               <div className="flex flex-col">
@@ -753,9 +862,9 @@ export default function StaffRoleDashboard({ staffRole }: StaffRoleDashboardProp
                           </div>
                         </div>
                       </td>
-                      <td className="block px-0 py-2 text-left text-slate-900 dark:text-slate-300 sm:table-cell sm:px-3 sm:text-right">
+                      <td className="col-span-1 block px-0 py-1 text-left text-slate-900 dark:text-slate-300 sm:table-cell sm:px-3 sm:py-2 sm:text-right">
                         <div className="flex items-start justify-between gap-3 sm:block">
-                          <span className="text-xs font-medium text-slate-500 dark:text-slate-400 sm:hidden">Estimated Price</span>
+                          <span className="text-[10px] font-medium text-slate-500 dark:text-slate-400 sm:hidden">Estimated Price</span>
                           <span>
                             {(() => {
                               const total = o.total_price ?? null;
@@ -771,9 +880,9 @@ export default function StaffRoleDashboard({ staffRole }: StaffRoleDashboardProp
                           </span>
                         </div>
                       </td>
-                      <td className="block px-0 py-2 text-left text-slate-900 dark:text-slate-300 sm:table-cell sm:px-3 sm:text-right">
+                      <td className="col-span-1 block px-0 py-1 text-left text-slate-900 dark:text-slate-300 sm:table-cell sm:px-3 sm:py-2 sm:text-right">
                         <div className="flex items-start justify-between gap-3 sm:block">
-                          <span className="text-xs font-medium text-slate-500 dark:text-slate-400 sm:hidden">Actual Price</span>
+                          <span className="text-[10px] font-medium text-slate-500 dark:text-slate-400 sm:hidden">Actual Price</span>
                           <span>
                             {(() => {
                               // Map role-specific price fields
@@ -799,9 +908,9 @@ export default function StaffRoleDashboard({ staffRole }: StaffRoleDashboardProp
                           </span>
                         </div>
                       </td>
-                      <td className="block px-0 py-2 text-left sm:table-cell sm:px-3 sm:text-right">
+                      <td className="col-span-2 block px-0 py-1 text-left sm:table-cell sm:px-3 sm:py-2 sm:text-right">
                         <div className="flex items-start justify-between gap-3 sm:justify-end">
-                          <span className="text-xs font-medium text-slate-500 dark:text-slate-400 sm:hidden">Actions</span>
+                          <span className="text-[10px] font-medium text-slate-500 dark:text-slate-400 sm:hidden">Actions</span>
                           <button
                             onClick={() => {
                               // Map generic field names to role-specific field names for loading
@@ -822,7 +931,7 @@ export default function StaffRoleDashboard({ staffRole }: StaffRoleDashboardProp
                                 actual_price: o[fieldMap.price] !== undefined && o[fieldMap.price] !== null ? String(o[fieldMap.price]) : (o.actual_price !== undefined && o.actual_price !== null ? String(o.actual_price) : '')
                               });
                             }}
-                            className="rounded-lg bg-red-100 px-3 py-1 text-xs font-medium text-red-700 shadow-sm transition-colors hover:bg-red-200 hover:shadow-md dark:bg-red-900/30 dark:text-red-400 dark:hover:bg-red-900/50"
+                            className="inline-flex min-h-10 items-center justify-center rounded-lg bg-red-100 px-4 py-2 text-sm font-semibold text-red-700 shadow-sm transition-colors hover:bg-red-200 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-500 focus-visible:ring-offset-2 dark:bg-red-900/30 dark:text-red-400 dark:hover:bg-red-900/50 sm:min-h-9 sm:px-3 sm:py-1.5 sm:text-xs"
                           >
                             Add details
                           </button>

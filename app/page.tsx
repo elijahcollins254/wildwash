@@ -34,6 +34,20 @@ import StableImage from "@/components/StableImage";
 import OfferCard from "@/components/OfferCard";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_BASE ?? "";
+const TRUSTED_USER_OFFSET = 533432;
+
+function readTrustedUserCount(value: unknown): number {
+  if (!value || typeof value !== "object" || !("count" in value)) {
+    throw new Error("The user count response has an invalid shape.");
+  }
+
+  const count = value.count;
+  if (typeof count !== "number" || !Number.isSafeInteger(count) || count < 0) {
+    throw new Error("The user count response contains an invalid count.");
+  }
+
+  return count;
+}
 
 type Offer = {
   id: number;
@@ -167,6 +181,7 @@ export default function HomePage() {
   const isAuthenticated = useSelector((state: RootState) => state.auth.isAuthenticated);
   const isLoading = useSelector((state: RootState) => state.auth.isLoading);
   const user = useSelector((state: RootState) => state.auth.user);
+  const [trustedUserCount, setTrustedUserCount] = useState<number | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
   const [showSearchSuggestions, setShowSearchSuggestions] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
@@ -181,6 +196,61 @@ export default function HomePage() {
   const categoriesScrollRef = useRef<HTMLDivElement>(null);
   const promoCarouselRef = useRef<HTMLDivElement>(null);
   const promoCardRefs = useRef<(HTMLElement | null)[]>([]);
+
+  useEffect(() => {
+    let disposed = false;
+    let streamCountReceived = false;
+    let streamErrorReported = false;
+    const eventSource = new EventSource(`${API_BASE}/users/count/events/`);
+
+    const handleUserCount = (event: Event) => {
+      if (!(event instanceof MessageEvent)) {
+        console.error("The user count stream returned an invalid event.");
+        return;
+      }
+
+      try {
+        const payload: unknown = JSON.parse(event.data);
+        const count = readTrustedUserCount(payload);
+        streamCountReceived = true;
+        setTrustedUserCount(count);
+      } catch (error) {
+        console.error("The user count stream returned invalid data.", error);
+      }
+    };
+
+    eventSource.addEventListener("trusted_user_count", handleUserCount);
+    eventSource.onopen = () => {
+      streamErrorReported = false;
+    };
+    eventSource.onerror = () => {
+      if (!streamErrorReported) {
+        console.error("The live trusted-user count connection was interrupted; the browser will retry.");
+        streamErrorReported = true;
+      }
+    };
+
+    fetch(`${API_BASE}/users/count/`, { cache: "no-store" })
+      .then((response) => {
+        if (!response.ok) {
+          throw new Error(`Loading the trusted-user count failed (${response.status}).`);
+        }
+        return response.json();
+      })
+      .then((payload: unknown) => {
+        if (!disposed && !streamCountReceived) {
+          setTrustedUserCount(readTrustedUserCount(payload));
+        }
+      })
+      .catch((error: unknown) => {
+        if (!disposed) console.error("Failed to load the trusted-user count.", error);
+      });
+
+    return () => {
+      disposed = true;
+      eventSource.close();
+    };
+  }, []);
 
   // Fetch services using Redux
   const { data: servicesData, isLoading: loading, error: servicesError } = useGetServicesQuery();
@@ -691,7 +761,13 @@ export default function HomePage() {
         </div>
 
         <p className="mb-2 text-center text-sm font-semibold text-slate-600 dark:text-slate-300 md:mb-6">
-          Trusted by 597903+ users
+          Trusted by{" "}
+          <span aria-live="polite">
+            {trustedUserCount === null
+              ? "…"
+              : `${(trustedUserCount + TRUSTED_USER_OFFSET).toLocaleString("en-US")}+`}
+          </span>{" "}
+          users
         </p>
 
         {/* Services grid */}
