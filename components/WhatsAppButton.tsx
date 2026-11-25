@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { usePathname } from "next/navigation";
 import { FaWhatsapp } from "react-icons/fa";
 import { Phone } from "lucide-react";
+import { useScrollIdle } from "@/lib/hooks/useScrollIdle";
 
 export default function WhatsAppButton() {
   const pathname = usePathname();
@@ -12,6 +13,7 @@ export default function WhatsAppButton() {
 
   const [hidden, setHidden] = useState(false);
   const [isDesktop, setIsDesktop] = useState(true);
+  const isScrolling = useScrollIdle();
 
   useEffect(() => {
     const footer = document.getElementById("site-footer");
@@ -45,15 +47,19 @@ export default function WhatsAppButton() {
 
   return (
     <div
-      className="fixed z-[9999] flex flex-col items-end gap-2"
-    style={{
+      aria-hidden={isScrolling}
+      className={`fixed z-[9999] flex flex-col items-end gap-2 transition-[transform,opacity] duration-300 ease-in-out ${
+        isScrolling ? "translate-x-full opacity-0 pointer-events-none" : "translate-x-0 opacity-100"
+      }`}
+      style={{
         bottom: `calc(env(safe-area-inset-bottom, 0px) + ${isDesktop ? 84 : 156}px)`,
         right: "calc(env(safe-area-inset-right, 0px) + 16px)",
-    }}
+      }}
     >
       <a
         href="tel:+254769760460"
         aria-label="Call Wild Wash at +254 769 760460"
+        tabIndex={isScrolling ? -1 : undefined}
         className="flex items-center gap-3 rounded-full bg-blue-600 px-3 py-2 shadow-lg transition-transform hover:brightness-95 active:scale-95 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-300"
       >
         <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-white/10">
@@ -69,6 +75,7 @@ export default function WhatsAppButton() {
         target="_blank"
         rel="noopener noreferrer"
         aria-label="Chat with Wild Wash on WhatsApp"
+        tabIndex={isScrolling ? -1 : undefined}
         className="flex items-center gap-3 rounded-full bg-emerald-500 px-3 py-2 shadow-lg transition-transform hover:brightness-95 active:scale-95 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-300"
       >
         <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-white/10">

@@ -6,6 +6,7 @@ import { usePathname } from "next/navigation";
 import { ChatBubbleLeftRightIcon } from "@heroicons/react/24/outline";
 import { client } from "@/lib/api/client";
 import { listenForSupportMessages } from "@/lib/api/supportEvents";
+import { useScrollIdle } from "@/lib/hooks/useScrollIdle";
 import { useSelector } from "react-redux";
 import type { RootState } from "@/redux/store";
 
@@ -15,6 +16,7 @@ export default function HelpButton() {
     (state: RootState) => state.auth,
   );
   const [unreadCount, setUnreadCount] = useState(0);
+  const isScrolling = useScrollIdle();
 
   useEffect(() => {
     if (pathname === "/chat" || isLoading || !isAuthenticated) {
@@ -72,12 +74,16 @@ export default function HelpButton() {
   return (
     <Link
       href="/chat"
+      aria-hidden={isScrolling}
+      tabIndex={isScrolling ? -1 : undefined}
       aria-label={
         unreadCount > 0
           ? `Get help from Wild Wash, ${unreadCount} unread messages`
           : "Get help from Wild Wash"
       }
-      className="fixed bottom-[calc(env(safe-area-inset-bottom,0px)+88px)] right-[calc(env(safe-area-inset-right,0px)+16px)] z-[9999] flex items-center gap-3 rounded-full bg-red-700 px-3 py-2 shadow-lg transition-transform hover:brightness-95 active:scale-95 focus:outline-none focus-visible:ring-2 focus-visible:ring-red-300 md:bottom-[calc(env(safe-area-inset-bottom,0px)+16px)]"
+      className={`fixed bottom-[calc(env(safe-area-inset-bottom,0px)+88px)] right-[calc(env(safe-area-inset-right,0px)+16px)] z-[9999] flex items-center gap-3 rounded-full bg-red-700 px-3 py-2 shadow-lg transition-[transform,opacity] duration-300 ease-in-out hover:brightness-95 active:scale-95 focus:outline-none focus-visible:ring-2 focus-visible:ring-red-300 md:bottom-[calc(env(safe-area-inset-bottom,0px)+16px)] ${
+        isScrolling ? "translate-x-full opacity-0 pointer-events-none" : "translate-x-0 opacity-100"
+      }`}
     >
       <span className="relative flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-white/10">
         <ChatBubbleLeftRightIcon className="h-5 w-5 text-white" aria-hidden />

@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import type { FormEvent } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { useSelector } from "react-redux";
 import { ArrowLeftIcon, PaperAirplaneIcon } from "@heroicons/react/24/outline";
 import { client } from "@/lib/api/client";
@@ -164,12 +165,15 @@ export default function ChatPage() {
 
       <div className="flex min-h-[65vh] flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm dark:border-slate-700 dark:bg-slate-900">
         <header className="flex items-center gap-3 border-b border-slate-200 bg-red-700 px-5 py-4 text-white dark:border-slate-700">
-          <div className="flex h-10 w-10 items-center justify-center rounded-full bg-white/15 font-bold">
-            W
-          </div>
+          <Image
+            src="/favicon.png"
+            alt="Wild Wash logo"
+            width={40}
+            height={40}
+            className="h-10 w-10 rounded-full bg-white p-1 object-contain"
+          />
           <div>
             <h1 className="font-semibold">Wild Wash Support</h1>
-            <p className="text-xs text-red-100">We’ll reply here as soon as we can</p>
           </div>
         </header>
 
