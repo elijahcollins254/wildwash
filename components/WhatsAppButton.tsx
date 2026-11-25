@@ -2,6 +2,7 @@
 import { useEffect, useState } from "react";
 import { usePathname } from "next/navigation";
 import { FaWhatsapp } from "react-icons/fa";
+import { Phone } from "lucide-react";
 
 export default function WhatsAppButton() {
   const pathname = usePathname();
@@ -43,25 +44,40 @@ export default function WhatsAppButton() {
   if (hidden || pathname === "/chat") return null;
 
   return (
-    <a
-    href={href}
-    target="_blank"
-    rel="noopener noreferrer"
-    aria-label="Chat with Wild Wash on WhatsApp"
-    className="fixed z-[9999] flex items-center gap-3 rounded-full bg-emerald-500 hover:brightness-95 shadow-lg px-3 py-2 transition-transform active:scale-95 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-300"
-    // use the safe-area CSS so the button doesn't sit under home indicators / notches
+    <div
+      className="fixed z-[9999] flex flex-col items-end gap-2"
     style={{
         bottom: `calc(env(safe-area-inset-bottom, 0px) + ${isDesktop ? 84 : 156}px)`,
         right: "calc(env(safe-area-inset-right, 0px) + 16px)",
     }}
     >
-    <span className="flex items-center justify-center w-10 h-10 rounded-full bg-white/10 shrink-0">
-        <FaWhatsapp size={20} className="text-white" aria-hidden />
-    </span>
+      <a
+        href="tel:+254769760460"
+        aria-label="Call Wild Wash at +254 769 760460"
+        className="flex items-center gap-3 rounded-full bg-red-600 px-3 py-2 shadow-lg transition-transform hover:brightness-95 active:scale-95 focus:outline-none focus-visible:ring-2 focus-visible:ring-red-300"
+      >
+        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-white/10">
+          <Phone size={20} className="text-white" aria-hidden="true" />
+        </span>
+        <span className="hidden select-none text-sm font-semibold text-white sm:inline-block">
+          Call +254 769 760460
+        </span>
+      </a>
 
-    <span className="hidden sm:inline-block text-sm font-semibold text-white select-none">
-        Chat on WhatsApp
-    </span>
-    </a>
+      <a
+        href={href}
+        target="_blank"
+        rel="noopener noreferrer"
+        aria-label="Chat with Wild Wash on WhatsApp"
+        className="flex items-center gap-3 rounded-full bg-emerald-500 px-3 py-2 shadow-lg transition-transform hover:brightness-95 active:scale-95 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-300"
+      >
+        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-white/10">
+          <FaWhatsapp size={20} className="text-white" aria-hidden />
+        </span>
+        <span className="hidden select-none text-sm font-semibold text-white sm:inline-block">
+          Chat on WhatsApp
+        </span>
+      </a>
+    </div>
   );
 }
