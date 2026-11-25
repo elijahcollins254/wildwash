@@ -54,7 +54,7 @@ export default function WhatsAppButton() {
       <a
         href="tel:+254769760460"
         aria-label="Call Wild Wash at +254 769 760460"
-        className="flex items-center gap-3 rounded-full bg-red-600 px-3 py-2 shadow-lg transition-transform hover:brightness-95 active:scale-95 focus:outline-none focus-visible:ring-2 focus-visible:ring-red-300"
+        className="flex items-center gap-3 rounded-full bg-blue-600 px-3 py-2 shadow-lg transition-transform hover:brightness-95 active:scale-95 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-300"
       >
         <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-white/10">
           <Phone size={20} className="text-white" aria-hidden="true" />
