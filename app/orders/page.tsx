@@ -249,7 +249,7 @@ export default function OrdersPage(): React.JSX.Element {
               </div>
             </div>
           ) : (
-            <div className="space-y-6">
+            <div className="space-y-3">
               {filtered.map((o) => (
                 <OrderCard 
                   key={o.code} 
@@ -350,35 +350,35 @@ const OrderCard = React.memo(({ order: o, onCheckout }: { order: Order; onChecko
   const progressBarColor = getProgressBarColor(o.status);
 
   return (
-    <article className={`rounded-xl ${colors.bg} ${colors.border} bg-white/80 dark:bg-white/5 p-4 shadow-sm hover:shadow-md transition-all`}>
-      <div className="flex items-start justify-between gap-4 mb-4">
+    <article className={`rounded-xl ${colors.bg} ${colors.border} bg-white/80 dark:bg-white/5 p-3 shadow-sm hover:shadow-md transition-all`}>
+      <div className="flex items-start justify-between gap-3 mb-2">
         <div className="flex-1">
-          <div className="flex items-center gap-2 mb-2">
-            <IconComponent className="w-5 h-5 text-slate-600 dark:text-slate-400 flex-shrink-0" />
+          <div className="flex items-center gap-2 mb-1">
+            <IconComponent className="w-4 h-4 text-slate-600 dark:text-slate-400 flex-shrink-0" />
             <div>
-              <div className="font-mono font-bold text-sm text-slate-900 dark:text-slate-100">{o.code}</div>
-              <div className="text-xs text-slate-500 dark:text-slate-400">{orderDate.toLocaleDateString()} · {orderDate.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</div>
+              <div className="font-mono font-bold text-xs sm:text-sm text-slate-900 dark:text-slate-100">{o.code}</div>
+              <div className="text-[11px] text-slate-500 dark:text-slate-400">{orderDate.toLocaleDateString()} · {orderDate.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</div>
             </div>
           </div>
-          <span className={`inline-block px-2 py-0.5 rounded-full text-xs font-semibold ${colors.badge}`}>
+          <span className={`inline-block px-2 py-0.5 rounded-full text-[11px] font-semibold ${colors.badge}`}>
             {o.status}
           </span>
         </div>
         
         <div className="text-right">
-          <div className="text-xs text-slate-500 dark:text-slate-400 uppercase tracking-wider">Actual Price</div>
-          <div className="text-2xl font-bold text-slate-900 dark:text-slate-100">
+          <div className="text-[10px] text-slate-500 dark:text-slate-400 uppercase tracking-wider">Actual Price</div>
+          <div className="text-lg sm:text-xl font-bold text-slate-900 dark:text-slate-100">
             {actualPrice ? (
               formatActualPrice(actualPrice)
             ) : (
               <span className="text-red-500">Not Set</span>
             )}
           </div>
-          <div className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+          <div className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
             Est: {o.total_price ? `KSh ${o.total_price.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : 'Not Set'}
           </div>
           {isPaid && (
-            <div className={`text-xs font-semibold mt-1 flex items-center justify-end gap-1 ${
+            <div className={`text-[11px] font-semibold mt-0.5 flex items-center justify-end gap-1 ${
               o.payment_method === 'bnpl' 
                 ? 'text-red-600 dark:text-red-400' 
                 : 'text-green-600 dark:text-green-400'
@@ -390,8 +390,8 @@ const OrderCard = React.memo(({ order: o, onCheckout }: { order: Order; onChecko
       </div>
 
       {/* Progress bar */}
-      <div className="mb-4 pb-4 border-b border-slate-200 dark:border-slate-700">
-        <div className="h-2 sm:h-2.5 bg-slate-200 dark:bg-slate-700 rounded-full overflow-hidden mb-2">
+      <div className="mb-2 pb-2 border-b border-slate-200 dark:border-slate-700">
+        <div className="h-1.5 bg-slate-200 dark:bg-slate-700 rounded-full overflow-hidden mb-1.5">
           <div
             className={`h-full rounded-full transition-all duration-500 ${progressBarColor}`}
             style={{ 
@@ -401,10 +401,10 @@ const OrderCard = React.memo(({ order: o, onCheckout }: { order: Order; onChecko
           />
         </div>
         <div className="flex items-center justify-between">
-          <div className="text-xs text-slate-500 dark:text-slate-400">
+          <div className="text-[11px] text-slate-500 dark:text-slate-400">
             {progress}% complete
           </div>
-          <div className={`text-xs font-medium ${
+          <div className={`text-[11px] font-medium ${
             o.status.toLowerCase() === 'cancelled'
               ? 'text-gray-500'
               : o.status.toLowerCase() === 'delivered'
@@ -416,42 +416,42 @@ const OrderCard = React.memo(({ order: o, onCheckout }: { order: Order; onChecko
         </div>
       </div>
 
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-2 mb-4 pb-4 border-b border-slate-200 dark:border-slate-700">
-        <div className="rounded-lg bg-white/40 dark:bg-white/5 p-2.5">
-          <div className="text-xs text-slate-500 dark:text-slate-400 uppercase tracking-wide font-semibold">Items</div>
-          <div className="font-bold text-sm mt-1 text-slate-900 dark:text-slate-100">{o.items}</div>
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-1.5 mb-2 pb-2 border-b border-slate-200 dark:border-slate-700">
+        <div className="rounded-lg bg-white/40 dark:bg-white/5 p-2">
+          <div className="text-[10px] text-slate-500 dark:text-slate-400 uppercase tracking-wide font-semibold">Items</div>
+          <div className="font-bold text-xs mt-0.5 text-slate-900 dark:text-slate-100">{o.items}</div>
         </div>
 
         {(o.weight_kg || o.weightKg) && (
-          <div className="rounded-lg bg-white/40 dark:bg-white/5 p-2.5">
-            <div className="text-xs text-slate-500 dark:text-slate-400 uppercase tracking-wide font-semibold">Weight</div>
-            <div className="font-bold text-sm mt-1 text-slate-900 dark:text-slate-100">{o.weight_kg || o.weightKg} kg</div>
+          <div className="rounded-lg bg-white/40 dark:bg-white/5 p-2">
+            <div className="text-[10px] text-slate-500 dark:text-slate-400 uppercase tracking-wide font-semibold">Weight</div>
+            <div className="font-bold text-xs mt-0.5 text-slate-900 dark:text-slate-100">{o.weight_kg || o.weightKg} kg</div>
           </div>
         )}
 
         {(o.estimated_delivery || o.eta) && (
-          <div className="rounded-lg bg-white/40 dark:bg-white/5 p-2.5">
-            <div className="text-xs text-slate-500 dark:text-slate-400 uppercase tracking-wide font-semibold">ETA</div>
-            <div className="font-bold text-sm mt-1 text-slate-900 dark:text-slate-100">{o.estimated_delivery ? new Date(o.estimated_delivery).toLocaleDateString() : o.eta}</div>
+          <div className="rounded-lg bg-white/40 dark:bg-white/5 p-2">
+            <div className="text-[10px] text-slate-500 dark:text-slate-400 uppercase tracking-wide font-semibold">ETA</div>
+            <div className="font-bold text-xs mt-0.5 text-slate-900 dark:text-slate-100">{o.estimated_delivery ? new Date(o.estimated_delivery).toLocaleDateString() : o.eta}</div>
           </div>
         )}
         
-        <div className="rounded-lg bg-white/40 dark:bg-white/5 p-2.5">
-          <div className="text-xs text-slate-500 dark:text-slate-400 uppercase tracking-wide font-semibold">Package</div>
-          <div className="font-bold text-sm mt-1 text-slate-900 dark:text-slate-100 truncate">{o.package}</div>
+        <div className="rounded-lg bg-white/40 dark:bg-white/5 p-2">
+          <div className="text-[10px] text-slate-500 dark:text-slate-400 uppercase tracking-wide font-semibold">Package</div>
+          <div className="font-bold text-xs mt-0.5 text-slate-900 dark:text-slate-100 truncate">{o.package}</div>
         </div>
       </div>
 
       <div className="flex items-center gap-2">
         <Link 
           href={`/orders/${o.code}`} 
-          className="flex-1 px-3 py-2 rounded-lg bg-slate-100 dark:bg-white/10 hover:bg-slate-200 dark:hover:bg-white/20 text-slate-900 dark:text-slate-100 font-semibold text-sm text-center transition-all hover:shadow-sm">
+          className="flex-1 px-3 py-2 md:py-1.5 rounded-lg bg-slate-100 dark:bg-white/10 hover:bg-slate-200 dark:hover:bg-white/20 text-slate-900 dark:text-slate-100 font-semibold text-xs sm:text-sm text-center transition-all hover:shadow-sm">
           View Details
         </Link>
         {!isPaid && (
           <button 
             onClick={() => onCheckout(o.code)}
-            className="flex-1 px-3 py-2 rounded-lg bg-red-600 hover:bg-red-700 text-white font-semibold text-sm text-center transition-all hover:shadow-sm">
+            className="flex-1 px-3 py-2 md:py-1.5 rounded-lg bg-red-600 hover:bg-red-700 text-white font-semibold text-xs sm:text-sm text-center transition-all hover:shadow-sm">
             Pay Now
           </button>
         )}
