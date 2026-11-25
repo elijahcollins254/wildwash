@@ -51,6 +51,7 @@ export interface OrderContextType {
   
   // Manual refresh
   refetchOrders: () => Promise<void>;
+  updateOrder: (order: Partial<Order> & { id: number }) => void;
   loadMoreOrders: () => Promise<void>;
   
   // Role-specific method
@@ -203,6 +204,18 @@ export const OrderProvider: React.FC<OrderProviderProps> = ({ children }) => {
     await fetchOrders(1, false);
   }, [fetchOrders]);
 
+  const updateOrder = useCallback((updatedOrder: Partial<Order> & { id: number }) => {
+    setOrders(currentOrders => currentOrders.map(order => (
+      order.id === updatedOrder.id ? { ...order, ...updatedOrder } : order
+    )));
+    cacheRef.current = {
+      ...cacheRef.current,
+      orders: cacheRef.current.orders.map(order => (
+        order.id === updatedOrder.id ? { ...order, ...updatedOrder } : order
+      )),
+    };
+  }, []);
+
   const loadMoreOrders = useCallback(async () => {
     if (isLoading || orders.length >= totalOrdersCount) return;
     await fetchOrders(currentPageRef.current + 1, false, true);
@@ -248,6 +261,7 @@ export const OrderProvider: React.FC<OrderProviderProps> = ({ children }) => {
     setDateTo,
     resetFilters,
     refetchOrders,
+    updateOrder,
     loadMoreOrders,
     fetchOrdersForRole,
   };

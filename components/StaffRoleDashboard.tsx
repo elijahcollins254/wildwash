@@ -12,7 +12,7 @@ import Modal from '@/components/ui/Modal';
 import { calculateOrderUrgency, getUrgencyLabel } from '@/lib/orderUrgency';
 import { useOrders } from '@/lib/context/OrderContext';
 import { useOrderEvents } from '@/lib/hooks/useOrderEvents';
-import { WashingMachine } from 'lucide-react';
+import { Loader2, WashingMachine } from 'lucide-react';
 
 const PickupMap = dynamic(() => import('@/components/PickupMap'), { ssr: false });
 const DEFAULT_WASHER_POSITION: [number, number] = [-1.286389, 36.817223];
@@ -142,6 +142,7 @@ export default function StaffRoleDashboard({ staffRole }: StaffRoleDashboardProp
     setDateTo,
     resetFilters,
     refetchOrders,
+    updateOrder,
     loadMoreOrders,
   } = useOrders();
   
@@ -176,6 +177,8 @@ export default function StaffRoleDashboard({ staffRole }: StaffRoleDashboardProp
   const [profileError, setProfileError] = useState('');
   const [detailsFormOrderId, setDetailsFormOrderId] = useState<number | null>(null);
   const [detailsForm, setDetailsForm] = useState<{ items?: number; weight_kg?: string; pickup_notes?: string; actual_price?: string }>({});
+  const [savingDetailsOrderId, setSavingDetailsOrderId] = useState<number | null>(null);
+  const [detailsSaveError, setDetailsSaveError] = useState<string | null>(null);
   const [updatingStatusOrderId, setUpdatingStatusOrderId] = useState<number | null>(null);
   const [displayLimit, setDisplayLimit] = useState<number>(20);
   const [showCreateOrderModal, setShowCreateOrderModal] = useState(false);
@@ -745,6 +748,7 @@ export default function StaffRoleDashboard({ staffRole }: StaffRoleDashboardProp
                   const urgency = calculateOrderUrgency(o);
                   const label = getUrgencyLabel(urgency.score);
                   const isUpdatingStatus = updatingStatusOrderId === o.id;
+                  const isSavingDetails = savingDetailsOrderId === o.id;
                   return (
                     <tr key={o.id ?? o.code} className={`grid grid-cols-2 gap-x-3 gap-y-1 rounded-lg border border-slate-200 p-2 dark:border-slate-700 sm:table-row sm:rounded-none sm:border-0 sm:border-b sm:p-0 ${label.rowBgColor} hover:brightness-95 dark:hover:brightness-125`}>
                       <td className="col-span-1 block px-0 py-1 text-left font-mono sm:table-cell sm:px-3 sm:py-2">
@@ -884,7 +888,12 @@ export default function StaffRoleDashboard({ staffRole }: StaffRoleDashboardProp
                         <div className="flex items-start justify-between gap-3 sm:block">
                           <span className="text-[10px] font-medium text-slate-500 dark:text-slate-400 sm:hidden">Actual Price</span>
                           <span>
-                            {(() => {
+                            {isSavingDetails ? (
+                              <span className="inline-flex items-center gap-1.5 text-slate-500" role="status" aria-label="Updating order details">
+                                <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden="true" />
+                                Updating…
+                              </span>
+                            ) : (() => {
                               // Map role-specific price fields
                               const roleFieldMap: Record<string, { price: string; items: string; notes: string; weight: string }> = {
                                 washer: { price: 'washer_price', items: 'washer_items', notes: 'washer_notes', weight: 'washer_weight' },
@@ -924,6 +933,7 @@ export default function StaffRoleDashboard({ staffRole }: StaffRoleDashboardProp
                               const fieldMap = roleFieldMap[staffRole];
                               
                               setDetailsFormOrderId(o.id);
+                              setDetailsSaveError(null);
                               setDetailsForm({
                                 items: o[fieldMap.items] ?? o.items ?? 1,
                                 weight_kg: o[fieldMap.weight] ? String(o[fieldMap.weight]) : (o.weight_kg ? String(o.weight_kg) : ''),
@@ -931,9 +941,15 @@ export default function StaffRoleDashboard({ staffRole }: StaffRoleDashboardProp
                                 actual_price: o[fieldMap.price] !== undefined && o[fieldMap.price] !== null ? String(o[fieldMap.price]) : (o.actual_price !== undefined && o.actual_price !== null ? String(o.actual_price) : '')
                               });
                             }}
+                              disabled={isSavingDetails}
                             className="inline-flex min-h-10 items-center justify-center rounded-lg bg-red-100 px-4 py-2 text-sm font-semibold text-red-700 shadow-sm transition-colors hover:bg-red-200 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-500 focus-visible:ring-offset-2 dark:bg-red-900/30 dark:text-red-400 dark:hover:bg-red-900/50 sm:min-h-9 sm:px-3 sm:py-1.5 sm:text-xs"
                           >
-                            Add details
+                              {isSavingDetails ? (
+                                <span className="inline-flex items-center gap-1.5">
+                                  <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden="true" />
+                                  Updating…
+                                </span>
+                              ) : 'Add details'}
                           </button>
                         </div>
                       </td>
@@ -1310,6 +1326,11 @@ export default function StaffRoleDashboard({ staffRole }: StaffRoleDashboardProp
             <div className="w-full max-w-md bg-white dark:bg-slate-800 rounded-3xl shadow-2xl p-6 border border-slate-200 dark:border-slate-700" onClick={(e) => e.stopPropagation()}>
               <h3 className="text-xl font-bold mb-6 text-slate-900 dark:text-slate-100">Order Details</h3>
               <div className="space-y-4">
+                {detailsSaveError && (
+                  <p role="alert" className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700 dark:bg-red-900/20 dark:text-red-300">
+                    {detailsSaveError}
+                  </p>
+                )}
                 <div>
                   <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Quantity</label>
                   <input
@@ -1355,16 +1376,24 @@ export default function StaffRoleDashboard({ staffRole }: StaffRoleDashboardProp
                   />
                 </div>
               </div>
-
               <div className="mt-6 flex items-center justify-end gap-3">
                 <button
-                  onClick={() => setDetailsFormOrderId(null)}
+                  onClick={() => {
+                    setDetailsFormOrderId(null);
+                    setDetailsSaveError(null);
+                  }}
                   className="px-4 py-2 rounded-lg bg-slate-100 dark:bg-slate-700 text-slate-900 dark:text-slate-100 font-medium hover:bg-slate-200 dark:hover:bg-slate-600 transition-colors"
                 >
                   Cancel
                 </button>
                 <button
                   onClick={async () => {
+                    const orderId = detailsFormOrderId;
+                    if (orderId === null || savingDetailsOrderId !== null) return;
+
+                    setSavingDetailsOrderId(orderId);
+                    setDetailsSaveError(null);
+                    setDetailsFormOrderId(null);
                     try {
                       const payload: any = {
                         status: 'in_progress',
@@ -1406,23 +1435,24 @@ export default function StaffRoleDashboard({ staffRole }: StaffRoleDashboardProp
 
                       console.log('[SaveDetails] Sending payload:', payload);
                       
-                      // Store the order ID before clearing it
-                      const orderId = detailsFormOrderId;
+                      const updatedOrder = await client.patch(`/orders/update/?id=${orderId}`, payload);
+                      if (updatedOrder && typeof updatedOrder.id === 'number') {
+                        updateOrder(updatedOrder);
+                      }
                       
-                      // Make the API call
-                      await client.patch(`/orders/update/?id=${orderId}`, payload);
-                      
-                      // Refresh orders from context to ensure data is up-to-date
                       await refetchOrders();
                       
-                      setDetailsFormOrderId(null);
                       setDetailsForm({});
                       showModal('Success', 'Order details saved successfully!', 'success');
                     } catch (err: any) {
                       console.error('Failed to save details:', err);
-                      showModal('Error', err?.message || 'Failed to save details', 'error');
+                      setDetailsSaveError(err?.message || 'Failed to save details. Please try again.');
+                      setDetailsFormOrderId(orderId);
+                    } finally {
+                      setSavingDetailsOrderId(null);
                     }
                   }}
+                  disabled={savingDetailsOrderId !== null}
                   className="px-4 py-2 rounded-lg bg-red-600 text-white font-medium hover:bg-red-700 dark:bg-red-700 dark:hover:bg-red-600 transition-colors shadow-md hover:shadow-lg"
                 >
                   Save Details
