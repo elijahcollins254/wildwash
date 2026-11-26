@@ -8,7 +8,7 @@ import { useScrollIdle } from "@/lib/hooks/useScrollIdle";
 export default function WhatsAppButton() {
   const pathname = usePathname();
   const whatsappNumber = "+254116629591";
-  const whatsappText = "Hi%20Wild%20Wash!%20I%20need%20help%20with%20my%20order.";
+  const whatsappText = "Hi%20Wildwash!%20I%20need%20help%20with%20my%20order.";
   const href = `https://api.whatsapp.com/send?phone=${encodeURIComponent(whatsappNumber)}&text=${whatsappText}`;
 
   const [hidden, setHidden] = useState(false);
