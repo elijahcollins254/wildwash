@@ -2,7 +2,7 @@
 import { useEffect, useState } from "react";
 import { usePathname } from "next/navigation";
 import { FaWhatsapp } from "react-icons/fa";
-import { Phone } from "lucide-react";
+import { Download, Phone } from "lucide-react";
 import { useScrollIdle } from "@/lib/hooks/useScrollIdle";
 
 export default function WhatsAppButton() {
@@ -56,6 +56,22 @@ export default function WhatsAppButton() {
         right: "calc(env(safe-area-inset-right, 0px) + 16px)",
       }}
     >
+      <a
+        href="https://play.google.com/store/apps/details?id=com.kibeezy.ww"
+        target="_blank"
+        rel="noopener noreferrer"
+        aria-label="Install the Wild Wash app from Google Play"
+        tabIndex={isScrolling ? -1 : undefined}
+        className="flex items-center gap-3 rounded-full bg-green-600 px-3 py-2 shadow-lg transition-transform hover:brightness-95 active:scale-95 focus:outline-none focus-visible:ring-2 focus-visible:ring-green-300"
+      >
+        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-white/10">
+          <Download size={20} className="text-white" aria-hidden="true" />
+        </span>
+        <span className="hidden select-none text-sm font-semibold text-white sm:inline-block">
+          Install App
+        </span>
+      </a>
+
       <a
         href="tel:+254769760460"
         aria-label="Call Wild Wash at +254 769 760460"
