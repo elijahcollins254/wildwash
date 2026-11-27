@@ -93,6 +93,23 @@ const ROLE_CONFIG = {
 };
 
 type DateRangePreset = 'all' | 'last7' | 'last30' | 'thisMonth' | 'lastMonth' | 'custom';
+type QuickOrderFilter = 'all' | 'active' | 'washed' | 'mine';
+
+const ACTIVE_ORDER_STATUSES = new Set([
+  'requested',
+  'pending',
+  'pending_assignment',
+  'assigned',
+  'assigned_pickup',
+  'picked',
+  'in_progress',
+  'washing',
+  'washed',
+  'folded',
+  'ready',
+  'pending_delivery',
+  'assigned_delivery',
+]);
 
 function formatDateInput(date: Date): string {
   const year = date.getFullYear();
@@ -152,6 +169,7 @@ export default function StaffRoleDashboard({ staffRole }: StaffRoleDashboardProp
   const [error, setError] = useState<string | null>(null);
   const [profile, setProfile] = useState<any | null>(null);
   const [activeDashboardTab, setActiveDashboardTab] = useState<'orders' | 'analytics' | 'payments' | 'profile'>('orders');
+  const [quickOrderFilter, setQuickOrderFilter] = useState<QuickOrderFilter>('all');
   const [washerAnalytics, setWasherAnalytics] = useState<WasherAnalytics | null>(null);
   const [analyticsLoading, setAnalyticsLoading] = useState(false);
   const [analyticsHasLoaded, setAnalyticsHasLoaded] = useState(false);
@@ -459,15 +477,33 @@ export default function StaffRoleDashboard({ staffRole }: StaffRoleDashboardProp
     [orders]
   );
 
-  // Orders already filtered by backend via context, just apply display sorting
-  // Sort by creation date (latest first)
+  // Orders are filtered by the backend first; quick filters narrow the loaded results.
   const filteredOrders = useMemo(() => {
-    return [...orders].sort((a, b) => {
+    const washerNames = [
+      profile?.username,
+      `${profile?.first_name ?? ''} ${profile?.last_name ?? ''}`.trim(),
+    ].filter(Boolean).map((name) => String(name).trim().toLowerCase());
+
+    return [...orders].filter((order) => {
+      const status = String(order.status ?? order.state ?? 'requested').toLowerCase();
+      if (quickOrderFilter === 'active') return ACTIVE_ORDER_STATUSES.has(status);
+      if (quickOrderFilter === 'washed') return status === 'washed';
+      if (quickOrderFilter === 'mine') {
+        const assignedWasher = order.washer;
+        const assignedWasherId = typeof assignedWasher === 'object' ? assignedWasher?.id : assignedWasher;
+        const assignedWasherName = String(order.washer_name ?? '').trim().toLowerCase();
+        return (
+          (profile?.id != null && String(assignedWasherId ?? '') === String(profile.id)) ||
+          (assignedWasherName !== '' && washerNames.includes(assignedWasherName))
+        );
+      }
+      return true;
+    }).sort((a, b) => {
       const dateA = new Date(a.created_at || 0).getTime();
       const dateB = new Date(b.created_at || 0).getTime();
       return dateB - dateA; // Descending order (latest first)
     });
-  }, [orders]);
+  }, [orders, profile, quickOrderFilter]);
 
   if (loading) {
     return (
@@ -525,6 +561,41 @@ export default function StaffRoleDashboard({ staffRole }: StaffRoleDashboardProp
 
   const colorClasses = getColorClasses(config.color);
 
+  const openOrderDetails = (order: Order) => {
+    const roleFieldMap: Record<string, { price: string; items: string; notes: string; weight: string }> = {
+      washer: { price: 'washer_price', items: 'washer_items', notes: 'washer_notes', weight: 'washer_weight' },
+      folder: { price: 'folder_price', items: 'folder_items', notes: 'folder_notes', weight: 'folder_weight' },
+      fumigator: { price: 'fumigator_price', items: 'fumigator_items', notes: 'fumigator_notes', weight: 'fumigator_weight' },
+      staff: { price: 'staff_price', items: 'staff_items', notes: 'staff_notes', weight: 'staff_weight' },
+      admin: { price: 'staff_price', items: 'staff_items', notes: 'staff_notes', weight: 'staff_weight' },
+    };
+    const fieldMap = roleFieldMap[staffRole];
+
+    setDetailsFormOrderId(order.id);
+    setDetailsSaveError(null);
+    setDetailsForm({
+      items: order[fieldMap.items] ?? order.items ?? 1,
+      weight_kg: order[fieldMap.weight] ? String(order[fieldMap.weight]) : (order.weight_kg ? String(order.weight_kg) : ''),
+      pickup_notes: order[fieldMap.notes] ?? order.pickup_notes ?? '',
+      actual_price: order[fieldMap.price] != null ? String(order[fieldMap.price]) : (order.actual_price != null ? String(order.actual_price) : ''),
+    });
+  };
+
+  const markOrderStatus = async (orderId: number) => {
+    if (updatingStatusOrderId !== null || !config.targetStatus) return;
+    setUpdatingStatusOrderId(orderId);
+    try {
+      await client.patch(`/orders/update/?id=${orderId}`, { status: config.targetStatus });
+      await refetchOrders();
+      showModal('Success', 'Status updated successfully!', 'success');
+    } catch (err: any) {
+      console.error('Failed to update status:', err);
+      showModal('Error', err?.message || 'Failed to update status', 'error');
+    } finally {
+      setUpdatingStatusOrderId(null);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-gradient-to-b from-white via-slate-50 to-slate-100 dark:from-slate-900 dark:via-slate-800 dark:to-slate-900">
       <div className={`mx-auto max-w-7xl ${staffRole === 'washer' ? 'px-3 py-3 sm:px-4' : 'px-4 py-8'}`}>
@@ -576,23 +647,55 @@ export default function StaffRoleDashboard({ staffRole }: StaffRoleDashboardProp
               ))}
             </nav>
           )}
-          {(staffRole !== 'washer' || activeDashboardTab === 'orders') && <div className="mt-4 flex flex-wrap items-center gap-3">
+          {staffRole === 'washer' && activeDashboardTab === 'orders' && (
+            <nav aria-label="Quick order filters" className="mb-3 flex gap-2 overflow-x-auto pb-1 touch-pan-x">
+              {([
+                ['all', 'All orders'],
+                ['active', 'Active orders'],
+                ['washed', 'Washed orders'],
+                ['mine', 'My orders'],
+              ] as const).map(([filter, label]) => (
+                <button
+                  key={filter}
+                  type="button"
+                  onClick={() => {
+                    setQuickOrderFilter(filter);
+                    if (statusFilter) setStatusFilter('');
+                  }}
+                  aria-pressed={quickOrderFilter === filter}
+                  className={`shrink-0 rounded-full border px-3 py-1.5 text-xs font-semibold transition-colors ${
+                    quickOrderFilter === filter
+                      ? 'border-slate-900 bg-slate-900 text-white dark:border-white dark:bg-white dark:text-slate-900'
+                      : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700'
+                  }`}
+                >
+                  {label}
+                </button>
+              ))}
+            </nav>
+          )}
+          {(staffRole !== 'washer' || activeDashboardTab === 'orders') && <div className="mt-3 flex flex-wrap items-center gap-3">
+            <label className="flex flex-col gap-1 text-xs font-medium text-slate-600 dark:text-slate-300">
+              Status
             <select
               value={statusFilter}
               onChange={(e) => {
                 try {
                   setStatusFilter(e.target.value);
+                  setQuickOrderFilter('all');
                 } catch (err: any) {
                   showModal('Filter Error', err?.message || 'Failed to apply status filter', 'error');
                 }
               }}
-              className="rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 px-3 py-2 text-sm text-slate-900 dark:text-slate-100 shadow-sm hover:shadow-md transition-shadow"
+              aria-label="Filter orders by status"
+              className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 shadow-sm transition-shadow hover:shadow-md dark:border-slate-600 dark:bg-slate-700 dark:text-slate-100"
             >
               <option value="">All statuses</option>
               {availableStatuses.map(s => (
                 <option key={s} value={s}>{s}</option>
               ))}
             </select>
+            </label>
 
             <select
               value={riderFilter}
@@ -695,7 +798,7 @@ export default function StaffRoleDashboard({ staffRole }: StaffRoleDashboardProp
             </select>
 
             <button 
-              onClick={() => { resetFilters(); setDateRangePreset('all'); setDisplayLimit(20); }} 
+              onClick={() => { resetFilters(); setQuickOrderFilter('all'); setDateRangePreset('all'); setDisplayLimit(20); }}
               className="text-sm text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300"
             >
               Reset
@@ -761,8 +864,96 @@ export default function StaffRoleDashboard({ staffRole }: StaffRoleDashboardProp
                   const label = getUrgencyLabel(urgency.score);
                   const isUpdatingStatus = updatingStatusOrderId === o.id;
                   const isSavingDetails = savingDetailsOrderId === o.id;
+                  const status = String(o.status ?? o.state ?? 'requested').toLowerCase();
+                  const deliveryDeadline = o.estimated_delivery ?? o.delivery_date_time;
+                  const deadlineTime = deliveryDeadline ? new Date(deliveryDeadline).getTime() : Number.NaN;
+                  const isDelayed = status === 'delayed' || (
+                    Number.isFinite(deadlineTime) &&
+                    deadlineTime < Date.now() &&
+                    !['delivered', 'completed', 'cancelled'].includes(status)
+                  );
+                  const cardTone = status === 'delivered'
+                    ? 'border-emerald-200 bg-emerald-50 dark:border-emerald-900 dark:bg-emerald-950/30'
+                    : isDelayed
+                      ? 'border-red-200 bg-red-50 dark:border-red-900 dark:bg-red-950/30'
+                      : 'border-slate-200 bg-white dark:border-slate-700 dark:bg-slate-800';
+                  const customerName = o.customer_name ?? o.user?.first_name ?? o.user?.username ?? 'Customer';
+                  const itemCount = o.items ?? o.order_items?.length;
                   return (
-                    <tr key={o.id ?? o.code} className={`grid grid-cols-2 gap-x-3 gap-y-1 rounded-lg border border-slate-200 p-2 dark:border-slate-700 sm:table-row sm:rounded-none sm:border-0 sm:border-b sm:p-0 ${label.rowBgColor} hover:brightness-95 dark:hover:brightness-125`}>
+                    <React.Fragment key={o.id ?? o.code}>
+                      <tr className="sm:hidden">
+                        <td colSpan={9} className="block p-0">
+                          <article className={`rounded-xl border p-3 shadow-sm ${cardTone}`}>
+                            <div className="flex items-start justify-between gap-3">
+                              <div className="min-w-0">
+                                <Link href={`/staff/order/${o.code}`} className="font-semibold text-indigo-700 hover:underline dark:text-indigo-300">
+                                  Order {o.code}
+                                </Link>
+                                <p className="mt-0.5 truncate text-sm font-medium text-slate-900 dark:text-slate-100">{customerName}</p>
+                              </div>
+                              <span className={`shrink-0 rounded-full px-2.5 py-1 text-xs font-semibold capitalize ${
+                                status === 'delivered'
+                                  ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/50 dark:text-emerald-200'
+                                  : isDelayed
+                                    ? 'bg-red-100 text-red-800 dark:bg-red-900/50 dark:text-red-200'
+                                    : 'bg-slate-100 text-slate-700 dark:bg-slate-700 dark:text-slate-200'
+                              }`}>
+                                {isDelayed ? 'Delayed' : o.status ?? o.state ?? 'requested'}
+                              </span>
+                            </div>
+                            <div className="mt-3 flex gap-4 overflow-x-auto border-t border-slate-200/80 pt-2 text-xs text-slate-600 dark:border-slate-700 dark:text-slate-300">
+                              <span className="shrink-0">{o.created_at?.split?.('T')?.[0] ?? '—'}</span>
+                              <span className="shrink-0">{itemCount != null ? `${itemCount} items` : 'Items —'}</span>
+                              {o.weight_kg != null && <span className="shrink-0">{o.weight_kg} kg</span>}
+                              <span className="shrink-0">{o.is_paid ? 'Paid' : 'Payment pending'}</span>
+                              <span className="shrink-0">{label.label} priority</span>
+                            </div>
+                            <div className="mt-3 flex gap-2">
+                              {config.statusAction && config.targetStatus ? (
+                                status !== config.targetStatus && (
+                                  <button
+                                    type="button"
+                                    onClick={() => void markOrderStatus(o.id)}
+                                    disabled={updatingStatusOrderId !== null}
+                                    aria-busy={isUpdatingStatus}
+                                    className={`inline-flex min-h-10 flex-1 items-center justify-center gap-2 rounded-lg px-3 py-2 text-xs font-semibold shadow-sm disabled:cursor-wait disabled:opacity-70 ${colorClasses.button}`}
+                                  >
+                                    {isUpdatingStatus && <span aria-hidden="true" className="h-4 w-4 animate-spin rounded-full border-2 border-current border-r-transparent" />}
+                                    {isUpdatingStatus ? 'Updating…' : config.statusAction}
+                                  </button>
+                                )
+                              ) : (
+                                <div className="min-w-0 flex-1">
+                                  <OrderStatusUpdate
+                                    orderId={o.id}
+                                    currentStatus={o.status ?? o.state ?? 'requested'}
+                                    onUpdate={async () => {
+                                      try {
+                                        await refetchOrders();
+                                        showModal('Success', 'Order status updated successfully!', 'success');
+                                      } catch (err: any) {
+                                        showModal('Update Error', err?.message || 'Failed to update order status', 'error');
+                                      }
+                                    }}
+                                    onError={(error: string) => showModal('Status Update Error', error, 'error')}
+                                  />
+                                </div>
+                              )}
+                              <button
+                                type="button"
+                                onClick={() => openOrderDetails(o)}
+                                disabled={isSavingDetails}
+                                className={`inline-flex min-h-10 items-center justify-center rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-50 dark:border-slate-600 dark:bg-slate-700 dark:text-slate-100 dark:hover:bg-slate-600 ${
+                                  config.statusAction && status === config.targetStatus ? 'w-full' : 'flex-1'
+                                }`}
+                              >
+                                Add details
+                              </button>
+                            </div>
+                          </article>
+                        </td>
+                      </tr>
+                      <tr className="hidden sm:table-row sm:border-b sm:border-slate-200 dark:sm:border-slate-700">
                       <td className="col-span-1 block px-0 py-1 text-left font-mono sm:table-cell sm:px-3 sm:py-2">
                         <div className="flex items-start justify-between gap-3 sm:block">
                           <span className="font-sans text-[10px] font-medium text-slate-500 dark:text-slate-400 sm:hidden">Code</span>
@@ -788,21 +979,7 @@ export default function StaffRoleDashboard({ staffRole }: StaffRoleDashboardProp
                               o.status !== config.targetStatus && (
                                 <button
                                   onClick={async () => {
-                                    if (updatingStatusOrderId !== null) return;
-                                    setUpdatingStatusOrderId(o.id);
-                                    try {
-                                      // Make the API call to update status
-                                      await client.patch(`/orders/update/?id=${o.id}`, { status: config.targetStatus });
-                                      
-                                      // Refetch orders from context to update UI
-                                      await refetchOrders();
-                                      showModal('Success', 'Status updated successfully!', 'success');
-                                    } catch (err: any) {
-                                      console.error('Failed to update status:', err);
-                                      showModal('Error', err?.message || 'Failed to update status', 'error');
-                                    } finally {
-                                      setUpdatingStatusOrderId(null);
-                                    }
+                                    await markOrderStatus(o.id);
                                   }}
                                   disabled={updatingStatusOrderId !== null}
                                   aria-busy={isUpdatingStatus}
@@ -934,24 +1111,7 @@ export default function StaffRoleDashboard({ staffRole }: StaffRoleDashboardProp
                           <span className="text-[10px] font-medium text-slate-500 dark:text-slate-400 sm:hidden">Actions</span>
                           <button
                             onClick={() => {
-                              // Map generic field names to role-specific field names for loading
-                              const roleFieldMap: Record<string, { price: string; items: string; notes: string; weight: string }> = {
-                                washer: { price: 'washer_price', items: 'washer_items', notes: 'washer_notes', weight: 'washer_weight' },
-                                folder: { price: 'folder_price', items: 'folder_items', notes: 'folder_notes', weight: 'folder_weight' },
-                                fumigator: { price: 'fumigator_price', items: 'fumigator_items', notes: 'fumigator_notes', weight: 'fumigator_weight' },
-                                staff: { price: 'staff_price', items: 'staff_items', notes: 'staff_notes', weight: 'staff_weight' },
-                              };
-                              
-                              const fieldMap = roleFieldMap[staffRole];
-                              
-                              setDetailsFormOrderId(o.id);
-                              setDetailsSaveError(null);
-                              setDetailsForm({
-                                items: o[fieldMap.items] ?? o.items ?? 1,
-                                weight_kg: o[fieldMap.weight] ? String(o[fieldMap.weight]) : (o.weight_kg ? String(o.weight_kg) : ''),
-                                pickup_notes: o[fieldMap.notes] ?? o.pickup_notes ?? '',
-                                actual_price: o[fieldMap.price] !== undefined && o[fieldMap.price] !== null ? String(o[fieldMap.price]) : (o.actual_price !== undefined && o.actual_price !== null ? String(o.actual_price) : '')
-                              });
+                              openOrderDetails(o);
                             }}
                               disabled={isSavingDetails}
                             className="inline-flex min-h-10 items-center justify-center rounded-lg bg-red-100 px-4 py-2 text-sm font-semibold text-red-700 shadow-sm transition-colors hover:bg-red-200 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-500 focus-visible:ring-offset-2 dark:bg-red-900/30 dark:text-red-400 dark:hover:bg-red-900/50 sm:min-h-9 sm:px-3 sm:py-1.5 sm:text-xs"
@@ -966,6 +1126,7 @@ export default function StaffRoleDashboard({ staffRole }: StaffRoleDashboardProp
                         </div>
                       </td>
                     </tr>
+                    </React.Fragment>
                   );
                 })}
                 {filteredOrders.length === 0 && (

@@ -141,6 +141,7 @@ type LoanApplication = {
 
 type PartnerApplication = {
   id: number;
+  account_is_active: boolean;
   username: string;
   first_name: string;
   last_name: string;
@@ -154,6 +155,10 @@ type PartnerApplication = {
   machine_count: number;
   status: 'pending' | 'approved' | 'rejected';
   reviewer_notes: string;
+  active_order_count: number;
+  completed_order_count: number;
+  average_rating: number | null;
+  rating_count: number;
   created_at: string;
 };
 
@@ -314,6 +319,10 @@ export default function AdminPage(): React.ReactElement {
   const [partnerApplicationsError, setPartnerApplicationsError] = useState('');
   const [partnerReviewNotes, setPartnerReviewNotes] = useState<Record<number, string>>({});
   const [partnerReviewingId, setPartnerReviewingId] = useState<number | null>(null);
+  const [partnerStatusFilter, setPartnerStatusFilter] = useState('');
+  const [selectedPartnerApplications, setSelectedPartnerApplications] = useState<number[]>([]);
+  const [partnerBulkStatusLoading, setPartnerBulkStatusLoading] = useState(false);
+  const [partnerBulkStatusMessage, setPartnerBulkStatusMessage] = useState('');
 
   const loadPartnerApplications = useCallback(async () => {
     setPartnerApplicationsLoading(true);
@@ -343,6 +352,29 @@ export default function AdminPage(): React.ReactElement {
       setPartnerReviewingId(null);
     }
   }, [partnerReviewNotes]);
+
+  const setSelectedPartnerAccountsActive = useCallback(async (isActive: boolean) => {
+    setPartnerBulkStatusLoading(true);
+    setPartnerApplicationsError('');
+    setPartnerBulkStatusMessage('');
+    try {
+      const result = await client.post('/users/partner-applications/bulk-account-status/', {
+        application_ids: selectedPartnerApplications,
+        is_active: isActive,
+      });
+      setPartnerApplications((current) => current.map((application) => (
+        selectedPartnerApplications.includes(application.id)
+          ? { ...application, account_is_active: isActive }
+          : application
+      )));
+      setPartnerBulkStatusMessage(`${result.updated_count} partner account(s) ${isActive ? 'activated' : 'disabled'}.`);
+      setSelectedPartnerApplications([]);
+    } catch (statusError) {
+      setPartnerApplicationsError(statusError instanceof Error ? statusError.message : 'Unable to update selected partner accounts.');
+    } finally {
+      setPartnerBulkStatusLoading(false);
+    }
+  }, [selectedPartnerApplications]);
 
   // Initialize Redux API client once
   useEffect(() => {
@@ -1109,25 +1141,72 @@ export default function AdminPage(): React.ReactElement {
               </button>
             </div>
             {partnerApplicationsError && <p role="alert" className="mb-4 rounded-lg bg-red-50 p-3 text-sm text-red-700 dark:bg-red-950/40 dark:text-red-300">{partnerApplicationsError}</p>}
+            {partnerBulkStatusMessage && <p role="status" className="mb-4 rounded-lg bg-emerald-50 p-3 text-sm text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300">{partnerBulkStatusMessage}</p>}
+            <div className="mb-4 flex flex-wrap items-center gap-3">
+              <label className="text-sm font-medium text-slate-700 dark:text-slate-300">
+                Application status
+                <select value={partnerStatusFilter} onChange={(event) => setPartnerStatusFilter(event.target.value)} className="ml-2 rounded-lg border border-slate-300 bg-white px-3 py-2 dark:border-slate-700 dark:bg-slate-950">
+                  <option value="">All applications</option>
+                  <option value="pending">Pending</option>
+                  <option value="approved">Approved</option>
+                  <option value="rejected">Rejected</option>
+                </select>
+              </label>
+              {selectedPartnerApplications.length > 0 && (
+                <div className="flex flex-wrap items-center gap-2" role="group" aria-label="Bulk partner account actions">
+                  <span className="mr-1 text-sm text-slate-600 dark:text-slate-400">{selectedPartnerApplications.length} selected</span>
+                  <button type="button" onClick={() => void setSelectedPartnerAccountsActive(true)} disabled={partnerBulkStatusLoading} className="rounded-lg bg-emerald-600 px-3 py-2 text-sm font-semibold text-white hover:bg-emerald-700 disabled:opacity-50">
+                    Activate selected
+                  </button>
+                  <button type="button" onClick={() => void setSelectedPartnerAccountsActive(false)} disabled={partnerBulkStatusLoading} className="rounded-lg bg-amber-600 px-3 py-2 text-sm font-semibold text-white hover:bg-amber-700 disabled:opacity-50">
+                    Disable selected
+                  </button>
+                  <button type="button" onClick={() => setSelectedPartnerApplications([])} disabled={partnerBulkStatusLoading} className="rounded-lg px-3 py-2 text-sm font-semibold text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800">
+                    Clear selection
+                  </button>
+                </div>
+              )}
+            </div>
             {partnerApplicationsLoading && partnerApplications.length === 0 ? (
               <div className="flex justify-center py-10"><Loader2 className="animate-spin text-blue-600" /></div>
-            ) : partnerApplications.length === 0 ? (
+            ) : partnerApplications.filter((application) => !partnerStatusFilter || application.status === partnerStatusFilter).length === 0 ? (
               <p className="rounded-xl bg-slate-50 p-6 text-center text-sm text-slate-500 dark:bg-slate-800 dark:text-slate-400">No partner applications have been submitted.</p>
             ) : (
               <div className="space-y-4">
-                {partnerApplications.map((application) => (
+                {partnerApplications.filter((application) => !partnerStatusFilter || application.status === partnerStatusFilter).map((application) => (
                   <article key={application.id} className="rounded-xl border border-slate-200 p-4 dark:border-slate-700 sm:p-5">
                     <div className="flex flex-wrap items-start justify-between gap-3">
                       <div>
+                        {application.status === 'approved' && (
+                          <label className="mb-2 inline-flex items-center gap-2 text-xs font-medium text-slate-600 dark:text-slate-300">
+                            <input
+                              type="checkbox"
+                              checked={selectedPartnerApplications.includes(application.id)}
+                              onChange={(event) => setSelectedPartnerApplications((current) => event.target.checked
+                                ? [...new Set([...current, application.id])]
+                                : current.filter((id) => id !== application.id))}
+                              className="h-4 w-4 accent-blue-600"
+                              aria-label={`Select ${application.business_name} partner account`}
+                            />
+                            Select account
+                          </label>
+                        )}
                         <h3 className="font-semibold text-slate-900 dark:text-white">{application.business_name}</h3>
                         <p className="mt-1 text-sm text-slate-600 dark:text-slate-300">{application.first_name} {application.last_name} · @{application.username}</p>
                         <p className="text-sm text-slate-500 dark:text-slate-400">{application.email} · {application.phone}</p>
                       </div>
-                      <span className={`rounded-full px-3 py-1 text-xs font-semibold ${
-                        application.status === 'approved' ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-300' :
-                        application.status === 'rejected' ? 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300' :
-                        'bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300'
-                      }`}>{application.status}</span>
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span className={`rounded-full px-3 py-1 text-xs font-semibold ${
+                          application.status === 'approved' ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-300' :
+                          application.status === 'rejected' ? 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300' :
+                          'bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300'
+                        }`}>{application.status}</span>
+                        {application.status === 'approved' && (
+                          <span className={`rounded-full px-3 py-1 text-xs font-semibold ${application.account_is_active ? 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300' : 'bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300'}`}>
+                            Account {application.account_is_active ? 'active' : 'disabled'}
+                          </span>
+                        )}
+                      </div>
                     </div>
                     <div className="mt-4 grid gap-3 text-sm text-slate-700 dark:text-slate-300 sm:grid-cols-2">
                       <p><span className="font-semibold">Business:</span> {application.business_type}</p>
@@ -1135,6 +1214,9 @@ export default function AdminPage(): React.ReactElement {
                       <p><span className="font-semibold">Address:</span> {application.pickup_address}</p>
                       <p><span className="font-semibold">Service coverage:</span> {application.service_area}</p>
                       <p><span className="font-semibold">Machines:</span> {application.machine_count}</p>
+                      <p><span className="font-semibold">Active orders:</span> {application.active_order_count}</p>
+                      <p><span className="font-semibold">Completed orders:</span> {application.completed_order_count}</p>
+                      <p><span className="font-semibold">Customer rating:</span> {application.average_rating == null ? 'No ratings yet' : `${Number(application.average_rating).toFixed(1)} / 5 (${application.rating_count})`}</p>
                       <p><span className="font-semibold">Submitted:</span> {new Date(application.created_at).toLocaleDateString()}</p>
                     </div>
                     {application.status === 'pending' && (
