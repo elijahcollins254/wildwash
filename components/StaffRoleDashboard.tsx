@@ -12,7 +12,7 @@ import Modal from '@/components/ui/Modal';
 import { calculateOrderUrgency, getUrgencyLabel } from '@/lib/orderUrgency';
 import { useOrders } from '@/lib/context/OrderContext';
 import { useOrderEvents } from '@/lib/hooks/useOrderEvents';
-import { Loader2, WashingMachine } from 'lucide-react';
+import { Loader2, Menu, WashingMachine } from 'lucide-react';
 
 const PickupMap = dynamic(() => import('@/components/PickupMap'), { ssr: false });
 const DEFAULT_WASHER_POSITION: [number, number] = [-1.286389, 36.817223];
@@ -170,6 +170,7 @@ export default function StaffRoleDashboard({ staffRole }: StaffRoleDashboardProp
   const [profile, setProfile] = useState<any | null>(null);
   const [activeDashboardTab, setActiveDashboardTab] = useState<'orders' | 'analytics' | 'payments' | 'profile'>('orders');
   const [quickOrderFilter, setQuickOrderFilter] = useState<QuickOrderFilter>('all');
+  const [showOrderFilters, setShowOrderFilters] = useState(false);
   const [washerAnalytics, setWasherAnalytics] = useState<WasherAnalytics | null>(null);
   const [analyticsLoading, setAnalyticsLoading] = useState(false);
   const [analyticsHasLoaded, setAnalyticsHasLoaded] = useState(false);
@@ -647,34 +648,56 @@ export default function StaffRoleDashboard({ staffRole }: StaffRoleDashboardProp
               ))}
             </nav>
           )}
-          {staffRole === 'washer' && activeDashboardTab === 'orders' && (
-            <nav aria-label="Quick order filters" className="mb-3 flex gap-2 overflow-x-auto pb-1 touch-pan-x">
-              {([
-                ['all', 'All orders'],
-                ['active', 'Active orders'],
-                ['washed', 'Washed orders'],
-                ['mine', 'My orders'],
-              ] as const).map(([filter, label]) => (
-                <button
-                  key={filter}
-                  type="button"
-                  onClick={() => {
-                    setQuickOrderFilter(filter);
-                    if (statusFilter) setStatusFilter('');
-                  }}
-                  aria-pressed={quickOrderFilter === filter}
-                  className={`shrink-0 rounded-full border px-3 py-1.5 text-xs font-semibold transition-colors ${
-                    quickOrderFilter === filter
-                      ? 'border-slate-900 bg-slate-900 text-white dark:border-white dark:bg-white dark:text-slate-900'
-                      : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700'
-                  }`}
-                >
-                  {label}
-                </button>
-              ))}
-            </nav>
-          )}
-          {(staffRole !== 'washer' || activeDashboardTab === 'orders') && <div className="mt-3 flex flex-wrap items-center gap-3">
+          {(staffRole !== 'washer' || activeDashboardTab === 'orders') && (
+            <div className="relative mt-3">
+              <button
+                type="button"
+                onClick={() => setShowOrderFilters((open) => !open)}
+                aria-expanded={showOrderFilters}
+                aria-controls="order-filter-panel"
+                className="inline-flex min-h-10 items-center gap-2 rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-slate-700 shadow-sm hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100 dark:hover:bg-slate-700"
+              >
+                <Menu className="h-4 w-4" aria-hidden="true" />
+                <span>Filters</span>
+                {(quickOrderFilter !== 'all' || statusFilter || riderFilter || searchQuery || dateFrom || dateTo) && (
+                  <span className="inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-blue-600 px-1 text-[10px] text-white" aria-label="Filters active">
+                    {Number(quickOrderFilter !== 'all') + Number(Boolean(statusFilter)) + Number(Boolean(riderFilter)) + Number(Boolean(searchQuery)) + Number(Boolean(dateFrom || dateTo))}
+                  </span>
+                )}
+              </button>
+              {showOrderFilters && (
+                <div id="order-filter-panel" className="absolute left-0 top-full z-30 mt-2 w-[min(22rem,calc(100vw-2rem))] rounded-xl border border-slate-200 bg-white p-4 shadow-xl dark:border-slate-700 dark:bg-slate-800 sm:w-[min(36rem,calc(100vw-2rem))]">
+                  {staffRole === 'washer' && (
+                    <fieldset>
+                      <legend className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">Quick filters</legend>
+                      <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+                        {([
+                          ['all', 'All orders'],
+                          ['active', 'Active orders'],
+                          ['washed', 'Washed orders'],
+                          ['mine', 'My orders'],
+                        ] as const).map(([filter, label]) => (
+                          <button
+                            key={filter}
+                            type="button"
+                            onClick={() => {
+                              setQuickOrderFilter(filter);
+                              if (statusFilter) setStatusFilter('');
+                            }}
+                            aria-pressed={quickOrderFilter === filter}
+                            className={`rounded-lg border px-2 py-2 text-xs font-semibold transition-colors ${
+                              quickOrderFilter === filter
+                                ? 'border-slate-900 bg-slate-900 text-white dark:border-white dark:bg-white dark:text-slate-900'
+                                : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300 dark:hover:bg-slate-700'
+                            }`}
+                          >
+                            {label}
+                          </button>
+                        ))}
+                      </div>
+                    </fieldset>
+                  )}
+                  <div className={`grid grid-cols-1 gap-3 sm:grid-cols-2 ${staffRole === 'washer' ? 'mt-4 border-t border-slate-100 pt-4 dark:border-slate-700' : ''}`}>
             <label className="flex flex-col gap-1 text-xs font-medium text-slate-600 dark:text-slate-300">
               Status
             <select
@@ -798,12 +821,16 @@ export default function StaffRoleDashboard({ staffRole }: StaffRoleDashboardProp
             </select>
 
             <button 
-              onClick={() => { resetFilters(); setQuickOrderFilter('all'); setDateRangePreset('all'); setDisplayLimit(20); }}
-              className="text-sm text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300"
+              onClick={() => { resetFilters(); setQuickOrderFilter('all'); setDateRangePreset('all'); setDisplayLimit(20); setShowOrderFilters(false); }}
+              className="self-end text-left text-sm text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-300"
             >
               Reset
             </button>
-          </div>}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
         </header>
 
         {(staffRole !== 'washer' || activeDashboardTab === 'orders') && <>
