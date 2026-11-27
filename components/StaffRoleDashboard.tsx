@@ -168,7 +168,11 @@ export default function StaffRoleDashboard({ staffRole }: StaffRoleDashboardProp
     last_name: '',
     phone: '',
     email: '',
+    business_name: '',
+    business_type: '',
+    location: '',
     pickup_address: '',
+    service_area: '',
     machine_count: '0',
   });
   const [washerPosition, setWasherPosition] = useState<[number, number] | null>(null);
@@ -305,7 +309,11 @@ export default function StaffRoleDashboard({ staffRole }: StaffRoleDashboardProp
             last_name: meData.last_name ?? '',
             phone: meData.phone ?? '',
             email: meData.email ?? '',
+            business_name: meData.business_name ?? '',
+            business_type: meData.business_type ?? '',
+            location: meData.location ?? '',
             pickup_address: meData.pickup_address ?? '',
+            service_area: meData.service_area ?? '',
             machine_count: String(meData.machine_count ?? 0),
           });
           if (meData.pickup_latitude != null && meData.pickup_longitude != null) {
@@ -415,7 +423,11 @@ export default function StaffRoleDashboard({ staffRole }: StaffRoleDashboardProp
         last_name: washerProfileForm.last_name.trim(),
         phone: washerProfileForm.phone.trim(),
         email: washerProfileForm.email.trim(),
+        business_name: washerProfileForm.business_name.trim(),
+        business_type: washerProfileForm.business_type.trim(),
+        location: washerProfileForm.location.trim(),
         pickup_address: washerProfileForm.pickup_address.trim(),
+        service_area: washerProfileForm.service_area.trim(),
         machine_count: machineCount,
         pickup_latitude: roundedWasherPosition?.[0] ?? null,
         pickup_longitude: roundedWasherPosition?.[1] ?? null,
@@ -1162,8 +1174,20 @@ export default function StaffRoleDashboard({ staffRole }: StaffRoleDashboardProp
               <label className="text-sm font-medium text-slate-700 dark:text-slate-300">Email
                 <input type="email" value={washerProfileForm.email} onChange={(event) => setWasherProfileForm((current) => ({ ...current, email: event.target.value }))} className="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-slate-900 dark:border-slate-600 dark:bg-slate-900 dark:text-white" />
               </label>
-              <label className="text-sm font-medium text-slate-700 dark:text-slate-300">Location / address
+              <label className="text-sm font-medium text-slate-700 dark:text-slate-300">Business name
+                <input value={washerProfileForm.business_name} onChange={(event) => setWasherProfileForm((current) => ({ ...current, business_name: event.target.value }))} className="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-slate-900 dark:border-slate-600 dark:bg-slate-900 dark:text-white" />
+              </label>
+              <label className="text-sm font-medium text-slate-700 dark:text-slate-300">Business type
+                <input value={washerProfileForm.business_type} onChange={(event) => setWasherProfileForm((current) => ({ ...current, business_type: event.target.value }))} className="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-slate-900 dark:border-slate-600 dark:bg-slate-900 dark:text-white" />
+              </label>
+              <label className="text-sm font-medium text-slate-700 dark:text-slate-300">Town or area
+                <input value={washerProfileForm.location} onChange={(event) => setWasherProfileForm((current) => ({ ...current, location: event.target.value }))} className="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-slate-900 dark:border-slate-600 dark:bg-slate-900 dark:text-white" />
+              </label>
+              <label className="text-sm font-medium text-slate-700 dark:text-slate-300">Laundry / pickup address
                 <input value={washerProfileForm.pickup_address} onChange={(event) => setWasherProfileForm((current) => ({ ...current, pickup_address: event.target.value }))} className="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-slate-900 dark:border-slate-600 dark:bg-slate-900 dark:text-white" placeholder="Washer business or pickup address" />
+              </label>
+              <label className="text-sm font-medium text-slate-700 dark:text-slate-300">Service area
+                <textarea rows={2} value={washerProfileForm.service_area} onChange={(event) => setWasherProfileForm((current) => ({ ...current, service_area: event.target.value }))} className="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-slate-900 dark:border-slate-600 dark:bg-slate-900 dark:text-white" />
               </label>
               <label className="text-sm font-medium text-slate-700 dark:text-slate-300">Number of machines
                 <input type="number" min="0" step="1" value={washerProfileForm.machine_count} onChange={(event) => setWasherProfileForm((current) => ({ ...current, machine_count: event.target.value }))} className="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-slate-900 dark:border-slate-600 dark:bg-slate-900 dark:text-white" />

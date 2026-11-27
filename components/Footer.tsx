@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useSelector } from 'react-redux';
 import type { RootState } from '@/redux/store';
 import { getStaffDashboardPath } from '@/lib/staffRoutes';
+import { Handshake } from 'lucide-react';
 
 export default function Footer() {
   const user = useSelector((state: RootState) => state.auth.user);
@@ -27,6 +28,13 @@ export default function Footer() {
           </div>
           <div className="flex flex-shrink-0 flex-col items-center gap-2 text-sm text-slate-500 dark:text-slate-400 mb-4 md:mb-0">
             <span>© {new Date().getFullYear()} Wild Wash. All rights reserved.</span>
+            <Link
+              href="/patner"
+              className="inline-flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 font-semibold text-white shadow-sm transition-colors hover:bg-blue-700"
+            >
+              <Handshake size={18} aria-hidden="true" />
+              Become A Patner
+            </Link>
             <div className="flex gap-4">
               <Link href="/about" className="hover:underline">About</Link>
               <Link href="/contact" className="hover:underline">Contact</Link>

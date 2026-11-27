@@ -139,6 +139,24 @@ type LoanApplication = {
   raw?: RawLoan;
 };
 
+type PartnerApplication = {
+  id: number;
+  username: string;
+  first_name: string;
+  last_name: string;
+  phone: string;
+  email: string;
+  business_name: string;
+  business_type: string;
+  location: string;
+  pickup_address: string;
+  service_area: string;
+  machine_count: number;
+  status: 'pending' | 'approved' | 'rejected';
+  reviewer_notes: string;
+  created_at: string;
+};
+
 type TradeIn = {
   id?: number;
   user_id?: number;
@@ -241,7 +259,7 @@ export default function AdminPage(): React.ReactElement {
   } = adminState;
 
   // Local UI state
-  const [activeTab, setActiveTab] = useState<'orders' | 'riders' | 'users' | 'loans' | 'tradeins' | 'bnpl' | 'transactions' | 'analytics'>('orders');
+  const [activeTab, setActiveTab] = useState<'orders' | 'riders' | 'users' | 'loans' | 'partners' | 'tradeins' | 'bnpl' | 'transactions' | 'analytics'>('orders');
   const [ordersPage, setOrdersPage] = useState(1);
   const [totalOrdersCount, setTotalOrdersCount] = useState(0);
   const [allOrders, setAllOrders] = useState<Order[]>([]);
@@ -291,6 +309,40 @@ export default function AdminPage(): React.ReactElement {
   const [washerWalletActionMessage, setWasherWalletActionMessage] = useState('');
   const [washerCreditAmounts, setWasherCreditAmounts] = useState<Record<number, string>>({});
   const [washerCreditReasons, setWasherCreditReasons] = useState<Record<number, string>>({});
+  const [partnerApplications, setPartnerApplications] = useState<PartnerApplication[]>([]);
+  const [partnerApplicationsLoading, setPartnerApplicationsLoading] = useState(false);
+  const [partnerApplicationsError, setPartnerApplicationsError] = useState('');
+  const [partnerReviewNotes, setPartnerReviewNotes] = useState<Record<number, string>>({});
+  const [partnerReviewingId, setPartnerReviewingId] = useState<number | null>(null);
+
+  const loadPartnerApplications = useCallback(async () => {
+    setPartnerApplicationsLoading(true);
+    setPartnerApplicationsError('');
+    try {
+      const data = await client.get('/users/partner-applications/');
+      const applications = Array.isArray(data) ? data : Array.isArray(data?.results) ? data.results : [];
+      setPartnerApplications(applications);
+    } catch (loadError) {
+      setPartnerApplicationsError(loadError instanceof Error ? loadError.message : 'Unable to load partner applications.');
+    } finally {
+      setPartnerApplicationsLoading(false);
+    }
+  }, []);
+
+  const reviewPartnerApplication = useCallback(async (applicationId: number, decision: 'approve' | 'reject') => {
+    setPartnerReviewingId(applicationId);
+    setPartnerApplicationsError('');
+    try {
+      const updated = await client.post(`/users/partner-applications/${applicationId}/${decision}/`, {
+        notes: partnerReviewNotes[applicationId] ?? '',
+      });
+      setPartnerApplications((current) => current.map((application) => application.id === applicationId ? updated : application));
+    } catch (reviewError) {
+      setPartnerApplicationsError(reviewError instanceof Error ? reviewError.message : 'Unable to update this application.');
+    } finally {
+      setPartnerReviewingId(null);
+    }
+  }, [partnerReviewNotes]);
 
   // Initialize Redux API client once
   useEffect(() => {
@@ -747,9 +799,12 @@ export default function AdminPage(): React.ReactElement {
     } else if (activeTab === 'transactions' && !loadedTabsRef.current.has('transactions')) {
       dispatch(fetchTransactions());
       loadedTabsRef.current.add('transactions');
+    } else if (activeTab === 'partners' && !loadedTabsRef.current.has('partners')) {
+      void loadPartnerApplications();
+      loadedTabsRef.current.add('partners');
     }
     // 'analytics' tab uses existing orders data, no fetch needed
-  }, [activeTab, dispatch]);
+  }, [activeTab, dispatch, loadPartnerApplications]);
 
   useEffect(() => {
     if (activeTab === 'riders') void loadRiderWallets();
@@ -991,6 +1046,16 @@ export default function AdminPage(): React.ReactElement {
             Loans
           </button>
           <button
+            onClick={() => setActiveTab('partners')}
+            className={`px-3 sm:px-6 md:px-8 py-2 sm:py-3 text-xs sm:text-sm md:text-base font-semibold rounded-lg transition-all whitespace-nowrap flex-shrink-0 ${
+              activeTab === 'partners'
+                ? 'bg-red-600 text-white shadow-lg hover:bg-red-700'
+                : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700'
+            }`}
+          >
+            Partner applications
+          </button>
+          <button
             onClick={() => setActiveTab('tradeins')}
             className={`px-3 sm:px-6 md:px-8 py-2 sm:py-3 text-xs sm:text-sm md:text-base font-semibold rounded-lg transition-all whitespace-nowrap flex-shrink-0 ${
               activeTab === 'tradeins'
@@ -1031,6 +1096,70 @@ export default function AdminPage(): React.ReactElement {
             Analytics
           </button>
         </div>
+
+        {activeTab === 'partners' && (
+          <section className="mb-8 rounded-2xl border border-slate-200/50 bg-white/80 p-6 shadow-lg dark:border-slate-700/50 dark:bg-slate-900/50">
+            <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <h2 className="text-xl font-semibold text-slate-900 dark:text-white">Partner applications</h2>
+                <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">Review applications before granting washer dashboard access.</p>
+              </div>
+              <button type="button" onClick={() => void loadPartnerApplications()} disabled={partnerApplicationsLoading} className="rounded-lg border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-50 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800">
+                {partnerApplicationsLoading ? 'Refreshing…' : 'Refresh'}
+              </button>
+            </div>
+            {partnerApplicationsError && <p role="alert" className="mb-4 rounded-lg bg-red-50 p-3 text-sm text-red-700 dark:bg-red-950/40 dark:text-red-300">{partnerApplicationsError}</p>}
+            {partnerApplicationsLoading && partnerApplications.length === 0 ? (
+              <div className="flex justify-center py-10"><Loader2 className="animate-spin text-blue-600" /></div>
+            ) : partnerApplications.length === 0 ? (
+              <p className="rounded-xl bg-slate-50 p-6 text-center text-sm text-slate-500 dark:bg-slate-800 dark:text-slate-400">No partner applications have been submitted.</p>
+            ) : (
+              <div className="space-y-4">
+                {partnerApplications.map((application) => (
+                  <article key={application.id} className="rounded-xl border border-slate-200 p-4 dark:border-slate-700 sm:p-5">
+                    <div className="flex flex-wrap items-start justify-between gap-3">
+                      <div>
+                        <h3 className="font-semibold text-slate-900 dark:text-white">{application.business_name}</h3>
+                        <p className="mt-1 text-sm text-slate-600 dark:text-slate-300">{application.first_name} {application.last_name} · @{application.username}</p>
+                        <p className="text-sm text-slate-500 dark:text-slate-400">{application.email} · {application.phone}</p>
+                      </div>
+                      <span className={`rounded-full px-3 py-1 text-xs font-semibold ${
+                        application.status === 'approved' ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-300' :
+                        application.status === 'rejected' ? 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300' :
+                        'bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300'
+                      }`}>{application.status}</span>
+                    </div>
+                    <div className="mt-4 grid gap-3 text-sm text-slate-700 dark:text-slate-300 sm:grid-cols-2">
+                      <p><span className="font-semibold">Business:</span> {application.business_type}</p>
+                      <p><span className="font-semibold">Area:</span> {application.location}</p>
+                      <p><span className="font-semibold">Address:</span> {application.pickup_address}</p>
+                      <p><span className="font-semibold">Service coverage:</span> {application.service_area}</p>
+                      <p><span className="font-semibold">Machines:</span> {application.machine_count}</p>
+                      <p><span className="font-semibold">Submitted:</span> {new Date(application.created_at).toLocaleDateString()}</p>
+                    </div>
+                    {application.status === 'pending' && (
+                      <div className="mt-4 border-t border-slate-100 pt-4 dark:border-slate-800">
+                        <label className="block text-xs font-semibold text-slate-600 dark:text-slate-300">
+                          Review note (optional)
+                          <textarea rows={2} value={partnerReviewNotes[application.id] ?? ''} onChange={(event) => setPartnerReviewNotes((current) => ({ ...current, [application.id]: event.target.value }))} className="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-950" />
+                        </label>
+                        <div className="mt-3 flex flex-wrap gap-2">
+                          <button type="button" onClick={() => void reviewPartnerApplication(application.id, 'approve')} disabled={partnerReviewingId !== null} className="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-700 disabled:opacity-50">
+                            {partnerReviewingId === application.id ? 'Saving…' : 'Approve & activate'}
+                          </button>
+                          <button type="button" onClick={() => void reviewPartnerApplication(application.id, 'reject')} disabled={partnerReviewingId !== null} className="rounded-lg border border-red-300 px-4 py-2 text-sm font-semibold text-red-700 hover:bg-red-50 disabled:opacity-50 dark:border-red-900 dark:text-red-300 dark:hover:bg-red-950/40">
+                            Reject
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                    {application.reviewer_notes && <p className="mt-3 rounded-lg bg-slate-50 p-3 text-sm text-slate-600 dark:bg-slate-800 dark:text-slate-300"><span className="font-semibold">Review note:</span> {application.reviewer_notes}</p>}
+                  </article>
+                ))}
+              </div>
+            )}
+          </section>
+        )}
 
         {/* Summary - Only show for Orders tab */}
         {activeTab === 'orders' && (
