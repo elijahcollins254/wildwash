@@ -29,6 +29,7 @@ import { useGetServicesQuery } from "@/redux/services/apiSlice";
 import type { Service } from "@/redux/services/apiSlice";
 import type { RootState } from "@/redux/store";
 import { client } from "@/lib/api/client";
+import { createCartAddEvent, flushPendingCartAddEvents, queueCartAddEvent } from "@/lib/cartActivity";
 import { getServiceMetaData, trackMetaEvent } from "@/lib/metaConversions";
 import StableImage from "@/components/StableImage";
 import OfferCard from "@/components/OfferCard";
@@ -412,10 +413,22 @@ export default function HomePage() {
   }, []);
 
   const handleAddToCart = (service: ServiceWithUI) => {
+    if (isLoading) return;
+
     const { icon, ...cartService } = service as any;
     const finalCartService = { ...cartService, price: String(cartService.price), description: cartService.description || "" };
     dispatch(addToCart(finalCartService));
+    queueCartAddEvent(createCartAddEvent(service.id, isAuthenticated ? user?.id : undefined));
+    if (isAuthenticated && user?.id !== undefined) {
+      void flushPendingCartAddEvents(user.id);
+    }
     void trackMetaEvent("AddToCart", getServiceMetaData(service));
+
+    if (!isAuthenticated) {
+      router.push(`/signup?redirect=${encodeURIComponent("/cart")}`);
+      return;
+    }
+
     setAddedItem(service.id);
     setTimeout(() => setAddedItem(null), 800);
   };
@@ -498,6 +511,7 @@ export default function HomePage() {
               </div>
               <button
                 aria-label={`Add ${service.name} to cart`}
+                disabled={isLoading}
                 onClick={(event) => {
                   event.preventDefault();
                   event.stopPropagation();

@@ -4,6 +4,7 @@ import { useEffect } from 'react';
 import { useSession } from 'next-auth/react';
 import { useDispatch } from 'react-redux';
 import { setAuth, finishInitialLoad, logout } from '@/redux/features/authSlice';
+import { flushPendingCartAddEvents } from '@/lib/cartActivity';
 
 /**
  * Unified AuthInitializer using NextAuth as the single source of truth
@@ -54,6 +55,7 @@ export default function AuthInitializer() {
         user: userData,
         token: user.token,
       }));
+      if (user.id !== undefined) void flushPendingCartAddEvents(user.id);
     } else if (status === 'unauthenticated') {
       // No session, make sure Redux is logged out too
       console.log('[AuthInitializer] No active session, clearing Redux auth');

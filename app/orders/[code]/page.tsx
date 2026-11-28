@@ -37,6 +37,7 @@ type Order = {
   rider?: { name: string; phone?: string };
   statusLog?: StatusPoint[];
   is_paid?: boolean;
+  order_type?: string;
   payment_method?: string | null; // 'mpesa', 'bnpl', 'tradein', 'gift', etc.
   payment_summary?: {
     estimate_total: number | null;
@@ -185,27 +186,29 @@ export default function OrderDetailsPage() {
           headers["Authorization"] = `Token ${token}`;
         }
 
-        const url = `${API_BASE}/orders?code=${encodeURIComponent(params.code)}`;
-        const res = await fetch(url, {
+        const trackingUrl = `${API_BASE}/orders/${encodeURIComponent(params.code)}/track/`;
+        const trackingResponse = await fetch(trackingUrl, {
           method: "GET",
           headers,
           credentials: 'same-origin',
         });
 
-        if (!res.ok) {
-          throw new Error(`Server error ${res.status}`);
-        }
-
-        const data = await res.json();
-        
-        // Handle paginated response format
-        let found;
-        if (data.results && Array.isArray(data.results)) {
-          found = data.results[0];
-        } else if (Array.isArray(data)) {
-          found = data[0];
+        let found: any;
+        if (trackingResponse.ok) {
+          found = await trackingResponse.json();
+        } else if (trackingResponse.status === 404) {
+          const response = await fetch(`${API_BASE}/orders?code=${encodeURIComponent(params.code)}`, {
+            method: "GET",
+            headers,
+            credentials: 'same-origin',
+          });
+          if (!response.ok) throw new Error(`Server error ${response.status}`);
+          const data = await response.json();
+          found = data.results && Array.isArray(data.results)
+            ? data.results[0]
+            : Array.isArray(data) ? data[0] : data;
         } else {
-          found = data;
+          throw new Error(`Server error ${trackingResponse.status}`);
         }
 
         if (!found) {
@@ -225,6 +228,7 @@ export default function OrderDetailsPage() {
         const mapped: Order = {
           id: found.id,
           code: found.code || `WW-${found.id}`,
+          order_type: found.order_type,
           createdAt: found.created_at ?? found.createdAt ?? undefined,
           user: found.user ?? undefined,
           userName: found.user?.first_name && found.user?.last_name 
@@ -512,7 +516,7 @@ export default function OrderDetailsPage() {
 
             {/* Actions */}
             <div className="mt-6">
-              {!order.is_paid && (order.payment_summary?.payable_amount ?? 1) > 0 && (
+              {order.order_type !== 'partner' && !order.is_paid && (order.payment_summary?.payable_amount ?? 1) > 0 && (
                 <button
                   onClick={handleProceedToCheckout}
                   disabled={checkoutLoading}
@@ -524,9 +528,10 @@ export default function OrderDetailsPage() {
               {!order.is_paid && order.payment_summary?.payable_amount === 0 && !order.payment_summary.price_finalized && (
                 <p className="text-sm text-slate-600 dark:text-slate-300">The estimate is covered. The final price is pending staff confirmation.</p>
               )}
-              {order.status.toLowerCase() === "delivered" && (
+              {((order.order_type === 'partner' && order.is_paid) ||
+                (order.order_type !== 'partner' && order.status.toLowerCase() === "delivered")) && (
                 <Link
-                  href={`/orders/${encodeURIComponent(order.code)}/rate`}
+                  href={`/orders/${encodeURIComponent(order.code)}/rating`}
                   className="ml-0 mt-3 inline-block rounded-lg border border-red-700 px-5 py-3 font-medium text-red-700 transition-colors hover:bg-red-50 dark:border-red-400 dark:text-red-400 dark:hover:bg-red-950/30 sm:ml-3 sm:mt-0"
                 >
                   Rate this order

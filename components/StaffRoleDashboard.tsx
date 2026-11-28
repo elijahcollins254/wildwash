@@ -12,7 +12,7 @@ import Modal from '@/components/ui/Modal';
 import { calculateOrderUrgency, getUrgencyLabel } from '@/lib/orderUrgency';
 import { useOrders } from '@/lib/context/OrderContext';
 import { useOrderEvents } from '@/lib/hooks/useOrderEvents';
-import { Loader2, Menu, WashingMachine } from 'lucide-react';
+import { BarChart3, CreditCard, Loader2, Menu, Package, UserRound, WashingMachine } from 'lucide-react';
 
 const PickupMap = dynamic(() => import('@/components/PickupMap'), { ssr: false });
 const DEFAULT_WASHER_POSITION: [number, number] = [-1.286389, 36.817223];
@@ -470,7 +470,7 @@ export default function StaffRoleDashboard({ staffRole }: StaffRoleDashboardProp
   
   const availableRiders = useMemo(() => 
     Array.from(new Set(orders.map(o => {
-      if (o.order_type === 'manual') {
+      if (o.order_type === 'manual' || o.order_type === 'partner') {
         return (o.created_by ?? '').toString();
       }
       return (o.rider ?? '').toString();
@@ -493,9 +493,16 @@ export default function StaffRoleDashboard({ staffRole }: StaffRoleDashboardProp
         const assignedWasher = order.washer;
         const assignedWasherId = typeof assignedWasher === 'object' ? assignedWasher?.id : assignedWasher;
         const assignedWasherName = String(order.washer_name ?? '').trim().toLowerCase();
+        const orderCreator = typeof order.created_by === 'object'
+          ? order.created_by?.username
+          : order.created_by;
+        const createdByCurrentPartner = order.order_type === 'partner'
+          && Boolean(profile?.username)
+          && String(orderCreator ?? '').toLowerCase() === String(profile?.username).toLowerCase();
         return (
           (profile?.id != null && String(assignedWasherId ?? '') === String(profile.id)) ||
-          (assignedWasherName !== '' && washerNames.includes(assignedWasherName))
+          (assignedWasherName !== '' && washerNames.includes(assignedWasherName)) ||
+          createdByCurrentPartner
         );
       }
       return true;
@@ -613,17 +620,21 @@ export default function StaffRoleDashboard({ staffRole }: StaffRoleDashboardProp
               </h1>
               <div className={staffRole === 'washer' ? 'mt-1 flex flex-wrap items-center gap-x-3 gap-y-0.5' : 'mt-2 space-y-1'}>
                 <p className={`text-slate-600 dark:text-slate-400 ${staffRole === 'washer' ? 'text-xs' : 'text-sm'}`}>
-                  <span className="font-semibold">Staff Name:</span> {profile?.first_name ? `${profile.first_name} ${profile.last_name}` : profile?.username}
+                  {staffRole === 'washer'
+                    ? `${profile?.first_name ?? ''} ${profile?.last_name ?? ''}`.trim() || profile?.username || 'Partner'
+                    : <><span className="font-semibold">Staff Name:</span> {profile?.first_name ? `${profile.first_name} ${profile.last_name}` : profile?.username}</>}
                 </p>
                 <p className={`text-slate-600 dark:text-slate-400 ${staffRole === 'washer' ? 'text-xs' : 'text-sm'}`}>
                   <span className="font-semibold">Location:</span> {profile?.service_location_display ?? profile?.service_location?.name ?? 'Not assigned'}
                 </p>
-                <p className={`text-slate-600 dark:text-slate-400 ${staffRole === 'washer' ? 'text-xs' : 'text-sm'}`}>
-                  <span className="font-semibold">Role:</span> 
-                  <span className={`ml-1 inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold ${colorClasses.bg} ${colorClasses.text}`}>
-                    {profile?.role?.charAt(0).toUpperCase() + profile?.role?.slice(1) || 'Staff'}
-                  </span>
-                </p>
+                {staffRole !== 'washer' && (
+                  <p className="text-sm text-slate-600 dark:text-slate-400">
+                    <span className="font-semibold">Role:</span>
+                    <span className={`ml-1 inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold ${colorClasses.bg} ${colorClasses.text}`}>
+                      {profile?.role?.charAt(0).toUpperCase() + profile?.role?.slice(1) || 'Staff'}
+                    </span>
+                  </p>
+                )}
               </div>
             </div>
             {activeDashboardTab === 'orders' && <button 
@@ -634,28 +645,76 @@ export default function StaffRoleDashboard({ staffRole }: StaffRoleDashboardProp
             </button>}
           </div>
           {staffRole === 'washer' && (
-            <nav aria-label="Washer dashboard sections" className="mb-3 flex w-full flex-nowrap gap-1 overflow-x-auto border-b border-slate-200 pb-2 touch-pan-x dark:border-slate-700">
-              {(['orders', 'analytics', 'payments', 'profile'] as const).map((tab) => (
-                <button
-                  key={tab}
-                  type="button"
-                  onClick={() => setActiveDashboardTab(tab)}
-                  aria-current={activeDashboardTab === tab ? 'page' : undefined}
-                  className={`shrink-0 whitespace-nowrap rounded-full px-3 py-1.5 text-xs font-semibold capitalize transition-colors ${activeDashboardTab === tab ? 'bg-blue-600 text-white shadow' : 'bg-white text-slate-600 hover:bg-slate-100 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700'}`}
-                >
-                  {tab}
-                </button>
-              ))}
+            <nav aria-label="Washer dashboard sections" className="mb-4 overflow-x-auto rounded-xl border border-slate-200 bg-slate-100 p-1 dark:border-slate-700 dark:bg-slate-900">
+              <div role="tablist" className="flex min-w-max gap-1 sm:grid sm:min-w-0 sm:grid-cols-4">
+                {([
+                  { id: 'orders', label: 'Orders', icon: Package },
+                  { id: 'analytics', label: 'Analytics', icon: BarChart3 },
+                  { id: 'payments', label: 'Payments', icon: CreditCard },
+                  { id: 'profile', label: 'Profile', icon: UserRound },
+                ] as const).map(({ id, label, icon: Icon }) => (
+                  <button
+                    key={id}
+                    type="button"
+                    id={`washer-tab-${id}`}
+                    role="tab"
+                    aria-selected={activeDashboardTab === id}
+                    aria-controls={`washer-tabpanel-${id}`}
+                    tabIndex={activeDashboardTab === id ? 0 : -1}
+                    onClick={() => setActiveDashboardTab(id)}
+                    onKeyDown={(event) => {
+                      const direction = event.key === 'ArrowRight' ? 1 : event.key === 'ArrowLeft' ? -1 : 0;
+                      if (direction === 0) return;
+                      event.preventDefault();
+                      const tabs = ['orders', 'analytics', 'payments', 'profile'] as const;
+                      const nextTab = tabs[(tabs.indexOf(id) + direction + tabs.length) % tabs.length];
+                      setActiveDashboardTab(nextTab);
+                      document.getElementById(`washer-tab-${nextTab}`)?.focus();
+                    }}
+                    className={`flex min-h-11 shrink-0 items-center justify-center gap-2 rounded-lg px-4 text-sm font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 dark:focus-visible:ring-offset-slate-900 sm:w-full ${activeDashboardTab === id ? 'bg-white text-blue-700 shadow-sm dark:bg-slate-800 dark:text-blue-300' : 'text-slate-600 hover:bg-white/70 hover:text-slate-900 dark:text-slate-300 dark:hover:bg-slate-800/70 dark:hover:text-white'}`}
+                  >
+                    <Icon className="h-4 w-4" aria-hidden="true" />
+                    {label}
+                  </button>
+                ))}
+              </div>
             </nav>
           )}
           {(staffRole !== 'washer' || activeDashboardTab === 'orders') && (
-            <div className="relative mt-3">
+            <div className="relative mt-3 flex items-center justify-between gap-2">
+              {staffRole === 'washer' && (
+                <nav aria-label="Quick order filters" className="flex min-w-0 flex-1 gap-2 overflow-x-auto py-1 touch-pan-x">
+                  {([
+                    ['all', 'All orders'],
+                    ['active', 'Active orders'],
+                    ['washed', 'Washed orders'],
+                    ['mine', 'My orders'],
+                  ] as const).map(([filter, label]) => (
+                    <button
+                      key={filter}
+                      type="button"
+                      onClick={() => {
+                        setQuickOrderFilter(filter);
+                        if (statusFilter) setStatusFilter('');
+                      }}
+                      aria-pressed={quickOrderFilter === filter}
+                      className={`shrink-0 rounded-full border px-3 py-1.5 text-xs font-semibold transition-colors ${
+                        quickOrderFilter === filter
+                          ? 'border-slate-900 bg-slate-900 text-white dark:border-white dark:bg-white dark:text-slate-900'
+                          : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700'
+                      }`}
+                    >
+                      {label}
+                    </button>
+                  ))}
+                </nav>
+              )}
               <button
                 type="button"
                 onClick={() => setShowOrderFilters((open) => !open)}
                 aria-expanded={showOrderFilters}
                 aria-controls="order-filter-panel"
-                className="inline-flex min-h-10 items-center gap-2 rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-slate-700 shadow-sm hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100 dark:hover:bg-slate-700"
+                className="ml-auto inline-flex min-h-10 shrink-0 items-center gap-2 rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-slate-700 shadow-sm hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100 dark:hover:bg-slate-700"
               >
                 <Menu className="h-4 w-4" aria-hidden="true" />
                 <span>Filters</span>
@@ -666,38 +725,8 @@ export default function StaffRoleDashboard({ staffRole }: StaffRoleDashboardProp
                 )}
               </button>
               {showOrderFilters && (
-                <div id="order-filter-panel" className="absolute left-0 top-full z-30 mt-2 w-[min(22rem,calc(100vw-2rem))] rounded-xl border border-slate-200 bg-white p-4 shadow-xl dark:border-slate-700 dark:bg-slate-800 sm:w-[min(36rem,calc(100vw-2rem))]">
-                  {staffRole === 'washer' && (
-                    <fieldset>
-                      <legend className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">Quick filters</legend>
-                      <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-                        {([
-                          ['all', 'All orders'],
-                          ['active', 'Active orders'],
-                          ['washed', 'Washed orders'],
-                          ['mine', 'My orders'],
-                        ] as const).map(([filter, label]) => (
-                          <button
-                            key={filter}
-                            type="button"
-                            onClick={() => {
-                              setQuickOrderFilter(filter);
-                              if (statusFilter) setStatusFilter('');
-                            }}
-                            aria-pressed={quickOrderFilter === filter}
-                            className={`rounded-lg border px-2 py-2 text-xs font-semibold transition-colors ${
-                              quickOrderFilter === filter
-                                ? 'border-slate-900 bg-slate-900 text-white dark:border-white dark:bg-white dark:text-slate-900'
-                                : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300 dark:hover:bg-slate-700'
-                            }`}
-                          >
-                            {label}
-                          </button>
-                        ))}
-                      </div>
-                    </fieldset>
-                  )}
-                  <div className={`grid grid-cols-1 gap-3 sm:grid-cols-2 ${staffRole === 'washer' ? 'mt-4 border-t border-slate-100 pt-4 dark:border-slate-700' : ''}`}>
+                <div id="order-filter-panel" className="absolute right-0 top-full z-30 mt-2 w-[min(22rem,calc(100vw-2rem))] rounded-xl border border-slate-200 bg-white p-4 shadow-xl dark:border-slate-700 dark:bg-slate-800 sm:w-[min(36rem,calc(100vw-2rem))]">
+                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <label className="flex flex-col gap-1 text-xs font-medium text-slate-600 dark:text-slate-300">
               Status
             <select
@@ -833,7 +862,13 @@ export default function StaffRoleDashboard({ staffRole }: StaffRoleDashboardProp
           )}
         </header>
 
-        {(staffRole !== 'washer' || activeDashboardTab === 'orders') && <>
+        {(staffRole !== 'washer' || activeDashboardTab === 'orders') && <div
+          id={staffRole === 'washer' ? 'washer-tabpanel-orders' : undefined}
+          role={staffRole === 'washer' ? 'tabpanel' : undefined}
+          aria-labelledby={staffRole === 'washer' ? 'washer-tab-orders' : undefined}
+          tabIndex={staffRole === 'washer' ? 0 : undefined}
+          className={staffRole === 'washer' ? 'dashboard-tab-panel' : undefined}
+        >
         <div className="mb-6">
           <div className="inline-flex items-center gap-4">
             <div className="text-sm text-slate-500 dark:text-slate-400">Total orders for location</div>
@@ -1063,14 +1098,16 @@ export default function StaffRoleDashboard({ staffRole }: StaffRoleDashboardProp
                         <div className="flex items-start justify-between gap-3 sm:block">
                           <span className="text-[10px] font-medium text-slate-500 dark:text-slate-400 sm:hidden">Assigned To</span>
                           <div>
-                            {o.order_type === 'manual' ? (
+                            {o.order_type === 'manual' || o.order_type === 'partner' ? (
                               <div className="flex flex-col">
                                 <span className="font-medium">
                                   {typeof o.created_by === 'object' 
                                     ? (o.created_by?.username || o.created_by?.first_name || 'Staff')
                                     : o.created_by ?? 'Staff'}
                                 </span>
-                                <span className="text-xs text-slate-500 dark:text-slate-500">(Creator)</span>
+                                <span className="text-xs text-slate-500 dark:text-slate-500">
+                                  ({o.order_type === 'partner' ? 'Partner order' : 'Creator'})
+                                </span>
                               </div>
                             ) : (
                               <div>
@@ -1211,10 +1248,10 @@ export default function StaffRoleDashboard({ staffRole }: StaffRoleDashboardProp
           )}
         </div>
         )}
-        </>}
+        </div>}
 
         {staffRole === 'washer' && activeDashboardTab === 'analytics' && (
-          <section aria-labelledby="washer-analytics-heading" className="space-y-3">
+          <section id="washer-tabpanel-analytics" role="tabpanel" aria-labelledby="washer-tab-analytics" tabIndex={0} className="dashboard-tab-panel space-y-3">
             <div className="flex flex-wrap items-center justify-between gap-2">
               <div>
                 <h2 id="washer-analytics-heading" className="text-lg font-bold text-slate-900 dark:text-white">Analytics</h2>
@@ -1266,7 +1303,7 @@ export default function StaffRoleDashboard({ staffRole }: StaffRoleDashboardProp
         )}
 
         {staffRole === 'washer' && activeDashboardTab === 'payments' && (
-          <section aria-labelledby="washer-payments-heading" className="space-y-3">
+          <section id="washer-tabpanel-payments" role="tabpanel" aria-labelledby="washer-tab-payments" tabIndex={0} className="dashboard-tab-panel space-y-3">
             <div className="flex flex-wrap items-center justify-between gap-2">
               <div>
                 <h2 id="washer-payments-heading" className="text-lg font-bold text-slate-900 dark:text-white">Payments</h2>
@@ -1342,7 +1379,7 @@ export default function StaffRoleDashboard({ staffRole }: StaffRoleDashboardProp
         )}
 
         {staffRole === 'washer' && activeDashboardTab === 'profile' && (
-          <section aria-labelledby="washer-profile-heading" className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-700 dark:bg-slate-800">
+          <section id="washer-tabpanel-profile" role="tabpanel" aria-labelledby="washer-tab-profile" tabIndex={0} className="dashboard-tab-panel rounded-2xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-700 dark:bg-slate-800">
             <div className="mb-5">
               <h2 id="washer-profile-heading" className="text-xl font-bold text-slate-900 dark:text-white">Washer profile</h2>
               <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">Update your contact details, service pin and available machines.</p>

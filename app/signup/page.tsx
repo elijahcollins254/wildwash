@@ -55,6 +55,10 @@ const singleParamValidators = {
 export default function SignupPage() {
   const router = useRouter();
   const dispatch = useDispatch();
+  const getRequestedRedirect = (fallback: string) => {
+    const redirect = new URLSearchParams(window.location.search).get("redirect");
+    return redirect?.startsWith("/") && !redirect.startsWith("//") ? redirect : fallback;
+  };
   const [formData, setFormData] = useState({
     username: "",
     phone: "",
@@ -171,7 +175,7 @@ export default function SignupPage() {
       if (loginResult.success) {
         // Redirect to appropriate page based on role
         if (loginResult.redirectUrl) {
-          router.push(loginResult.redirectUrl);
+          router.push(getRequestedRedirect(loginResult.redirectUrl));
         } else {
           router.push("/");
         }
@@ -180,7 +184,7 @@ export default function SignupPage() {
 
       // If login fails for some reason, redirect to login page
       setError(loginResult.error || "Login failed after registration");
-      router.push("/login");
+      router.push(`/login?redirect=${encodeURIComponent(getRequestedRedirect("/"))}`);
     } catch (err: any) {
       setError(err?.message ?? "Registration failed");
     } finally {
@@ -194,7 +198,8 @@ export default function SignupPage() {
     console.log('[GoogleSignUp] Starting Google sign-up...');
     
     try {
-      await googleLogin('/login');
+      const redirect = getRequestedRedirect("/");
+      await googleLogin(`/login?redirect=${encodeURIComponent(redirect)}`);
     } catch (err) {
       console.error('[GoogleSignUp] Unexpected error:', err);
       setLoading(false);

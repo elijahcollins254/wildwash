@@ -6,7 +6,7 @@ import { FormEvent, useEffect, useState } from "react";
 
 type OrderRating = {
   rating: number;
-  comment: string;
+  feedback: string;
   created_at: string;
 };
 
@@ -24,6 +24,7 @@ async function getErrorMessage(response: Response) {
   const data = await response.json().catch(() => null);
   if (typeof data?.detail === "string") return data.detail;
   if (typeof data?.rating?.[0] === "string") return data.rating[0];
+  if (typeof data?.feedback?.[0] === "string") return data.feedback[0];
   if (typeof data?.comment?.[0] === "string") return data.comment[0];
   return `Request failed (${response.status})`;
 }
@@ -58,7 +59,7 @@ export default function OrderRatingPage() {
         if (active && data) {
           setSavedRating(data);
           setRating(data.rating);
-          setComment(data.comment);
+          setComment(data.feedback);
         }
       } catch (loadError) {
         if (active) {
@@ -95,7 +96,7 @@ export default function OrderRatingPage() {
           "Content-Type": "application/json",
           ...(token ? { Authorization: `Token ${token}` } : {}),
         },
-        body: JSON.stringify({ rating, comment }),
+        body: JSON.stringify({ rating, feedback: comment }),
       });
       if (!response.ok) throw new Error(await getErrorMessage(response));
       setSavedRating(await response.json() as OrderRating);

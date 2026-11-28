@@ -48,7 +48,7 @@ export default function WhatsAppButton() {
   return (
     <div
       aria-hidden={isScrolling}
-      className={`fixed z-[9999] flex flex-col items-end gap-2 scroll-snap-control ${
+      className={`fixed z-[9999] flex flex-col items-end gap-1.5 scroll-snap-control ${
         isScrolling ? "scroll-snap-out pointer-events-none" : ""
       }`}
       style={{
@@ -62,12 +62,12 @@ export default function WhatsAppButton() {
         rel="noopener noreferrer"
         aria-label="Install the Wild Wash app from Google Play"
         tabIndex={isScrolling ? -1 : undefined}
-        className="flex items-center gap-3 rounded-full bg-green-600 px-3 py-2 shadow-lg transition-transform hover:brightness-95 active:scale-95 focus:outline-none focus-visible:ring-2 focus-visible:ring-green-300"
+        className="flex items-center gap-2 rounded-full bg-red-600 px-2.5 py-1 shadow-lg transition-transform hover:bg-red-700 active:scale-95 focus:outline-none focus-visible:ring-2 focus-visible:ring-red-300"
       >
-        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-white/10">
-          <Download size={20} className="text-white" aria-hidden="true" />
+        <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-white/10">
+          <Download size={18} className="text-white" aria-hidden="true" />
         </span>
-        <span className="hidden select-none text-sm font-semibold text-white sm:inline-block">
+        <span className="hidden select-none text-xs font-semibold text-white sm:inline-block">
           Install App
         </span>
       </a>
@@ -76,12 +76,12 @@ export default function WhatsAppButton() {
         href="tel:+254769760460"
         aria-label="Call Wild Wash at +254 769 760460"
         tabIndex={isScrolling ? -1 : undefined}
-        className="flex items-center gap-3 rounded-full bg-blue-600 px-3 py-2 shadow-lg transition-transform hover:brightness-95 active:scale-95 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-300"
+        className="flex items-center gap-2 rounded-full bg-blue-600 px-2.5 py-1 shadow-lg transition-transform hover:brightness-95 active:scale-95 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-300"
       >
-        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-white/10">
-          <Phone size={20} className="text-white" aria-hidden="true" />
+        <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-white/10">
+          <Phone size={18} className="text-white" aria-hidden="true" />
         </span>
-        <span className="hidden select-none text-sm font-semibold text-white sm:inline-block">
+        <span className="hidden select-none text-xs font-semibold text-white sm:inline-block">
           Call +254 769 760460
         </span>
       </a>
@@ -92,12 +92,12 @@ export default function WhatsAppButton() {
         rel="noopener noreferrer"
         aria-label="Chat with Wild Wash on WhatsApp"
         tabIndex={isScrolling ? -1 : undefined}
-        className="flex items-center gap-3 rounded-full bg-emerald-500 px-3 py-2 shadow-lg transition-transform hover:brightness-95 active:scale-95 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-300"
+        className="flex items-center gap-2 rounded-full bg-emerald-500 px-2.5 py-1 shadow-lg transition-transform hover:brightness-95 active:scale-95 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-300"
       >
-        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-white/10">
-          <FaWhatsapp size={20} className="text-white" aria-hidden />
+        <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-white/10">
+          <FaWhatsapp size={18} className="text-white" aria-hidden />
         </span>
-        <span className="hidden select-none text-sm font-semibold text-white sm:inline-block">
+        <span className="hidden select-none text-xs font-semibold text-white sm:inline-block">
           Chat on WhatsApp
         </span>
       </a>

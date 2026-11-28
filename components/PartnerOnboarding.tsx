@@ -54,6 +54,19 @@ type ApplicationForm = {
   pickup_longitude: string;
 };
 
+type PartnerService = {
+  id: number;
+  name: string;
+  price: number | string;
+  is_active?: boolean;
+};
+
+type CreatedPartnerOrder = {
+  order: { code: string };
+  tracking_url: string;
+  sms: { success: boolean; message: string };
+};
+
 const STEPS = [
   { title: 'Your details', icon: UserRound },
   { title: 'Your business', icon: Building2 },
@@ -82,6 +95,183 @@ function getApplications(data: unknown): PartnerApplication[] {
     return (data as { results: PartnerApplication[] }).results;
   }
   return [];
+}
+
+function getServices(data: unknown): PartnerService[] {
+  const list = Array.isArray(data)
+    ? data
+    : data && typeof data === 'object' && Array.isArray((data as { results?: unknown }).results)
+      ? (data as { results: PartnerService[] }).results
+      : [];
+  return (list as PartnerService[]).filter((service) => service.is_active !== false);
+}
+
+function PartnerOrderCreator({ pickupAddress }: { pickupAddress: string }): React.ReactElement {
+  const [services, setServices] = useState<PartnerService[]>([]);
+  const [selectedServices, setSelectedServices] = useState<number[]>([]);
+  const [customerName, setCustomerName] = useState('');
+  const [customerPhone, setCustomerPhone] = useState('');
+  const [deliveryAddress, setDeliveryAddress] = useState('');
+  const [items, setItems] = useState('1');
+  const [createdOrder, setCreatedOrder] = useState<CreatedPartnerOrder | null>(null);
+  const [loadingServices, setLoadingServices] = useState(true);
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState('');
+  const [copied, setCopied] = useState(false);
+
+  useEffect(() => {
+    let active = true;
+    client.get('/services/').then((data) => {
+      if (active) setServices(getServices(data));
+    }).catch((loadError) => {
+      if (active) setError(loadError instanceof Error ? loadError.message : 'Unable to load services.');
+    }).finally(() => {
+      if (active) setLoadingServices(false);
+    });
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  const quantity = Number(items);
+  const totalPrice = services.reduce((total, service) => (
+    selectedServices.includes(service.id) ? total + Number(service.price) * quantity : total
+  ), 0);
+
+  const createOrder = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    setError('');
+    setCreatedOrder(null);
+    if (!selectedServices.length) {
+      setError('Select at least one service.');
+      return;
+    }
+    if (!Number.isInteger(quantity) || quantity < 1) {
+      setError('Enter a quantity of at least one.');
+      return;
+    }
+
+    setSubmitting(true);
+    try {
+      const partnerAddress = pickupAddress.trim() || 'Partner location';
+      const response = await client.post('/orders/partner-create/', {
+        order_type: 'partner',
+        drop_off_type: 'walk_in',
+        customer_name: customerName.trim(),
+        customer_phone: customerPhone.trim(),
+        services: selectedServices,
+        service_quantities: selectedServices.map((serviceId) => ({
+          service_id: serviceId,
+          quantity,
+        })),
+        items: quantity,
+        price: totalPrice,
+        pickup_address: partnerAddress,
+        dropoff_address: deliveryAddress.trim() || `Customer collection at ${partnerAddress}`,
+      }) as CreatedPartnerOrder;
+      setCreatedOrder(response);
+      setCustomerName('');
+      setCustomerPhone('');
+      setDeliveryAddress('');
+      setItems('1');
+    } catch (createError) {
+      setError(createError instanceof Error ? createError.message : 'Unable to create the order.');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const copyTrackingLink = async () => {
+    if (!createdOrder) return;
+    try {
+      await navigator.clipboard.writeText(createdOrder.tracking_url);
+      setCopied(true);
+    } catch {
+      setError('Could not copy the tracking link. You can select and copy it below.');
+    }
+  };
+
+  return (
+    <section className="mt-8 border-t border-slate-200 pt-7 text-left dark:border-slate-700">
+      <h2 className="text-xl font-bold text-slate-900 dark:text-white">Create a customer order</h2>
+      <p className="mt-2 text-sm text-slate-600 dark:text-slate-300">
+        The customer does not need an account. We’ll text their tracking link to the phone number provided.
+      </p>
+
+      {error && <p role="alert" className="mt-4 rounded-lg bg-red-50 p-3 text-sm text-red-700 dark:bg-red-950/30 dark:text-red-300">{error}</p>}
+
+      {createdOrder ? (
+        <div className="mt-5 rounded-xl border border-emerald-200 bg-emerald-50 p-4 dark:border-emerald-900 dark:bg-emerald-950/30">
+          <p className="font-semibold text-emerald-800 dark:text-emerald-200">Order {createdOrder.order.code} created.</p>
+          <p role={createdOrder.sms.success ? 'status' : 'alert'} className="mt-1 text-sm text-emerald-800 dark:text-emerald-200">
+            {createdOrder.sms.success ? 'Tracking SMS sent to the customer.' : `The order was created, but the SMS was not sent: ${createdOrder.sms.message}`}
+          </p>
+          <a href={createdOrder.tracking_url} className="mt-3 block break-all text-sm text-blue-700 underline dark:text-blue-300">
+            {createdOrder.tracking_url}
+          </a>
+          <button type="button" onClick={() => void copyTrackingLink()} className="mt-3 rounded-lg border border-emerald-700 px-3 py-2 text-sm font-semibold text-emerald-800 dark:border-emerald-300 dark:text-emerald-200">
+            {copied ? 'Copied' : 'Copy tracking link'}
+          </button>
+          <button type="button" onClick={() => { setCreatedOrder(null); setCopied(false); }} className="ml-3 text-sm font-semibold text-slate-700 underline dark:text-slate-200">
+            Create another order
+          </button>
+        </div>
+      ) : (
+        <form onSubmit={(event) => void createOrder(event)} className="mt-5 space-y-4">
+          <div className="grid gap-4 sm:grid-cols-2">
+            <label className="text-sm font-medium text-slate-700 dark:text-slate-200">Customer name
+              <input value={customerName} onChange={(event) => setCustomerName(event.target.value)} required maxLength={200} className="mt-1.5 min-h-11 w-full rounded-lg border border-slate-300 bg-white px-3 dark:border-slate-700 dark:bg-slate-950" />
+            </label>
+            <label className="text-sm font-medium text-slate-700 dark:text-slate-200">Customer phone
+              <input type="tel" value={customerPhone} onChange={(event) => setCustomerPhone(event.target.value)} required className="mt-1.5 min-h-11 w-full rounded-lg border border-slate-300 bg-white px-3 dark:border-slate-700 dark:bg-slate-950" placeholder="+254..." />
+            </label>
+          </div>
+
+          <fieldset>
+            <legend className="text-sm font-semibold text-slate-700 dark:text-slate-200">Services</legend>
+            {loadingServices ? (
+              <p className="mt-2 text-sm text-slate-500">Loading services…</p>
+            ) : services.length ? (
+              <div className="mt-2 grid gap-2 sm:grid-cols-2">
+                {services.map((service) => (
+                  <label key={service.id} className="flex items-center justify-between gap-3 rounded-lg border border-slate-200 p-3 text-sm dark:border-slate-700">
+                    <span className="flex items-center gap-2">
+                      <input type="checkbox" checked={selectedServices.includes(service.id)} onChange={(event) => {
+                        setSelectedServices((current) => event.target.checked
+                          ? [...current, service.id]
+                          : current.filter((id) => id !== service.id));
+                      }} />
+                      {service.name}
+                    </span>
+                    <span className="text-slate-500">KES {Number(service.price).toLocaleString()}</span>
+                  </label>
+                ))}
+              </div>
+            ) : (
+              <p className="mt-2 text-sm text-amber-700">No active services are available.</p>
+            )}
+          </fieldset>
+
+          <div className="grid gap-4 sm:grid-cols-2">
+            <label className="text-sm font-medium text-slate-700 dark:text-slate-200">Quantity
+              <input type="number" min="1" step="1" value={items} onChange={(event) => setItems(event.target.value)} required className="mt-1.5 min-h-11 w-full rounded-lg border border-slate-300 bg-white px-3 dark:border-slate-700 dark:bg-slate-950" />
+            </label>
+            <div className="flex items-end pb-2 text-sm font-semibold text-slate-700 dark:text-slate-200">
+              Estimated total: KES {totalPrice.toLocaleString()}
+            </div>
+          </div>
+
+          <label className="block text-sm font-medium text-slate-700 dark:text-slate-200">Delivery address <span className="font-normal text-slate-500">(optional; defaults to customer collection)</span>
+            <input value={deliveryAddress} onChange={(event) => setDeliveryAddress(event.target.value)} className="mt-1.5 min-h-11 w-full rounded-lg border border-slate-300 bg-white px-3 dark:border-slate-700 dark:bg-slate-950" />
+          </label>
+
+          <button type="submit" disabled={submitting || loadingServices || services.length === 0} className="inline-flex min-h-11 items-center justify-center rounded-xl bg-blue-600 px-5 font-semibold text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60">
+            {submitting ? 'Creating order…' : 'Create order and text customer'}
+          </button>
+        </form>
+      )}
+    </section>
+  );
 }
 
 export default function PartnerOnboarding(): React.ReactElement {
@@ -232,10 +422,13 @@ export default function PartnerOnboarding(): React.ReactElement {
                     : 'Our team will review your details. You can return to this page any time to check your application status.'}
                 </p>
                 {application.status === 'approved' && (
-                  <Link href="/staff/washer" className="mt-7 inline-flex min-h-12 items-center justify-center rounded-xl bg-blue-600 px-6 font-semibold text-white hover:bg-blue-700">
-                    Open partner dashboard
-                    <ArrowRight className="ml-2" size={18} />
-                  </Link>
+                  <>
+                    <Link href="/staff/washer" className="mt-7 inline-flex min-h-12 items-center justify-center rounded-xl bg-blue-600 px-6 font-semibold text-white hover:bg-blue-700">
+                      Open partner dashboard
+                      <ArrowRight className="ml-2" size={18} />
+                    </Link>
+                    <PartnerOrderCreator pickupAddress={application.pickup_address} />
+                  </>
                 )}
               </section>
             ) : loading ? (
